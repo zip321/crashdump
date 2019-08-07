@@ -29,6 +29,10 @@ extern "C" {
 #include "crashdump.hpp"
 #include "utils.hpp"
 
+#ifdef COMPILE_UNIT_TESTS
+#define static
+#endif
+
 static SCrashdumpRegCPX1 sCrashdumpUncoreRegs[CD_REGS_UNCORE] = {
     {"IERRLOGGINGREG", 1, CORE_SCOPE},
     {"MCERRLOGGINGREG", 1, CORE_SCOPE},

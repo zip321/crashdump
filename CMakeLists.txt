@@ -35,19 +35,20 @@ set_target_properties(peci PROPERTIES VERSION "1.0" SOVERSION "1")
 install(TARGETS peci DESTINATION lib)
 install(FILES libpeci/libpeci.h DESTINATION include/peci)
 
-add_executable(crashdump
-               crashdump.cpp
-               utils.cpp
-               CrashdumpSections/AddressMap.cpp
-               CrashdumpSections/TorDump.cpp
-               CrashdumpSections/BigCore.cpp
-               CrashdumpSections/MetaData.cpp
-               CrashdumpSections/CoreMca.cpp
-               CrashdumpSections/SqDump.cpp
-               CrashdumpSections/Uncore.cpp
-               CrashdumpSections/UncoreRegs.hpp
-               CrashdumpSections/PowerManagement.cpp
-               CrashdumpSections/UncoreMca.cpp)
+set(SRC_FILES
+    utils.cpp
+    CrashdumpSections/AddressMap.cpp
+    CrashdumpSections/TorDump.cpp
+    CrashdumpSections/BigCore.cpp
+    CrashdumpSections/MetaData.cpp
+    CrashdumpSections/CoreMca.cpp
+    CrashdumpSections/SqDump.cpp
+    CrashdumpSections/Uncore.cpp
+    CrashdumpSections/UncoreRegs.hpp
+    CrashdumpSections/PowerManagement.cpp
+    CrashdumpSections/UncoreMca.cpp)
+
+add_executable(crashdump crashdump.cpp ${SRC_FILES})
 
 target_include_directories(crashdump PRIVATE ${CMAKE_SOURCE_DIR})
 set_property(TARGET crashdump PROPERTY C_STANDARD 99)
@@ -82,3 +83,34 @@ install(TARGETS peci_cmds
         RUNTIME DESTINATION bin
         LIBRARY DESTINATION lib
         ARCHIVE DESTINATION lib/static)
+
+# Unit Tests
+if(${CRASHDUMP_BUILD_UT})
+  include(CTest)
+  include_directories(${CMAKE_SOURCE_DIR})
+
+  set(UT_FILES
+      tests/CrashdumpSections/UncoreRegs_test.cpp
+      tests/CrashdumpSections/BigCore_test.cpp
+      tests/test_main.cpp)
+
+  enable_testing()
+
+  add_definitions(-DCOMPILE_UNIT_TESTS)
+  add_definitions(-DMOCK)
+  add_executable(crashdump_test ${SRC_FILES} ${UT_FILES})
+
+  find_package(GTest REQUIRED)
+  target_link_libraries(crashdump_test ${GTEST_LIBRARIES} gmock)
+  target_link_libraries(crashdump_test cjson peci -lsystemd pthread)
+  target_link_libraries(crashdump_test -lstdc++fs sdbusplus)
+
+  add_test(crashdump_test crashdump_test
+           "--gtest_output=xml:crashdump_test.xml")
+
+  install(TARGETS crashdump_test
+          RUNTIME DESTINATION bin
+          LIBRARY DESTINATION lib
+          ARCHIVE DESTINATION lib/static)
+
+endif(${CRASHDUMP_BUILD_UT})
