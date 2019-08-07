@@ -37,8 +37,11 @@ constexpr const int maxCPUs = maxClientAddr - minClientAddr + 1;
 
 enum class CPUModel
 {
-    skx,
-    icx,
+    clx_b0,
+    clx_b1,
+    cpx_a0,
+    skx_h0,
+    icx_a0,
     icx_b0,
 };
 
@@ -49,9 +52,21 @@ struct CPUIDMap
 };
 
 static constexpr const std::array cpuIDMap{
-    CPUIDMap{0x00050654, CPUModel::skx},
-    CPUIDMap{0x000606A0, CPUModel::icx},
+
+    // This code supports the following CPU's
+
+    CPUIDMap{0x0005065a, CPUModel::cpx_a0},
+    CPUIDMap{0x000606A0, CPUModel::icx_a0},
     CPUIDMap{0x000606A1, CPUModel::icx_b0},
+
+    // These CPU’s are Included for testing purposes when using an Interposer.
+    // This code base is not intended for production use on the Purely Platform.
+    // This is due to differences in the Decoding tools used for the final
+    // output.
+
+    CPUIDMap{0x00050654, CPUModel::skx_h0},
+    CPUIDMap{0x00050656, CPUModel::clx_b0},
+    CPUIDMap{0x00050657, CPUModel::clx_b1},
 };
 
 struct CPUInfo

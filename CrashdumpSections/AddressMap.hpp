@@ -30,6 +30,7 @@
 #define AM_JSON_STRING_LEN 32
 
 #define AM_FAILED "N/A"
+#define AM_UINT64_FMT "0x%" PRIx64 ""
 
 /******************************************************************************
  *

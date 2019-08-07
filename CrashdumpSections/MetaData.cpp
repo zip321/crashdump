@@ -455,8 +455,11 @@ void getPpinDataCPX1(crashdump::CPUInfo &cpuInfo,
 }
 
 static const SPpinVx sSPpinVx[] = {
-    {crashdump::CPUModel::icx, getPpinDataICX1},
-    {crashdump::CPUModel::skx, getPpinDataCPX1},
+    {crashdump::CPUModel::clx_b0, getPpinDataCPX1},
+    {crashdump::CPUModel::clx_b1, getPpinDataCPX1},
+    {crashdump::CPUModel::cpx_a0, getPpinDataCPX1},
+    {crashdump::CPUModel::skx_h0, getPpinDataCPX1},
+    {crashdump::CPUModel::icx_a0, getPpinDataICX1},
 };
 
 /******************************************************************************

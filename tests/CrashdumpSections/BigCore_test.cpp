@@ -64,7 +64,7 @@ class BigCoreTestFixture : public Test
     {
         // Initialize cpuInfo
         cpuInfo.clientAddr = 48;
-        cpuInfo.model = CPUModel::icx;
+        cpuInfo.model = CPUModel::icx_a0;
         cpuInfo.coreMask = 0x0000db7e;
         cpuInfo.chaCount = 0;
         cpuInfo.crashedCoreMask = 0x0;
@@ -148,3 +148,4 @@ TEST_F(BigCoreTestFixture, crashdumpJsonICX1_print_json)
     printf("%s\n", jsonStr);
     FREE(pu64Crashdump);
 }
+

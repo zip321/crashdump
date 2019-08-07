@@ -199,8 +199,11 @@ int logPowerManagementICX1(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
 }
 
 static const SPowerManagementVx sPowerManagementVx[] = {
-    {crashdump::CPUModel::skx, logPowerManagementCPX1},
-    {crashdump::CPUModel::icx, logPowerManagementICX1},
+    {crashdump::CPUModel::clx_b0, logPowerManagementCPX1},
+    {crashdump::CPUModel::clx_b1, logPowerManagementCPX1},
+    {crashdump::CPUModel::cpx_a0, logPowerManagementCPX1},
+    {crashdump::CPUModel::skx_h0, logPowerManagementCPX1},
+    {crashdump::CPUModel::icx_a0, logPowerManagementICX1},
 };
 
 /******************************************************************************

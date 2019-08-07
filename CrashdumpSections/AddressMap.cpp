@@ -40,7 +40,8 @@ static void addressMapJson(const SAddrMapEntry *sAddrMapEntry,
     if (u64Data != NULL)
     {
         char jsonItemString[AM_JSON_STRING_LEN];
-        cd_snprintf_s(jsonItemString, AM_JSON_STRING_LEN, "0x%llx", *u64Data);
+        cd_snprintf_s(jsonItemString, AM_JSON_STRING_LEN, AM_UINT64_FMT,
+                      *u64Data);
         cJSON_AddStringToObject(pJsonChild, sAddrMapEntry->regName,
                                 jsonItemString);
     }
@@ -197,8 +198,11 @@ int logAddressMapICX1(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
 }
 
 static const SAddrMapVx sAddrMapVx[] = {
-    {crashdump::CPUModel::skx, logAddressMapCPX1},
-    {crashdump::CPUModel::icx, logAddressMapICX1},
+    {crashdump::CPUModel::clx_b0, logAddressMapCPX1},
+    {crashdump::CPUModel::clx_b1, logAddressMapCPX1},
+    {crashdump::CPUModel::cpx_a0, logAddressMapCPX1},
+    {crashdump::CPUModel::skx_h0, logAddressMapCPX1},
+    {crashdump::CPUModel::icx_a0, logAddressMapICX1},
 };
 
 /******************************************************************************

@@ -2027,8 +2027,11 @@ int logUncoreStatusICX1(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
 }
 
 static const SUncoreStatusLogVx sUncoreStatusLogVx[] = {
-    {crashdump::CPUModel::skx, logUncoreStatusCPX1},
-    {crashdump::CPUModel::icx, logUncoreStatusICX1},
+    {crashdump::CPUModel::clx_b0, logUncoreStatusCPX1},
+    {crashdump::CPUModel::clx_b1, logUncoreStatusCPX1},
+    {crashdump::CPUModel::cpx_a0, logUncoreStatusCPX1},
+    {crashdump::CPUModel::skx_h0, logUncoreStatusCPX1},
+    {crashdump::CPUModel::icx_a0, logUncoreStatusICX1},
 };
 
 /******************************************************************************

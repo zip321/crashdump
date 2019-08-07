@@ -81,6 +81,8 @@ constexpr const int revision1 = 0x01;
 namespace product_type
 {
 constexpr const int offset = 12;
+constexpr const int clxSP = 0x2C;
+constexpr const int cpx = 0x34;
 constexpr const int skxSP = 0x2A;
 constexpr const int icxSP = 0x1A;
 constexpr const int bmcAutonomous = 0x23;
@@ -176,7 +178,10 @@ static bool getCoreMasks(std::vector<CPUInfo> &cpuInfo)
     {
         switch (cpu.model)
         {
-            case CPUModel::skx:
+            case CPUModel::cpx_a0:
+            case CPUModel::clx_b0:
+            case CPUModel::clx_b1:
+            case CPUModel::skx_h0:
                 // RESOLVED_CORES Local PCI B1:D30:F3 Reg 0xB4
                 uint32_t coreMask;
                 if (peci_RdPCIConfigLocal(
@@ -188,7 +193,7 @@ static bool getCoreMasks(std::vector<CPUInfo> &cpuInfo)
                 }
                 cpu.coreMask = coreMask;
                 break;
-            case CPUModel::icx:
+            case CPUModel::icx_a0:
                 // RESOLVED_CORES Local PCI B14:D30:F3 Reg 0xD0 and 0xD4
                 uint32_t coreMask0;
                 if (peci_RdPCIConfigLocal(
@@ -210,6 +215,8 @@ static bool getCoreMasks(std::vector<CPUInfo> &cpuInfo)
                 cpu.coreMask <<= 32;
                 cpu.coreMask |= coreMask0;
                 break;
+            default:
+                return false;
         }
     }
     return true;
@@ -223,7 +230,10 @@ static bool getCHACounts(std::vector<CPUInfo> &cpuInfo)
     {
         switch (cpu.model)
         {
-            case CPUModel::skx:
+            case CPUModel::cpx_a0:
+            case CPUModel::clx_b0:
+            case CPUModel::clx_b1:
+            case CPUModel::skx_h0:
                 // LLC_SLICE_EN Local PCI B1:D30:F3 Reg 0x9C
                 uint32_t chaMask;
                 if (peci_RdPCIConfigLocal(cpu.clientAddr, 1, 30, 3, 0x9C,
@@ -235,7 +245,7 @@ static bool getCHACounts(std::vector<CPUInfo> &cpuInfo)
                 }
                 cpu.chaCount = __builtin_popcount(chaMask);
                 break;
-            case CPUModel::icx:
+            case CPUModel::icx_a0:
                 // LLC_SLICE_EN Local PCI B14:D30:F3 Reg 0x9C and 0xA0
                 uint32_t chaMask0;
                 if (peci_RdPCIConfigLocal(
@@ -256,6 +266,8 @@ static bool getCHACounts(std::vector<CPUInfo> &cpuInfo)
                 cpu.chaCount =
                     __builtin_popcount(chaMask0) + __builtin_popcount(chaMask1);
                 break;
+            default:
+                return false;
         }
     }
     return true;
@@ -287,13 +299,19 @@ static void logCrashdumpVersion(cJSON *parent, crashdump::CPUInfo &cpuInfo,
     };
 
     static constexpr const std::array product{
-        VersionInfo{crashdump::CPUModel::skx, product_type::skxSP},
-        VersionInfo{crashdump::CPUModel::icx, product_type::icxSP},
+        VersionInfo{crashdump::CPUModel::clx_b0, product_type::clxSP},
+        VersionInfo{crashdump::CPUModel::clx_b1, product_type::clxSP},
+        VersionInfo{crashdump::CPUModel::cpx_a0, product_type::cpx},
+        VersionInfo{crashdump::CPUModel::skx_h0, product_type::skxSP},
+        VersionInfo{crashdump::CPUModel::icx_a0, product_type::icxSP},
     };
 
     static constexpr const std::array revision{
-        VersionInfo{crashdump::CPUModel::skx, revision::revision1},
-        VersionInfo{crashdump::CPUModel::icx, revision::revision1},
+        VersionInfo{crashdump::CPUModel::clx_b0, revision::revision1},
+        VersionInfo{crashdump::CPUModel::clx_b1, revision::revision1},
+        VersionInfo{crashdump::CPUModel::cpx_a0, revision::revision1},
+        VersionInfo{crashdump::CPUModel::skx_h0, revision::revision1},
+        VersionInfo{crashdump::CPUModel::icx_a0, revision::revision1},
     };
 
     int productType = 0;
@@ -556,7 +574,7 @@ static void newStoredLog(
                           std::shared_ptr<sdbusplus::asio::dbus_interface>>>
         &logIfaces)
 {
-    constexpr char const *crashdumpFile = "crashdump_%lld.json";
+    constexpr char const *crashdumpFile = "crashdump_%llu.json";
     struct dirent **namelist;
     uint64_t crashdump_num = 0;
     FILE *fpJson = NULL;
