@@ -1,0 +1,232 @@
+/******************************************************************************
+ *
+ * INTEL CONFIDENTIAL
+ *
+ * Copyright 2019 Intel Corporation.
+ *
+ * This software and the related documents are Intel copyrighted materials,
+ * and your use of them is governed by the express license under which they
+ * were provided to you ("License"). Unless the License provides otherwise,
+ * you may not use, modify, copy, publish, distribute, disclose or transmit
+ * this software or the related documents without Intel's prior written
+ * permission.
+ *
+ * This software and the related documents are provided as is, with no express
+ * or implied warranties, other than those that are expressly stated in the
+ * License.
+ *
+ ******************************************************************************/
+
+#include "PowerManagement.hpp"
+
+extern "C" {
+#include <cjson/cJSON.h>
+#include <stdio.h>
+#include <stdlib.h>
+}
+
+#include "crashdump.hpp"
+
+/******************************************************************************
+ *
+ *   powerManagementJson
+ *
+ *   This function formats the Power Management log into a JSON object
+ *
+ ******************************************************************************/
+static void powerManagementJson(uint32_t u32CoreNum,
+                                SCpuPowerState *sCpuPowerState,
+                                cJSON *pJsonChild)
+{
+    cJSON *core;
+    char jsonItemString[PM_JSON_STRING_LEN];
+
+    // Add the core number item to the Power Management JSON structure
+    cd_snprintf_s(jsonItemString, PM_JSON_STRING_LEN, PM_JSON_CORE_NAME,
+                  u32CoreNum);
+    cJSON_AddItemToObject(pJsonChild, jsonItemString,
+                          core = cJSON_CreateObject());
+
+    // Add the register data for this core to the Power Management JSON
+    // structure
+    cd_snprintf_s(jsonItemString, PM_JSON_STRING_LEN, "0x%x",
+                  sCpuPowerState->u32CState);
+    cJSON_AddStringToObject(core, PM_JSON_CSTATE_REG_NAME, jsonItemString);
+    cd_snprintf_s(jsonItemString, PM_JSON_STRING_LEN, "0x%x",
+                  sCpuPowerState->u32VidRatio);
+    cJSON_AddStringToObject(core, PM_JSON_VID_REG_NAME, jsonItemString);
+}
+
+/******************************************************************************
+ *
+ *   powerManagementReadReg
+ *
+ *   This function executes the PECI sequence to read the provided power
+ *management register.
+ *
+ *   NOTE: As of now, this sequence requires DEBUG_ENABLE, so it may not work in
+ *   production systems.
+ *
+ ******************************************************************************/
+static int powerManagementReadReg(crashdump::CPUInfo &cpuInfo,
+                                  uint32_t u32CoreNum, uint32_t u32RegParam,
+                                  uint32_t *u32RegData, int peci_fd)
+{
+    uint8_t cc = 0;
+
+    // Open the register read sequence
+    if (peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_OPEN_SEQ,
+                             VCU_PWR_MGT_SEQ, sizeof(uint32_t), peci_fd,
+                             &cc) != PECI_CC_SUCCESS)
+    {
+        // Reg read sequence failed, abort the sequence
+        peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_ABORT_SEQ,
+                             VCU_PWR_MGT_SEQ, sizeof(uint32_t), peci_fd, &cc);
+        return 1;
+    }
+
+    // Set register number
+    if (peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_SET_PARAM,
+                             (u32CoreNum << PM_CORE_OFFSET) | u32RegParam,
+                             sizeof(uint32_t), peci_fd, &cc) != PECI_CC_SUCCESS)
+    {
+        // Reg read sequence failed, abort the sequence
+        peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_ABORT_SEQ,
+                             VCU_PWR_MGT_SEQ, sizeof(uint32_t), peci_fd, &cc);
+        return 1;
+    }
+
+    // Get the register data
+    if (peci_RdPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, PM_READ_PARAM,
+                             sizeof(uint32_t), (uint8_t *)u32RegData, peci_fd,
+                             &cc) != PECI_CC_SUCCESS)
+    {
+        // Reg read sequence failed, abort the sequence
+        peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_ABORT_SEQ,
+                             VCU_PWR_MGT_SEQ, sizeof(uint32_t), peci_fd, &cc);
+        return 1;
+    }
+
+    // Close the register read sequence
+    peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_CLOSE_SEQ,
+                         VCU_PWR_MGT_SEQ, sizeof(uint32_t), peci_fd, &cc);
+
+    return 0;
+}
+
+/******************************************************************************
+ *
+ *   logPowerManagementCPX1
+ *
+ *   This function gathers the Power Management log and adds it to the debug log
+ *   The PECI flow is listed below to dump the core state registers
+ *
+ *    WrPkgConfig() -
+ *         0x80 0x0003 0x0001002a
+ *         Open register read sequence
+ *
+ *    WrPkgConfig() -
+ *         0x80 0x1 [29:24] Core Number, [23:0] Register
+ *         Select the core and register
+ *
+ *    RdPkgConfig() -
+ *         0x80 0x1019
+ *         Read register data
+ *
+ *    WrPkgConfig() -
+ *         0x80 0x0004 0x0001002a
+ *         Close register read sequence.
+ *
+ ******************************************************************************/
+int logPowerManagementCPX1(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
+{
+    int ret = 0;
+    int peci_fd = -1;
+
+    if (pJsonChild == NULL)
+    {
+        return 1;
+    }
+
+    if (peci_Lock(&peci_fd, PECI_WAIT_FOREVER) != PECI_CC_SUCCESS)
+    {
+        return 1;
+    }
+
+    // Get the power state for each enabled core in the CPU
+    for (uint32_t u32CoreNum = 0; (cpuInfo.coreMask >> u32CoreNum) != 0;
+         u32CoreNum++)
+    {
+        if (!(cpuInfo.coreMask & (1 << u32CoreNum)))
+        {
+            continue;
+        }
+
+        SCpuPowerState sCpuPowerState = {};
+
+        // First get the C-State register for this core
+        ret = powerManagementReadReg(cpuInfo, u32CoreNum, PM_CSTATE_PARAM,
+                                     &sCpuPowerState.u32CState, peci_fd);
+        // Then get the VID Ratio register for this core
+        ret = powerManagementReadReg(cpuInfo, u32CoreNum, PM_VID_PARAM,
+                                     &sCpuPowerState.u32VidRatio, peci_fd);
+        // If we hit a failure, assume that register reads are not allowed and
+        // bail
+        if (ret != 0)
+        {
+            break;
+        }
+        // Log the Power Management for this core
+        powerManagementJson(u32CoreNum, &sCpuPowerState, pJsonChild);
+    }
+
+    peci_Unlock(peci_fd);
+    return ret;
+}
+
+/******************************************************************************
+ *
+ *   logPowerManagementICX1
+ *
+ *   This function gathers the Power Management log and adds it to the debug log
+ *   The PECI flow is listed below to dump the core state registers
+ *
+ ******************************************************************************/
+int logPowerManagementICX1(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
+{
+    // TODO: feature enablement
+    return 0;
+}
+
+static const SPowerManagementVx sPowerManagementVx[] = {
+    {crashdump::CPUModel::skx, logPowerManagementCPX1},
+    {crashdump::CPUModel::icx, logPowerManagementICX1},
+};
+
+/******************************************************************************
+ *
+ *   logPowerManagement
+ *
+ *   This function gathers the PowerManagement log and adds it to the debug log
+ *
+ ******************************************************************************/
+int logPowerManagement(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
+{
+    if (pJsonChild == NULL)
+    {
+        return 1;
+    }
+
+    for (uint32_t i = 0;
+         i < (sizeof(sPowerManagementVx) / sizeof(SPowerManagementVx)); i++)
+    {
+        if (cpuInfo.model == sPowerManagementVx[i].cpuModel)
+        {
+            return sPowerManagementVx[i].logPowerManagementVx(cpuInfo,
+                                                              pJsonChild);
+        }
+    }
+
+    fprintf(stderr, "Cannot find version for %s\n", __FUNCTION__);
+    return 1;
+}
