@@ -296,7 +296,7 @@ int main(int argc, char *argv[])
                 printf("ERROR: Read MSR failed or is not supported. %x\n", ret);
                 break;
             }
-            printf("MSR Read of Thread %02x MSR %04x: 0x%0*lx\n", u8MsrThread,
+            printf("MSR Read of Thread %02x MSR %04x: 0x%0*llx\n", u8MsrThread,
                    u16MsrAddr, u8Size * 2, u64MsrVal);
             break;
 
