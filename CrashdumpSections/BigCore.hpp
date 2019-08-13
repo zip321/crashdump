@@ -34,6 +34,7 @@ extern "C" {
 
 #define CD_JSON_STRING_LEN 256
 #define CD_JSON_THREAD_NAME "thread%d"
+#define CD_JSON_THREAD_1 "thread1"
 
 /******************************************************************************
  *

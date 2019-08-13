@@ -284,7 +284,6 @@ static void crashdumpJsonCPX1(uint32_t u32NumReads, SCrashdump *sCrashdump,
         cJSON_AddStringToObject(uncore, sCrashdumpUncoreRegs[u32RegNum].name,
                                 jsonItemString);
     }
-
     // Write out the core register data
     for (uint8_t u8GroupNum = 0; u8GroupNum < CD_NUM_GROUPS_CORE; u8GroupNum++)
     {
@@ -305,13 +304,6 @@ static void crashdumpJsonCPX1(uint32_t u32NumReads, SCrashdump *sCrashdump,
                 cJSON_AddItemToObject(pJsonChild, jsonItemName,
                                       core = cJSON_CreateObject());
             }
-            // Add the saved uncore data to the core
-            cJSON *uncore_reg = NULL;
-            cJSON_ArrayForEach(uncore_reg, uncore)
-            {
-                cJSON_AddStringToObject(core, uncore_reg->string,
-                                        cJSON_GetStringValue(uncore_reg));
-            }
 
             // Add the thread data to the core
             for (uint8_t u8ThreadNum = 0; u8ThreadNum < CD_THREADS_PER_CORE;
@@ -319,7 +311,7 @@ static void crashdumpJsonCPX1(uint32_t u32NumReads, SCrashdump *sCrashdump,
             {
                 // Add the thread info to the Crashdump JSON structure for
                 // this group only if it doesn't exist
-                cJSON *thread;
+                cJSON *thread, *thread_temp;
                 cd_snprintf_s(jsonItemName, CD_JSON_STRING_LEN,
                               CD_JSON_THREAD_NAME, u8ThreadNum);
                 if ((thread = cJSON_GetObjectItemCaseSensitive(
@@ -327,6 +319,12 @@ static void crashdumpJsonCPX1(uint32_t u32NumReads, SCrashdump *sCrashdump,
                 {
                     cJSON_AddItemToObject(core, jsonItemName,
                                           thread = cJSON_CreateObject());
+                }
+                if ((thread_temp = cJSON_GetObjectItemCaseSensitive(
+                         core, CD_JSON_THREAD_1)) == NULL)
+                {
+                    cJSON_AddItemToObject(core, CD_JSON_THREAD_1,
+                                          thread_temp = cJSON_CreateObject());
                 }
                 for (uint32_t u32RegNum = 0;
                      u32RegNum < u8CrashdumpCoreGroupSizes[u8GroupNum];
@@ -383,7 +381,11 @@ static void crashdumpJsonCPX1(uint32_t u32NumReads, SCrashdump *sCrashdump,
                                           "0x%llx", u64RegValue);
                         }
                         cJSON_AddStringToObject(
-                            core,
+                            thread,
+                            sCrashdumpCoreRegsCPX1[u8GroupNum][u32RegNum].name,
+                            jsonItemString);
+                        cJSON_AddStringToObject(
+                            thread_temp,
                             sCrashdumpCoreRegsCPX1[u8GroupNum][u32RegNum].name,
                             jsonItemString);
                     }
@@ -408,6 +410,7 @@ static void crashdumpJsonCPX1(uint32_t u32NumReads, SCrashdump *sCrashdump,
             cJSON_AddItemToObject(pJsonChild, jsonItemName,
                                   core = cJSON_CreateObject());
         }
+
         for (uint8_t u8ThreadNum = CD_THREADS_PER_CORE; u8ThreadNum > 0;
              u8ThreadNum--)
         {
@@ -422,6 +425,15 @@ static void crashdumpJsonCPX1(uint32_t u32NumReads, SCrashdump *sCrashdump,
                 cJSON_AddItemToObject(core, jsonItemName,
                                       thread = cJSON_CreateObject());
             }
+
+            // Add the saved uncore data to the thread
+            cJSON *uncore_reg = NULL;
+            cJSON_ArrayForEach(uncore_reg, uncore)
+            {
+                cJSON_AddStringToObject(thread, uncore_reg->string,
+                                        cJSON_GetStringValue(uncore_reg));
+            }
+
             for (uint32_t u32RegNum = 0; u32RegNum < CD_REGS_GP_THREAD;
                  u32RegNum++)
             {

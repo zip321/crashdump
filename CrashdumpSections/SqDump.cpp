@@ -205,6 +205,11 @@ static int sqDump(crashdump::CPUInfo &cpuInfo, uint32_t u32CoreNum,
                              VCU_SQ_DUMP_SEQ, sizeof(uint32_t), peci_fd, &cc);
         return 1;
     }
+    fprintf(stderr, "u32NumReads (%d) :core (%d)\n", u32NumReads,u32CoreNum);
+    if (u32NumReads > 3000)
+    {
+        u32NumReads = 3000;
+    }
     for (int i = 0; i < u32NumReads; i++)
     {
         if (peci_RdPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_READ,
