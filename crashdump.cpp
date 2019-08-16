@@ -570,6 +570,45 @@ static void newOnDemandLog(std::string &crashdumpContents)
     createCrashdump(crashdumpContents);
 }
 
+static void incrementCrashdumpCount()
+{
+    // Get the current count
+    conn->async_method_call(
+        [](boost::system::error_code ec,
+           const std::variant<uint8_t> &property) {
+            if (ec)
+            {
+                fprintf(stderr, "Failed to get Crashdump count\n");
+                return;
+            }
+            const uint8_t *crashdumpCountVariant =
+                std::get_if<uint8_t>(&property);
+            if (crashdumpCountVariant == nullptr)
+            {
+                fprintf(stderr, "Unable to read Crashdump count\n");
+                return;
+            }
+            // Increment the count
+            uint8_t crashdumpCount = *crashdumpCountVariant + 1;
+            conn->async_method_call(
+                [](boost::system::error_code ec) {
+                    if (ec)
+                    {
+                        fprintf(stderr, "Failed to set Crashdump count\n");
+                    }
+                },
+                "xyz.openbmc_project.Settings",
+                "/xyz/openbmc_project/control/processor_error_config",
+                "org.freedesktop.DBus.Properties", "Set",
+                "xyz.openbmc_project.Control.Processor.ErrConfig",
+                "CrashdumpCount", std::variant<uint8_t>{crashdumpCount});
+        },
+        "xyz.openbmc_project.Settings",
+        "/xyz/openbmc_project/control/processor_error_config",
+        "org.freedesktop.DBus.Properties", "Get",
+        "xyz.openbmc_project.Control.Processor.ErrConfig", "CrashdumpCount");
+}
+
 constexpr int numStoredLogs = 2;
 static void newStoredLog(
     sdbusplus::asio::object_server &server,
@@ -673,6 +712,9 @@ static void newStoredLog(
     // Log Property
     ifaceLog->register_property("Log", crashdumpContents);
     ifaceLog->initialize();
+
+    // Increment the count for this completed crashdump
+    incrementCrashdumpCount();
 }
 
 static int parseLogEntry(const std::string &filename,
