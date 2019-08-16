@@ -65,6 +65,7 @@ install(TARGETS crashdump
         RUNTIME DESTINATION bin
         LIBRARY DESTINATION lib
         ARCHIVE DESTINATION lib/static)
+install(FILES peci_cpus.hpp DESTINATION include/crashdump)
 
 find_package(Boost 1.66 REQUIRED)
 include_directories(${BOOST_SRC_DIR})

@@ -18,56 +18,18 @@
  ******************************************************************************/
 
 #pragma once
+#include "peci_cpus.hpp"
+#include "utils.hpp"
+
 #include <array>
 #include <vector>
-extern "C" {
+
 #include "libpeci.h"
-}
-#include "utils.hpp"
 
 namespace crashdump
 {
 constexpr char const* dbgStatusItemName = "status";
 constexpr const char* dbgFailedStatus = "N/A";
-
-// PECI Client Address List
-constexpr const int minClientAddr = 0x30;
-constexpr const int maxClientAddr = 0x37;
-constexpr const int maxCPUs = maxClientAddr - minClientAddr + 1;
-
-enum class CPUModel
-{
-    clx_b0,
-    clx_b1,
-    cpx_a0,
-    skx_h0,
-    icx_a0,
-    icx_b0,
-};
-
-struct CPUIDMap
-{
-    int cpuID;
-    CPUModel model;
-};
-
-static constexpr const std::array cpuIDMap{
-
-    // This code supports the following CPU's
-
-    CPUIDMap{0x0005065a, CPUModel::cpx_a0},
-    CPUIDMap{0x000606A0, CPUModel::icx_a0},
-    CPUIDMap{0x000606A1, CPUModel::icx_b0},
-
-    // These CPU’s are Included for testing purposes when using an Interposer.
-    // This code base is not intended for production use on the Purely Platform.
-    // This is due to differences in the Decoding tools used for the final
-    // output.
-
-    CPUIDMap{0x00050654, CPUModel::skx_h0},
-    CPUIDMap{0x00050656, CPUModel::clx_b0},
-    CPUIDMap{0x00050657, CPUModel::clx_b1},
-};
 
 struct CPUInfo
 {
