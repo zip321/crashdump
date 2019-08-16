@@ -60,6 +60,9 @@ extern "C" {
 
 namespace crashdump
 {
+static boost::asio::io_service io;
+static std::shared_ptr<sdbusplus::asio::connection> conn;
+
 constexpr char const *crashdumpService = "com.intel.crashdump";
 constexpr char const *crashdumpPath = "/com/intel/crashdump";
 constexpr char const *crashdumpInterface = "com.intel.crashdump";
@@ -692,8 +695,7 @@ static int parseLogEntry(const std::string &filename,
     return 0;
 }
 
-static bool
-    isPECIAvailable(const std::shared_ptr<sdbusplus::asio::connection> &conn)
+static bool isPECIAvailable()
 {
     std::vector<CPUInfo> cpuInfo;
     getClientAddrs(cpuInfo);
@@ -733,13 +735,13 @@ int main(int argc, char *argv[])
                           std::shared_ptr<sdbusplus::asio::dbus_interface>>>
         logIfaces(crashdump::numStoredLogs + 1);
     // setup connection to dbus
-    boost::asio::io_service io;
-    auto conn = std::make_shared<sdbusplus::asio::connection>(io);
+    crashdump::conn =
+        std::make_shared<sdbusplus::asio::connection>(crashdump::io);
     std::string onDemandLogContents;
 
     // CPU Debug Log Object
-    conn->request_name(crashdump::crashdumpService);
-    auto server = sdbusplus::asio::object_server(conn);
+    crashdump::conn->request_name(crashdump::crashdumpService);
+    auto server = sdbusplus::asio::object_server(crashdump::conn);
 
     // Stored Log Interface
     std::shared_ptr<sdbusplus::asio::dbus_interface> ifaceStored =
@@ -748,8 +750,8 @@ int main(int argc, char *argv[])
 
     // Generate a Stored Log: This is test method that should be removed
     ifaceStored->register_method(
-        "GenerateStoredLog", [&server, &logIfaces, &future, &conn]() {
-            if (!crashdump::isPECIAvailable(conn))
+        "GenerateStoredLog", [&server, &logIfaces, &future]() {
+            if (!crashdump::isPECIAvailable())
             {
                 throw crashdump::PowerOffException();
             }
@@ -771,9 +773,9 @@ int main(int argc, char *argv[])
                              crashdump::crashdumpOnDemandInterface);
 
     // Generate an OnDemand Log
-    ifaceImm->register_method("GenerateOnDemandLog", [&server, &future, &conn,
+    ifaceImm->register_method("GenerateOnDemandLog", [&server, &future,
                                                       &onDemandLogContents]() {
-        if (!crashdump::isPECIAvailable(conn))
+        if (!crashdump::isPECIAvailable())
         {
             throw crashdump::PowerOffException();
         }
@@ -841,10 +843,9 @@ int main(int argc, char *argv[])
 
     // Send a Raw PECI command
     ifaceRawPeci->register_method(
-        "SendRawPeci",
-        [&conn](const uint8_t &clientAddr, const uint8_t &readLen,
-                const std::vector<uint8_t> &rawCmd) {
-            if (!crashdump::isPECIAvailable(conn))
+        "SendRawPeci", [](const uint8_t &clientAddr, const uint8_t &readLen,
+                          const std::vector<uint8_t> &rawCmd) {
+            if (!crashdump::isPECIAvailable())
             {
                 throw crashdump::PowerOffException();
             }
@@ -859,7 +860,7 @@ int main(int argc, char *argv[])
         });
     ifaceRawPeci->initialize();
 
-    io.run();
+    crashdump::io.run();
 
     return 0;
 }
