@@ -63,14 +63,14 @@ namespace crashdump
 static boost::asio::io_service io;
 static std::shared_ptr<sdbusplus::asio::connection> conn;
 
-constexpr char const *crashdumpService = "com.intel.crashdump";
-constexpr char const *crashdumpPath = "/com/intel/crashdump";
-constexpr char const *crashdumpInterface = "com.intel.crashdump";
-constexpr char const *crashdumpOnDemandPath = "/com/intel/crashdump/OnDemand";
-constexpr char const *crashdumpStoredInterface = "com.intel.crashdump.Stored";
-constexpr char const *crashdumpOnDemandInterface =
+constexpr char const* crashdumpService = "com.intel.crashdump";
+constexpr char const* crashdumpPath = "/com/intel/crashdump";
+constexpr char const* crashdumpInterface = "com.intel.crashdump";
+constexpr char const* crashdumpOnDemandPath = "/com/intel/crashdump/OnDemand";
+constexpr char const* crashdumpStoredInterface = "com.intel.crashdump.Stored";
+constexpr char const* crashdumpOnDemandInterface =
     "com.intel.crashdump.OnDemand";
-constexpr char const *crashdumpRawPeciInterface =
+constexpr char const* crashdumpRawPeciInterface =
     "com.intel.crashdump.SendRawPeci";
 static const std::experimental::filesystem::path crashdumpDir =
     "/tmp/crashdumps";
@@ -104,7 +104,7 @@ constexpr const int bmcAutonomous = 0x23;
 constexpr const int mcaLog = 0x3e;
 } // namespace record_type
 
-constexpr char const *triggerTypeOnDemand = "On-Demand";
+constexpr char const* triggerTypeOnDemand = "On-Demand";
 
 static const std::string getUuid()
 {
@@ -126,7 +126,7 @@ static const std::string getUuid()
     return ret;
 }
 
-static void getClientAddrs(std::vector<CPUInfo> &cpuInfo)
+static void getClientAddrs(std::vector<CPUInfo>& cpuInfo)
 {
     for (int cpu = 0, addr = minClientAddr; addr <= maxClientAddr;
          cpu++, addr++)
@@ -139,16 +139,16 @@ static void getClientAddrs(std::vector<CPUInfo> &cpuInfo)
     }
 }
 
-static bool getCPUModels(std::vector<CPUInfo> &cpuInfo)
+static bool getCPUModels(std::vector<CPUInfo>& cpuInfo)
 {
     uint8_t cc = 0;
 
-    for (CPUInfo &cpu : cpuInfo)
+    for (CPUInfo& cpu : cpuInfo)
     {
         uint32_t cpuID;
         if (peci_RdPkgConfig(cpu.clientAddr, PECI_MBX_INDEX_CPU_ID,
                              PECI_PKG_ID_CPU_ID, sizeof(uint32_t),
-                             (uint8_t *)&cpuID, &cc) != PECI_CC_SUCCESS)
+                             (uint8_t*)&cpuID, &cc) != PECI_CC_SUCCESS)
         {
             fprintf(stderr, "Cannot get cpuID!\n");
             continue;
@@ -173,11 +173,11 @@ static bool getCPUModels(std::vector<CPUInfo> &cpuInfo)
     return true;
 }
 
-static bool getCoreMasks(std::vector<CPUInfo> &cpuInfo)
+static bool getCoreMasks(std::vector<CPUInfo>& cpuInfo)
 {
     uint8_t cc = 0;
 
-    for (CPUInfo &cpu : cpuInfo)
+    for (CPUInfo& cpu : cpuInfo)
     {
         switch (cpu.model)
         {
@@ -187,9 +187,9 @@ static bool getCoreMasks(std::vector<CPUInfo> &cpuInfo)
             case CPUModel::skx_h0:
                 // RESOLVED_CORES Local PCI B1:D30:F3 Reg 0xB4
                 uint32_t coreMask;
-                if (peci_RdPCIConfigLocal(
-                        cpu.clientAddr, 1, 30, 3, 0xB4, sizeof(coreMask),
-                        (uint8_t *)&coreMask, &cc) != PECI_CC_SUCCESS)
+                if (peci_RdPCIConfigLocal(cpu.clientAddr, 1, 30, 3, 0xB4,
+                                          sizeof(coreMask), (uint8_t*)&coreMask,
+                                          &cc) != PECI_CC_SUCCESS)
                 {
                     fprintf(stderr, "Cannot find coreMask!\n");
                     return false;
@@ -201,7 +201,7 @@ static bool getCoreMasks(std::vector<CPUInfo> &cpuInfo)
                 uint32_t coreMask0;
                 if (peci_RdPCIConfigLocal(
                         cpu.clientAddr, 14, 30, 3, 0xD0, sizeof(coreMask0),
-                        (uint8_t *)&coreMask0, &cc) != PECI_CC_SUCCESS)
+                        (uint8_t*)&coreMask0, &cc) != PECI_CC_SUCCESS)
                 {
                     fprintf(stderr, "Cannot find coreMask0!\n");
                     return false;
@@ -209,7 +209,7 @@ static bool getCoreMasks(std::vector<CPUInfo> &cpuInfo)
                 uint32_t coreMask1;
                 if (peci_RdPCIConfigLocal(
                         cpu.clientAddr, 14, 30, 3, 0xD4, sizeof(coreMask1),
-                        (uint8_t *)&coreMask1, &cc) != PECI_CC_SUCCESS)
+                        (uint8_t*)&coreMask1, &cc) != PECI_CC_SUCCESS)
                 {
                     fprintf(stderr, "Cannot find coreMask1!\n");
                     return false;
@@ -225,11 +225,11 @@ static bool getCoreMasks(std::vector<CPUInfo> &cpuInfo)
     return true;
 }
 
-static bool getCHACounts(std::vector<CPUInfo> &cpuInfo)
+static bool getCHACounts(std::vector<CPUInfo>& cpuInfo)
 {
     uint8_t cc = 0;
 
-    for (CPUInfo &cpu : cpuInfo)
+    for (CPUInfo& cpu : cpuInfo)
     {
         switch (cpu.model)
         {
@@ -240,7 +240,7 @@ static bool getCHACounts(std::vector<CPUInfo> &cpuInfo)
                 // LLC_SLICE_EN Local PCI B1:D30:F3 Reg 0x9C
                 uint32_t chaMask;
                 if (peci_RdPCIConfigLocal(cpu.clientAddr, 1, 30, 3, 0x9C,
-                                          sizeof(chaMask), (uint8_t *)&chaMask,
+                                          sizeof(chaMask), (uint8_t*)&chaMask,
                                           &cc) != PECI_CC_SUCCESS)
                 {
                     fprintf(stderr, "Cannot find chaMask!\n");
@@ -251,17 +251,17 @@ static bool getCHACounts(std::vector<CPUInfo> &cpuInfo)
             case CPUModel::icx_a0:
                 // LLC_SLICE_EN Local PCI B14:D30:F3 Reg 0x9C and 0xA0
                 uint32_t chaMask0;
-                if (peci_RdPCIConfigLocal(
-                        cpu.clientAddr, 14, 30, 3, 0x9C, sizeof(chaMask0),
-                        (uint8_t *)&chaMask0, &cc) != PECI_CC_SUCCESS)
+                if (peci_RdPCIConfigLocal(cpu.clientAddr, 14, 30, 3, 0x9C,
+                                          sizeof(chaMask0), (uint8_t*)&chaMask0,
+                                          &cc) != PECI_CC_SUCCESS)
                 {
                     fprintf(stderr, "Cannot find chaMask0!\n");
                     return false;
                 }
                 uint32_t chaMask1;
-                if (peci_RdPCIConfigLocal(
-                        cpu.clientAddr, 14, 30, 3, 0xA0, sizeof(chaMask1),
-                        (uint8_t *)&chaMask1, &cc) != PECI_CC_SUCCESS)
+                if (peci_RdPCIConfigLocal(cpu.clientAddr, 14, 30, 3, 0xA0,
+                                          sizeof(chaMask1), (uint8_t*)&chaMask1,
+                                          &cc) != PECI_CC_SUCCESS)
                 {
                     fprintf(stderr, "Cannot find chaMask1!\n");
                     return false;
@@ -276,7 +276,7 @@ static bool getCHACounts(std::vector<CPUInfo> &cpuInfo)
     return true;
 }
 
-static bool getCPUInfo(std::vector<CPUInfo> &cpuInfo)
+static bool getCPUInfo(std::vector<CPUInfo>& cpuInfo)
 {
     cpuInfo.reserve(maxCPUs);
     getClientAddrs(cpuInfo);
@@ -292,7 +292,7 @@ static bool getCPUInfo(std::vector<CPUInfo> &cpuInfo)
     return getCHACounts(cpuInfo);
 }
 
-static void logCrashdumpVersion(cJSON *parent, crashdump::CPUInfo &cpuInfo,
+static void logCrashdumpVersion(cJSON* parent, crashdump::CPUInfo& cpuInfo,
                                 int recordType)
 {
     struct VersionInfo
@@ -349,11 +349,11 @@ static void logCrashdumpVersion(cJSON *parent, crashdump::CPUInfo &cpuInfo,
     cJSON_AddStringToObject(parent, "_version", versionString);
 }
 
-static void logTimestamp(cJSON *parent)
+static void logTimestamp(cJSON* parent)
 {
     char logTime[64];
     time_t curtime;
-    struct tm *loctime;
+    struct tm* loctime;
 
     // Add the timestamp
     curtime = time(NULL);
@@ -365,20 +365,20 @@ static void logTimestamp(cJSON *parent)
     cJSON_AddStringToObject(parent, "timestamp", logTime);
 }
 
-static void logTriggerType(cJSON *parent)
+static void logTriggerType(cJSON* parent)
 {
     cJSON_AddStringToObject(parent, "trigger_type", triggerTypeOnDemand);
 }
 
-static void logPlatformName(cJSON *parent)
+static void logPlatformName(cJSON* parent)
 {
     cJSON_AddStringToObject(parent, "platform_name", getUuid().c_str());
 }
 
-static cJSON *
-    addSectionLog(cJSON *parent, crashdump::CPUInfo &cpuInfo,
+static cJSON*
+    addSectionLog(cJSON* parent, crashdump::CPUInfo& cpuInfo,
                   std::string sectionName,
-                  const std::function<int(crashdump::CPUInfo &cpuInfo, cJSON *)>
+                  const std::function<int(crashdump::CPUInfo& cpuInfo, cJSON*)>
                       sectionLogFunc)
 {
     fprintf(stderr, "Logging %s on PECI address %d\n", sectionName.c_str(),
@@ -386,7 +386,7 @@ static cJSON *
 
     // Create an empty JSON object for this section if it doesn't already
     // exist
-    cJSON *logSectionJson;
+    cJSON* logSectionJson;
     if ((logSectionJson = cJSON_GetObjectItemCaseSensitive(
              parent, sectionName.c_str())) == NULL)
     {
@@ -422,14 +422,14 @@ static cJSON *
     return logSectionJson;
 }
 
-void createCrashdump(std::string &crashdumpContents)
+void createCrashdump(std::string& crashdumpContents)
 {
-    cJSON *root = NULL;
-    cJSON *crashlogData = NULL;
-    cJSON *processors = NULL;
-    cJSON *cpu = NULL;
-    cJSON *logSection = NULL;
-    char *out = NULL;
+    cJSON* root = NULL;
+    cJSON* crashlogData = NULL;
+    cJSON* processors = NULL;
+    cJSON* cpu = NULL;
+    cJSON* logSection = NULL;
+    char* out = NULL;
     int ret;
 
     // Get the list of CPU Info for this log
@@ -554,7 +554,7 @@ void createCrashdump(std::string &crashdumpContents)
     cJSON_Delete(root);
 }
 
-static int scandir_filter(const struct dirent *dirEntry)
+static int scandir_filter(const struct dirent* dirEntry)
 {
     // Filter for just the crashdump files
     if (strncmp(dirEntry->d_name, "crashdump_", 9) == 0)
@@ -564,7 +564,7 @@ static int scandir_filter(const struct dirent *dirEntry)
     return 0;
 }
 
-static void newOnDemandLog(std::string &crashdumpContents)
+static void newOnDemandLog(std::string& crashdumpContents)
 {
     // Start the log to the on-demand file
     createCrashdump(crashdumpContents);
@@ -575,13 +575,13 @@ static void incrementCrashdumpCount()
     // Get the current count
     conn->async_method_call(
         [](boost::system::error_code ec,
-           const std::variant<uint8_t> &property) {
+           const std::variant<uint8_t>& property) {
             if (ec)
             {
                 fprintf(stderr, "Failed to get Crashdump count\n");
                 return;
             }
-            const uint8_t *crashdumpCountVariant =
+            const uint8_t* crashdumpCountVariant =
                 std::get_if<uint8_t>(&property);
             if (crashdumpCountVariant == nullptr)
             {
@@ -611,15 +611,15 @@ static void incrementCrashdumpCount()
 
 constexpr int numStoredLogs = 2;
 static void newStoredLog(
-    sdbusplus::asio::object_server &server,
+    sdbusplus::asio::object_server& server,
     std::vector<std::pair<std::string,
-                          std::shared_ptr<sdbusplus::asio::dbus_interface>>>
-        &logIfaces)
+                          std::shared_ptr<sdbusplus::asio::dbus_interface>>>&
+        logIfaces)
 {
-    constexpr char const *crashdumpFile = "crashdump_%llu.json";
-    struct dirent **namelist;
+    constexpr char const* crashdumpFile = "crashdump_%llu.json";
+    struct dirent** namelist;
     uint64_t crashdump_num = 0;
-    FILE *fpJson = NULL;
+    FILE* fpJson = NULL;
     std::error_code ec;
 
     // create the crashdumps directory if it doesn't exist
@@ -667,7 +667,7 @@ static void newStoredLog(
             logIfaces.erase(
                 std::remove_if(
                     logIfaces.begin(), logIfaces.end(),
-                    [&server, &namelist, &i](auto &log) {
+                    [&server, &namelist, &i](auto& log) {
                         if (std::get<0>(log).compare(namelist[i]->d_name) == 0)
                         {
                             server.remove_interface(std::get<1>(log));
@@ -717,8 +717,8 @@ static void newStoredLog(
     incrementCrashdumpCount();
 }
 
-static int parseLogEntry(const std::string &filename,
-                         std::string &crashdumpContents)
+static int parseLogEntry(const std::string& filename,
+                         std::string& crashdumpContents)
 {
     if (!std::experimental::filesystem::exists(filename))
     {
@@ -752,15 +752,15 @@ static bool isPECIAvailable()
 /** Exception for when a log is attempted while power is off. */
 struct PowerOffException final : public sdbusplus::exception_t
 {
-    const char *name() const noexcept override
+    const char* name() const noexcept override
     {
         return "org.freedesktop.DBus.Error.NotSupported";
     };
-    const char *description() const noexcept override
+    const char* description() const noexcept override
     {
         return "Power off, cannot access peci";
     };
-    const char *what() const noexcept override
+    const char* what() const noexcept override
     {
         return "org.freedesktop.DBus.Error.NotSupported: "
                "Power off, cannot access peci";
@@ -768,7 +768,7 @@ struct PowerOffException final : public sdbusplus::exception_t
 };
 } // namespace crashdump
 
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
     // future to use for long-running tasks
     std::future<void> future;
@@ -854,7 +854,7 @@ int main(int argc, char *argv[])
     {
         std::regex search("crashdump_(\\d+).json");
         std::smatch match;
-        for (auto &p : std::experimental::filesystem::directory_iterator(
+        for (auto& p : std::experimental::filesystem::directory_iterator(
                  crashdump::crashdumpDir))
         {
             std::string file = p.path().filename();
@@ -885,8 +885,8 @@ int main(int argc, char *argv[])
 
     // Send a Raw PECI command
     ifaceRawPeci->register_method(
-        "SendRawPeci", [](const uint8_t &clientAddr, const uint8_t &readLen,
-                          const std::vector<uint8_t> &rawCmd) {
+        "SendRawPeci", [](const uint8_t& clientAddr, const uint8_t& readLen,
+                          const std::vector<uint8_t>& rawCmd) {
             if (!crashdump::isPECIAvailable())
             {
                 throw crashdump::PowerOffException();

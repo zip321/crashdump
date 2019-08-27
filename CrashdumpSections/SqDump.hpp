@@ -46,16 +46,16 @@
  ******************************************************************************/
 typedef struct
 {
-    uint32_t *pu32SqAddrArray;
+    uint32_t* pu32SqAddrArray;
     uint32_t u32SqAddrSize;
-    uint32_t *pu32SqCtrlArray;
+    uint32_t* pu32SqCtrlArray;
     uint32_t u32SqCtrlSize;
 } SSqDump;
 
 typedef struct
 {
     crashdump::CPUModel cpuModel;
-    int (*logSqDumpVx)(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild);
+    int (*logSqDumpVx)(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);
 } SSqDumpVx;
 
-int logSqDump(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild);
+int logSqDump(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);

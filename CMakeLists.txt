@@ -13,105 +13,91 @@
 # implied warranties, other than those that are expressly stated in the License.
 #
 
-cmake_minimum_required(VERSION 3.6)
-project(crashdump)
+cmake_minimum_required (VERSION 3.6)
+project (crashdump)
 
-find_package(cJSON REQUIRED)
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(SAFEC REQUIRED libsafec)
-include_directories(${SAFEC_INCLUDE_DIRS})
-link_directories(${SAFEC_LIBRARY_DIRS})
+find_package (cJSON REQUIRED)
+find_package (PkgConfig REQUIRED)
+pkg_check_modules (SAFEC REQUIRED libsafec)
+include_directories (${SAFEC_INCLUDE_DIRS})
+link_directories (${SAFEC_LIBRARY_DIRS})
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set (CMAKE_CXX_STANDARD 17)
+set (CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_library(peci SHARED libpeci/libpeci.c)
-target_link_libraries(peci ${SAFEC_LIBRARIES})
+add_library (peci SHARED libpeci/libpeci.c)
+target_link_libraries (peci ${SAFEC_LIBRARIES})
 
-set_property(TARGET peci PROPERTY C_STANDARD 99)
-target_include_directories(peci PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/libpeci)
-set_target_properties(peci PROPERTIES VERSION "1.0" SOVERSION "1")
+set_property (TARGET peci PROPERTY C_STANDARD 99)
+target_include_directories (peci PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/libpeci)
+set_target_properties (peci PROPERTIES VERSION "1.0" SOVERSION "1")
 
-install(TARGETS peci DESTINATION lib)
-install(FILES libpeci/libpeci.h DESTINATION include/peci)
+install (TARGETS peci DESTINATION lib)
+install (FILES libpeci/libpeci.h DESTINATION include/peci)
 
-set(SRC_FILES
-    utils.cpp
-    CrashdumpSections/AddressMap.cpp
-    CrashdumpSections/TorDump.cpp
-    CrashdumpSections/BigCore.cpp
-    CrashdumpSections/MetaData.cpp
-    CrashdumpSections/CoreMca.cpp
-    CrashdumpSections/SqDump.cpp
-    CrashdumpSections/Uncore.cpp
-    CrashdumpSections/UncoreRegs.hpp
-    CrashdumpSections/PowerManagement.cpp
-    CrashdumpSections/UncoreMca.cpp)
+set (SRC_FILES utils.cpp CrashdumpSections/AddressMap.cpp
+     CrashdumpSections/TorDump.cpp CrashdumpSections/BigCore.cpp
+     CrashdumpSections/MetaData.cpp CrashdumpSections/CoreMca.cpp
+     CrashdumpSections/SqDump.cpp CrashdumpSections/Uncore.cpp
+     CrashdumpSections/UncoreRegs.hpp CrashdumpSections/PowerManagement.cpp
+     CrashdumpSections/UncoreMca.cpp)
 
-add_executable(crashdump crashdump.cpp ${SRC_FILES})
+add_executable (crashdump crashdump.cpp ${SRC_FILES})
 
-target_include_directories(crashdump PRIVATE ${CMAKE_SOURCE_DIR})
-set_property(TARGET crashdump PROPERTY C_STANDARD 99)
-target_link_libraries(crashdump
-                      cjson
-                      peci
-                      -lsystemd
-                      pthread
-                      -lstdc++fs
-                      sdbusplus
-                      ${SAFEC_LIBRARIES})
+target_include_directories (crashdump PRIVATE ${CMAKE_SOURCE_DIR})
+set_property (TARGET crashdump PROPERTY C_STANDARD 99)
+target_link_libraries (crashdump cjson peci -lsystemd pthread -lstdc++fs
+                       sdbusplus ${SAFEC_LIBRARIES})
 
-install(TARGETS crashdump
-        RUNTIME DESTINATION bin
-        LIBRARY DESTINATION lib
-        ARCHIVE DESTINATION lib/static)
-install(FILES peci_cpus.hpp DESTINATION include/crashdump)
+install (TARGETS crashdump
+         RUNTIME DESTINATION bin
+         LIBRARY DESTINATION lib
+         ARCHIVE DESTINATION lib/static)
+install (FILES peci_cpus.hpp DESTINATION include/crashdump)
 
-find_package(Boost 1.66 REQUIRED)
-include_directories(${BOOST_SRC_DIR})
+find_package (Boost 1.66 REQUIRED)
+include_directories (${BOOST_SRC_DIR})
 
-add_definitions(-DBOOST_ERROR_CODE_HEADER_ONLY)
-add_definitions(-DBOOST_SYSTEM_NO_DEPRECATED)
-add_definitions(-DBOOST_ALL_NO_LIB)
-add_definitions(-DBOOST_NO_RTTI)
-add_definitions(-DBOOST_NO_TYPEID)
+add_definitions (-DBOOST_ERROR_CODE_HEADER_ONLY)
+add_definitions (-DBOOST_SYSTEM_NO_DEPRECATED)
+add_definitions (-DBOOST_ALL_NO_LIB)
+add_definitions (-DBOOST_NO_RTTI)
+add_definitions (-DBOOST_NO_TYPEID)
 
-add_executable(peci_cmds libpeci/peci_cmds.c)
-add_dependencies(peci_cmds peci)
-target_link_libraries(peci_cmds peci)
+add_executable (peci_cmds libpeci/peci_cmds.c)
+add_dependencies (peci_cmds peci)
+target_link_libraries (peci_cmds peci)
 
-install(TARGETS peci_cmds
-        RUNTIME DESTINATION bin
-        LIBRARY DESTINATION lib
-        ARCHIVE DESTINATION lib/static)
+install (TARGETS peci_cmds
+         RUNTIME DESTINATION bin
+         LIBRARY DESTINATION lib
+         ARCHIVE DESTINATION lib/static)
 
 # Unit Tests
-if(${CRASHDUMP_BUILD_UT})
-  include(CTest)
-  include_directories(${CMAKE_SOURCE_DIR})
+if (${CRASHDUMP_BUILD_UT})
+    include (CTest)
+    include_directories (${CMAKE_SOURCE_DIR})
 
-  set(UT_FILES
-      tests/CrashdumpSections/UncoreRegs_test.cpp
-      tests/CrashdumpSections/BigCore_test.cpp
-      tests/test_main.cpp)
+    set (UT_FILES tests/CrashdumpSections/UncoreRegs_test.cpp
+         tests/CrashdumpSections/BigCore_test.cpp tests/test_main.cpp)
 
-  enable_testing()
+    enable_testing ()
 
-  add_definitions(-DCOMPILE_UNIT_TESTS)
-  add_definitions(-DMOCK)
-  add_executable(crashdump_test ${SRC_FILES} ${UT_FILES})
+    add_definitions (-DCOMPILE_UNIT_TESTS)
+    add_definitions (-DMOCK)
+    add_executable (crashdump_test ${SRC_FILES} ${UT_FILES})
 
-  find_package(GTest REQUIRED)
-  target_link_libraries(crashdump_test ${GTEST_LIBRARIES} gmock)
-  target_link_libraries(crashdump_test cjson peci -lsystemd pthread)
-  target_link_libraries(crashdump_test -lstdc++fs sdbusplus)
+    find_package (GTest REQUIRED)
+    target_link_libraries (crashdump_test ${GTEST_LIBRARIES} gmock)
+    target_link_libraries (crashdump_test cjson peci -lsystemd pthread)
+    target_link_libraries (crashdump_test -lstdc++fs sdbusplus)
 
-  add_test(crashdump_test crashdump_test
-           "--gtest_output=xml:crashdump_test.xml")
+    add_test (crashdump_test crashdump_test
+              "--gtest_output=xml:crashdump_test.xml")
 
-  install(TARGETS crashdump_test
-          RUNTIME DESTINATION bin
-          LIBRARY DESTINATION lib
-          ARCHIVE DESTINATION lib/static)
+    install (TARGETS crashdump_test
+             RUNTIME DESTINATION bin
+             LIBRARY DESTINATION lib
+             ARCHIVE DESTINATION lib/static)
 
-endif(${CRASHDUMP_BUILD_UT})
+endif (${CRASHDUMP_BUILD_UT})

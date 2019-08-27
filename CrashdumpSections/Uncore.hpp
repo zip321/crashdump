@@ -153,12 +153,12 @@ typedef struct
 static const char uncoreStatusMcaRegNames[][US_MCA_NAME_LEN] = {
     "ctl", "status", "addr", "misc", "ctl2"};
 
-typedef int (*UncoreStatusRead)(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild);
+typedef int (*UncoreStatusRead)(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);
 
 typedef struct
 {
     crashdump::CPUModel cpuModel;
-    int (*logUncoreStatusVx)(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild);
+    int (*logUncoreStatusVx)(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);
 } SUncoreStatusLogVx;
 
-int logUncoreStatus(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild);
+int logUncoreStatus(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);

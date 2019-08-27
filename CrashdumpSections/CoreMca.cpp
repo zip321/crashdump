@@ -36,11 +36,11 @@ extern "C" {
  *
  ******************************************************************************/
 static void coreMcaJsonCPX1(uint32_t u32CoreNum,
-                            SCoreMcaRawData *sCoreMcaRawData, cJSON *pJsonChild)
+                            SCoreMcaRawData* sCoreMcaRawData, cJSON* pJsonChild)
 {
-    cJSON *core;
-    cJSON *thread;
-    cJSON *coreMca;
+    cJSON* core;
+    cJSON* thread;
+    cJSON* coreMca;
     char jsonItemName[CORE_MCA_JSON_STRING_LEN];
     char jsonItemString[CORE_MCA_JSON_STRING_LEN];
     uint32_t i;
@@ -176,7 +176,7 @@ static void coreMcaJsonCPX1(uint32_t u32CoreNum,
  *         0x80 0x0004 0x00010000 Close Machine Check Dump Sequence.
  *
  ******************************************************************************/
-int logCoreMcaCPX1(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
+int logCoreMcaCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 {
     EPECIStatus ePECIStatus;
     int ret = 0;
@@ -237,7 +237,7 @@ int logCoreMcaCPX1(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
                 ePECIStatus = peci_RdPkgConfig_seq(
                     cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_READ,
                     sizeof(uint32_t),
-                    (uint8_t *)&sCoreMcaRawData[j].uRegData.u32Raw[u8Dword],
+                    (uint8_t*)&sCoreMcaRawData[j].uRegData.u32Raw[u8Dword],
                     peci_fd, &cc);
                 if (ePECIStatus != PECI_CC_SUCCESS)
                 {
@@ -273,15 +273,15 @@ int logCoreMcaCPX1(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
  *
  ******************************************************************************/
 static void coreMcaJsonICX1(uint32_t u32CoreNum, uint32_t u32ThreadNum,
-                            const SCoreMcaReg *sCoreMcaReg,
-                            uint64_t u64CoreMcaData, cJSON *pJsonChild,
+                            const SCoreMcaReg* sCoreMcaReg,
+                            uint64_t u64CoreMcaData, cJSON* pJsonChild,
                             uint8_t cc, bool isValid)
 {
     char jsonItemString[CORE_MCA_JSON_STRING_LEN];
 
     // Add the core number item to the Core MCA JSON structure only if it
     // doesn't already exist
-    cJSON *core;
+    cJSON* core;
     cd_snprintf_s(jsonItemString, CORE_MCA_JSON_STRING_LEN,
                   CORE_MCA_JSON_CORE_NAME, u32CoreNum);
     if ((core = cJSON_GetObjectItemCaseSensitive(pJsonChild, jsonItemString)) ==
@@ -293,7 +293,7 @@ static void coreMcaJsonICX1(uint32_t u32CoreNum, uint32_t u32ThreadNum,
 
     // Add the thread number item to the Core MCA JSON structure only if it
     // doesn't already exist
-    cJSON *thread;
+    cJSON* thread;
     cd_snprintf_s(jsonItemString, CORE_MCA_JSON_STRING_LEN,
                   CORE_MCA_JSON_THREAD_NAME, u32ThreadNum);
     if ((thread = cJSON_GetObjectItemCaseSensitive(core, jsonItemString)) ==
@@ -305,7 +305,7 @@ static void coreMcaJsonICX1(uint32_t u32CoreNum, uint32_t u32ThreadNum,
 
     // Add the MCA number item to the Core MCA JSON structure only if it
     // doesn't already exist
-    cJSON *coreMca;
+    cJSON* coreMca;
     if ((coreMca = cJSON_GetObjectItemCaseSensitive(
              thread, sCoreMcaReg->bankName)) == NULL)
     {
@@ -376,7 +376,7 @@ static const SCoreMcaReg sCoreMcaRegs[] = {
  *   debug log.
  *
  ******************************************************************************/
-int logCoreMcaICX1(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
+int logCoreMcaICX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 {
     int ret = 0;
 
@@ -462,7 +462,7 @@ static const SCoreMcaLogVx sCoreMcaLogVx[] = {
  *   debug log.
  *
  ******************************************************************************/
-int logCoreMca(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
+int logCoreMca(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 {
     if (pJsonChild == NULL)
     {

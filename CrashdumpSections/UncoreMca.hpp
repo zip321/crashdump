@@ -130,7 +130,7 @@ typedef struct
 typedef struct
 {
     crashdump::CPUModel cpuModel;
-    int (*logUncoreMcaVx)(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild);
+    int (*logUncoreMcaVx)(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);
 } SUncoreMcaLogVx;
 
-int logUncoreMca(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild);
+int logUncoreMca(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);

@@ -37,7 +37,7 @@ extern "C" {
 
 namespace crashdump
 {
-int getBMCVersionDBus(char *bmcVerStr, size_t bmcVerStrSize)
+int getBMCVersionDBus(char* bmcVerStr, size_t bmcVerStrSize)
 {
     using ManagedObjectType = boost::container::flat_map<
         sdbusplus::message::object_path,
@@ -61,7 +61,7 @@ int getBMCVersionDBus(char *bmcVerStr, size_t bmcVerStrSize)
         sdbusplus::message::message resp = dbus.call(getObjects);
         resp.read(bmcUpdaterIntfs);
     }
-    catch (sdbusplus::exception_t &e)
+    catch (sdbusplus::exception_t& e)
     {
         return 1;
     }
@@ -70,8 +70,8 @@ int getBMCVersionDBus(char *bmcVerStr, size_t bmcVerStrSize)
              sdbusplus::message::object_path,
              boost::container::flat_map<
                  std::string, boost::container::flat_map<
-                                  std::string, std::variant<std::string>>>>
-             &pathPair : bmcUpdaterIntfs)
+                                  std::string, std::variant<std::string>>>>&
+             pathPair : bmcUpdaterIntfs)
     {
         boost::container::flat_map<
             std::string,
@@ -86,7 +86,7 @@ int getBMCVersionDBus(char *bmcVerStr, size_t bmcVerStrSize)
                     softwareVerIt->second.find("Version");
             if (versionIt != softwareVerIt->second.end())
             {
-                const std::string *bmcVersion =
+                const std::string* bmcVersion =
                     std::get_if<std::string>(&versionIt->second);
                 if (bmcVersion != nullptr)
                 {
@@ -102,7 +102,7 @@ int getBMCVersionDBus(char *bmcVerStr, size_t bmcVerStrSize)
 }
 } // namespace crashdump
 
-int cd_snprintf_s(char *str, size_t len, const char *format, ...)
+int cd_snprintf_s(char* str, size_t len, const char* format, ...)
 {
     int ret;
     va_list args;

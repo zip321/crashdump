@@ -35,10 +35,10 @@ extern "C" {
  *
  ******************************************************************************/
 static void powerManagementJson(uint32_t u32CoreNum,
-                                SCpuPowerState *sCpuPowerState,
-                                cJSON *pJsonChild)
+                                SCpuPowerState* sCpuPowerState,
+                                cJSON* pJsonChild)
 {
-    cJSON *core;
+    cJSON* core;
     char jsonItemString[PM_JSON_STRING_LEN];
 
     // Add the core number item to the Power Management JSON structure
@@ -68,9 +68,9 @@ static void powerManagementJson(uint32_t u32CoreNum,
  *   production systems.
  *
  ******************************************************************************/
-static int powerManagementReadReg(crashdump::CPUInfo &cpuInfo,
+static int powerManagementReadReg(crashdump::CPUInfo& cpuInfo,
                                   uint32_t u32CoreNum, uint32_t u32RegParam,
-                                  uint32_t *u32RegData, int peci_fd)
+                                  uint32_t* u32RegData, int peci_fd)
 {
     uint8_t cc = 0;
 
@@ -98,7 +98,7 @@ static int powerManagementReadReg(crashdump::CPUInfo &cpuInfo,
 
     // Get the register data
     if (peci_RdPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, PM_READ_PARAM,
-                             sizeof(uint32_t), (uint8_t *)u32RegData, peci_fd,
+                             sizeof(uint32_t), (uint8_t*)u32RegData, peci_fd,
                              &cc) != PECI_CC_SUCCESS)
     {
         // Reg read sequence failed, abort the sequence
@@ -138,7 +138,7 @@ static int powerManagementReadReg(crashdump::CPUInfo &cpuInfo,
  *         Close register read sequence.
  *
  ******************************************************************************/
-int logPowerManagementCPX1(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
+int logPowerManagementCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 {
     int ret = 0;
     int peci_fd = -1;
@@ -192,7 +192,7 @@ int logPowerManagementCPX1(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
  *   The PECI flow is listed below to dump the core state registers
  *
  ******************************************************************************/
-int logPowerManagementICX1(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
+int logPowerManagementICX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 {
     // TODO: feature enablement
     return 0;
@@ -213,7 +213,7 @@ static const SPowerManagementVx sPowerManagementVx[] = {
  *   This function gathers the PowerManagement log and adds it to the debug log
  *
  ******************************************************************************/
-int logPowerManagement(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
+int logPowerManagement(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 {
     if (pJsonChild == NULL)
     {

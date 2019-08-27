@@ -27,9 +27,9 @@
 #define ABS(_v_) (((_v_) > 0) ? (_v_) : -(_v_))
 #endif
 
-extern EPECIStatus peci_GetDIB(uint8_t target, uint64_t *dib);
+extern EPECIStatus peci_GetDIB(uint8_t target, uint64_t* dib);
 
-void Usage(char *progname)
+void Usage(char* progname)
 {
     printf("Usage :\n");
     printf("\t%s [-a<addr>] -t | -m<mbx_number>[:<value>]\n", progname);
@@ -54,7 +54,7 @@ void Usage(char *progname)
     printf("\n");
 }
 
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
     int c;
     EPECIStatus ret;
@@ -212,7 +212,7 @@ int main(int argc, char *argv[])
                     break;
             }
             ret = peci_RdPCIConfig(address, u8PciBus, u8PciDev, u8PciFunc,
-                                   u16PciReg, (uint8_t *)&u32PciReadVal, &cc);
+                                   u16PciReg, (uint8_t*)&u32PciReadVal, &cc);
             if (showCc)
                 printf("PCI Read cc:0x%x\n", cc);
             if (0 != ret)
@@ -238,7 +238,7 @@ int main(int argc, char *argv[])
                     break;
             }
             ret = peci_RdPkgConfig(address, u8PkgIndex, u16PkgParam, u8Size,
-                                   (uint8_t *)&u32PkgValue, &cc);
+                                   (uint8_t*)&u32PkgValue, &cc);
             if (showCc)
                 printf("Pkg Read cc:0x%x\n", cc);
             if (0 != ret)
@@ -321,7 +321,7 @@ int main(int argc, char *argv[])
             }
             ret = peci_RdPCIConfigLocal(address, u8PciBus, u8PciDev, u8PciFunc,
                                         u16PciReg, u8Size,
-                                        (uint8_t *)&u32PciReadVal, &cc);
+                                        (uint8_t*)&u32PciReadVal, &cc);
             if (showCc)
                 printf("Local PCI Read cc:0x%x\n", cc);
             if (0 != ret)

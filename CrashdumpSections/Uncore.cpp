@@ -1352,9 +1352,9 @@ static const SUncoreStatusRegIio sUncoreStatusIio[] = {
  *   This function formats the Uncore Status PCI registers into a JSON object
  *
  ******************************************************************************/
-static void uncoreStatusPciJson(const char *regName,
-                                SUncoreStatusRegRawData *sRegData,
-                                cJSON *pJsonChild)
+static void uncoreStatusPciJson(const char* regName,
+                                SUncoreStatusRegRawData* sRegData,
+                                cJSON* pJsonChild)
 {
     char jsonItemString[US_JSON_STRING_LEN];
 
@@ -1378,7 +1378,7 @@ static void uncoreStatusPciJson(const char *regName,
  *   This function gathers the Uncore Status PCI registers
  *
  ******************************************************************************/
-static int uncoreStatusPci(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
+static int uncoreStatusPci(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 {
     uint8_t cc = 0;
 
@@ -1396,8 +1396,7 @@ static int uncoreStatusPci(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
                         cpuInfo.clientAddr, sUncoreStatusPci[i].u8Bus,
                         sUncoreStatusPci[i].u8Dev, sUncoreStatusPci[i].u8Func,
                         sUncoreStatusPci[i].u16Reg, sUncoreStatusPci[i].u8Size,
-                        (uint8_t *)&sRegData.uValue.u64,
-                        &cc) != PECI_CC_SUCCESS)
+                        (uint8_t*)&sRegData.uValue.u64, &cc) != PECI_CC_SUCCESS)
                 {
                     sRegData.bInvalid = true;
                 }
@@ -1411,7 +1410,7 @@ static int uncoreStatusPci(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
                             sUncoreStatusPci[i].u8Func,
                             sUncoreStatusPci[i].u16Reg + (u8Dword * 4),
                             sizeof(uint32_t),
-                            (uint8_t *)&sRegData.uValue.u32[u8Dword],
+                            (uint8_t*)&sRegData.uValue.u32[u8Dword],
                             &cc) != PECI_CC_SUCCESS)
                     {
                         sRegData.bInvalid = true;
@@ -1433,8 +1432,8 @@ static int uncoreStatusPci(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
  *
  ******************************************************************************/
 static int uncoreStatusMmioRead(
-    crashdump::CPUInfo &cpuInfo, uint32_t u32Param, uint8_t u8NumDwords,
-    SUncoreStatusRegRawData *sUncoreStatusMmioRawData, int peci_fd)
+    crashdump::CPUInfo& cpuInfo, uint32_t u32Param, uint8_t u8NumDwords,
+    SUncoreStatusRegRawData* sUncoreStatusMmioRawData, int peci_fd)
 {
     uint8_t cc = 0;
 
@@ -1467,7 +1466,7 @@ static int uncoreStatusMmioRead(
     {
         if (peci_RdPkgConfig_seq(
                 cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_READ, sizeof(uint32_t),
-                (uint8_t *)&sUncoreStatusMmioRawData->uValue.u32[u8Dword],
+                (uint8_t*)&sUncoreStatusMmioRawData->uValue.u32[u8Dword],
                 peci_fd, &cc) != PECI_CC_SUCCESS)
         {
             // MMIO sequence failed, abort the sequence
@@ -1494,8 +1493,8 @@ static int uncoreStatusMmioRead(
  *   This function gathers the Uncore Status PCI MMIO registers
  *
  ******************************************************************************/
-static int uncoreStatusPciMmioCPX1(crashdump::CPUInfo &cpuInfo,
-                                   cJSON *pJsonChild)
+static int uncoreStatusPciMmioCPX1(crashdump::CPUInfo& cpuInfo,
+                                   cJSON* pJsonChild)
 {
     int peci_fd = -1;
 
@@ -1537,8 +1536,8 @@ static int uncoreStatusPciMmioCPX1(crashdump::CPUInfo &cpuInfo,
  *   This function gathers the Uncore Status MCA registers
  *
  ******************************************************************************/
-static int uncoreStatusMcaRead(crashdump::CPUInfo &cpuInfo, uint32_t u32Param,
-                               SUncoreStatusMcaRawData *sUncoreStatusMcaRawData,
+static int uncoreStatusMcaRead(crashdump::CPUInfo& cpuInfo, uint32_t u32Param,
+                               SUncoreStatusMcaRawData* sUncoreStatusMcaRawData,
                                int peci_fd)
 {
     uint8_t cc = 0;
@@ -1572,7 +1571,7 @@ static int uncoreStatusMcaRead(crashdump::CPUInfo &cpuInfo, uint32_t u32Param,
     {
         if (peci_RdPkgConfig_seq(
                 cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_READ, sizeof(uint32_t),
-                (uint8_t *)&sUncoreStatusMcaRawData->uRegData.u32Raw[u8Dword],
+                (uint8_t*)&sUncoreStatusMcaRawData->uRegData.u32Raw[u8Dword],
                 peci_fd, &cc) != PECI_CC_SUCCESS)
         {
             // MCA Bank sequence failed, abort the sequence
@@ -1598,9 +1597,9 @@ static int uncoreStatusMcaRead(crashdump::CPUInfo &cpuInfo, uint32_t u32Param,
  *   object
  *
  ******************************************************************************/
-static void uncoreStatusIioJson(const char *regName,
-                                SUncoreStatusMcaRawData *sMcaData,
-                                cJSON *pJsonChild)
+static void uncoreStatusIioJson(const char* regName,
+                                SUncoreStatusMcaRawData* sMcaData,
+                                cJSON* pJsonChild)
 {
     char jsonItemString[US_JSON_STRING_LEN];
     char jsonNameString[US_JSON_STRING_LEN];
@@ -1638,7 +1637,7 @@ static void uncoreStatusIioJson(const char *regName,
  *   This function gathers the Uncore Status IIO MCA registers
  *
  ******************************************************************************/
-static int uncoreStatusIio(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
+static int uncoreStatusIio(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 {
     int peci_fd = -1;
 
@@ -1678,8 +1677,8 @@ static int uncoreStatusIio(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
  *
  ******************************************************************************/
 static void uncoreStatusCrashdumpJson(uint32_t u32NumReads,
-                                      uint32_t *pu32UncoreCrashdump,
-                                      cJSON *pJsonChild)
+                                      uint32_t* pu32UncoreCrashdump,
+                                      cJSON* pJsonChild)
 {
     char jsonItemString[US_JSON_STRING_LEN];
     char jsonNameString[US_JSON_STRING_LEN];
@@ -1703,7 +1702,7 @@ static void uncoreStatusCrashdumpJson(uint32_t u32NumReads,
  *   This function gathers the Uncore Status Crashdump
  *
  ******************************************************************************/
-static int uncoreStatusCrashdump(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
+static int uncoreStatusCrashdump(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 {
     int peci_fd = -1;
     uint8_t cc = 0;
@@ -1742,7 +1741,7 @@ static int uncoreStatusCrashdump(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
     // Get the number of dwords to read
     uint32_t u32NumReads = 0;
     if (peci_RdPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, US_UCRASH_START,
-                             sizeof(uint32_t), (uint8_t *)&u32NumReads, peci_fd,
+                             sizeof(uint32_t), (uint8_t*)&u32NumReads, peci_fd,
                              &cc) != PECI_CC_SUCCESS)
     {
         // Uncore Crashdump dump sequence failed, abort the sequence
@@ -1755,7 +1754,7 @@ static int uncoreStatusCrashdump(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
     // Get the API version number
     uint32_t u32ApiVersion = 0;
     if (peci_RdPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_READ,
-                             sizeof(uint32_t), (uint8_t *)&u32ApiVersion,
+                             sizeof(uint32_t), (uint8_t*)&u32ApiVersion,
                              peci_fd, &cc) != PECI_CC_SUCCESS)
     {
         // Uncore Crashdump dump sequence failed, abort the sequence
@@ -1768,8 +1767,8 @@ static int uncoreStatusCrashdump(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
     u32NumReads--;
 
     // Get the raw data
-    uint32_t *pu32UncoreCrashdump =
-        (uint32_t *)calloc(u32NumReads, sizeof(uint32_t));
+    uint32_t* pu32UncoreCrashdump =
+        (uint32_t*)calloc(u32NumReads, sizeof(uint32_t));
     if (pu32UncoreCrashdump == NULL)
     {
         // calloc failed, abort the sequence
@@ -1782,7 +1781,7 @@ static int uncoreStatusCrashdump(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
     {
         if (peci_RdPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_READ,
                                  sizeof(uint32_t),
-                                 (uint8_t *)&pu32UncoreCrashdump[i], peci_fd,
+                                 (uint8_t*)&pu32UncoreCrashdump[i], peci_fd,
                                  &cc) != PECI_CC_SUCCESS)
         {
             // Uncore Crashdump dump sequence failed, note the number of dwords
@@ -1824,7 +1823,7 @@ static UncoreStatusRead UncoreStatusTypesCPX1[] = {
  *   the debug log.
  *
  ******************************************************************************/
-int logUncoreStatusCPX1(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
+int logUncoreStatusCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 {
     int ret = 0;
 
@@ -1848,9 +1847,9 @@ int logUncoreStatusCPX1(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
  *   This function formats the Uncore Status PCI registers into a JSON object
  *
  ******************************************************************************/
-static void uncoreStatusJsonICX(const char *regName,
-                                SUncoreStatusRegRawData *sRegData,
-                                cJSON *pJsonChild, uint8_t cc)
+static void uncoreStatusJsonICX(const char* regName,
+                                SUncoreStatusRegRawData* sRegData,
+                                cJSON* pJsonChild, uint8_t cc)
 {
     char jsonItemString[US_JSON_STRING_LEN];
 
@@ -1874,7 +1873,7 @@ static void uncoreStatusJsonICX(const char *regName,
  *   This function gathers the ICX Uncore Status PCI registers
  *
  ******************************************************************************/
-static int uncoreStatusPciICX1(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
+static int uncoreStatusPciICX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 {
     for (uint32_t i = 0;
          i < (sizeof(sUncoreStatusPciICX1) / sizeof(SUncoreStatusRegPci)); i++)
@@ -1892,7 +1891,7 @@ static int uncoreStatusPciICX1(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
                                               sUncoreStatusPciICX1[i].u8Func,
                                               sUncoreStatusPciICX1[i].u16Reg,
                                               sUncoreStatusPciICX1[i].u8Size,
-                                              (uint8_t *)&sRegData.uValue.u64,
+                                              (uint8_t*)&sRegData.uValue.u64,
                                               &cc);
                 if (PECI_CC_UA(cc))
                 {
@@ -1909,7 +1908,7 @@ static int uncoreStatusPciICX1(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
                         sUncoreStatusPciICX1[i].u8Func,
                         sUncoreStatusPciICX1[i].u16Reg + (u8Dword * 4),
                         sizeof(uint32_t),
-                        (uint8_t *)&sRegData.uValue.u32[u8Dword], &cc);
+                        (uint8_t*)&sRegData.uValue.u32[u8Dword], &cc);
                     if (PECI_CC_UA(cc))
                     {
                         sRegData.bInvalid = true;
@@ -1934,8 +1933,8 @@ static int uncoreStatusPciICX1(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
  *   This function gathers the Uncore Status PCI MMIO registers
  *
  ******************************************************************************/
-static int uncoreStatusPciMmioICX1(crashdump::CPUInfo &cpuInfo,
-                                   cJSON *pJsonChild)
+static int uncoreStatusPciMmioICX1(crashdump::CPUInfo& cpuInfo,
+                                   cJSON* pJsonChild)
 {
     char jsonNameString[US_REG_NAME_LEN];
 
@@ -1950,7 +1949,7 @@ static int uncoreStatusPciMmioICX1(crashdump::CPUInfo &cpuInfo,
         uint8_t bus;
         peci_RdEndPointConfigPciLocal(
             cpuInfo.clientAddr, US_MMIO_SEG, MMIO_ROOT_BUS, MMIO_ROOT_DEV,
-            MMIO_ROOT_FUNC, MMIO_ROOT_REG, US_REG_DWORD, (uint8_t *)&bus, &cc);
+            MMIO_ROOT_FUNC, MMIO_ROOT_REG, US_REG_DWORD, (uint8_t*)&bus, &cc);
 
         if (PECI_CC_UA(cc))
         {
@@ -1982,7 +1981,7 @@ static int uncoreStatusPciMmioICX1(crashdump::CPUInfo &cpuInfo,
                 sUncoreStatusPciMmioICX1[i].u8Func,
                 sUncoreStatusPciMmioICX1[i].u8Bar, addrType,
                 sUncoreStatusPciMmioICX1[i].u64Offset, readLen,
-                (uint8_t *)&sRegData.uValue.u64, &cc);
+                (uint8_t*)&sRegData.uValue.u64, &cc);
 
             if (PECI_CC_UA(cc))
             {
@@ -2009,7 +2008,7 @@ static UncoreStatusRead UncoreStatusTypesICX1[] = {
  *   the debug log.
  *
  ******************************************************************************/
-int logUncoreStatusICX1(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
+int logUncoreStatusICX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 {
     int ret = 0;
 
@@ -2042,7 +2041,7 @@ static const SUncoreStatusLogVx sUncoreStatusLogVx[] = {
  *   the debug log.
  *
  ******************************************************************************/
-int logUncoreStatus(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
+int logUncoreStatus(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 {
     if (pJsonChild == NULL)
     {

@@ -87,68 +87,68 @@ typedef enum
 } EEndPtMmioAddrType;
 
 // Find the specified PCI bus number value
-EPECIStatus FindBusNumber(uint8_t u8Bus, uint8_t u8Cpu, uint8_t *pu8BusValue);
+EPECIStatus FindBusNumber(uint8_t u8Bus, uint8_t u8Cpu, uint8_t* pu8BusValue);
 
 // Gets the temperature from the target
 // Expressed in signed fixed point value of 1/64 degrees celsius
-EPECIStatus peci_GetTemp(uint8_t target, int16_t *temperature);
+EPECIStatus peci_GetTemp(uint8_t target, int16_t* temperature);
 
 //  Provides read access to the package configuration space within the processor
 EPECIStatus peci_RdPkgConfig(uint8_t target, uint8_t u8Index, uint16_t u16Value,
-                             uint8_t u8ReadLen, uint8_t *pPkgConfig,
-                             uint8_t *cc);
+                             uint8_t u8ReadLen, uint8_t* pPkgConfig,
+                             uint8_t* cc);
 
 //  Allows sequential RdPkgConfig with the provided peci file descriptor
 EPECIStatus peci_RdPkgConfig_seq(uint8_t target, uint8_t u8Index,
                                  uint16_t u16Value, uint8_t u8ReadLen,
-                                 uint8_t *pPkgConfig, int peci_fd, uint8_t *cc);
+                                 uint8_t* pPkgConfig, int peci_fd, uint8_t* cc);
 
 //  Provides write access to the package configuration space within the
 //  processor
 EPECIStatus peci_WrPkgConfig(uint8_t target, uint8_t u8Index, uint16_t u16Param,
                              uint32_t u32Value, uint8_t u8WriteLen,
-                             uint8_t *cc);
+                             uint8_t* cc);
 
 //  Allows sequential WrPkgConfig with the provided peci file descriptor
 EPECIStatus peci_WrPkgConfig_seq(uint8_t target, uint8_t u8Index,
                                  uint16_t u16Param, uint32_t u32Value,
-                                 uint8_t u8WriteLen, int peci_fd, uint8_t *cc);
+                                 uint8_t u8WriteLen, int peci_fd, uint8_t* cc);
 
 // Provides read access to Model Specific Registers
 EPECIStatus peci_RdIAMSR(uint8_t target, uint8_t threadID, uint16_t MSRAddress,
-                         uint64_t *u64MsrVal, uint8_t *cc);
+                         uint64_t* u64MsrVal, uint8_t* cc);
 
 // Provides read access to PCI Configuration space
 EPECIStatus peci_RdPCIConfig(uint8_t target, uint8_t u8Bus, uint8_t u8Device,
-                             uint8_t u8Fcn, uint16_t u16Reg, uint8_t *pPCIReg,
-                             uint8_t *cc);
+                             uint8_t u8Fcn, uint16_t u16Reg, uint8_t* pPCIReg,
+                             uint8_t* cc);
 
 //  Allows sequential RdPCIConfig with the provided peci file descriptor
 EPECIStatus peci_RdPCIConfig_seq(uint8_t target, uint8_t u8Bus,
                                  uint8_t u8Device, uint8_t u8Fcn,
-                                 uint16_t u16Reg, uint8_t *pPCIData,
-                                 int peci_fd, uint8_t *cc);
+                                 uint16_t u16Reg, uint8_t* pPCIData,
+                                 int peci_fd, uint8_t* cc);
 
 // Provides sequential read access to PCI Configuration space with the provided
 // peci file descriptor
 EPECIStatus peci_MultipleRdPCIConfig_seq(uint8_t target, uint8_t u8Bus,
                                          uint8_t u8Device, uint8_t u8Fcn,
                                          uint16_t u16Reg, uint8_t u8Len,
-                                         uint8_t *pPCIData, int peci_fd,
-                                         uint8_t *cc);
+                                         uint8_t* pPCIData, int peci_fd,
+                                         uint8_t* cc);
 
 // Provides read access to the local PCI Configuration space
 EPECIStatus peci_RdPCIConfigLocal(uint8_t target, uint8_t u8Bus,
                                   uint8_t u8Device, uint8_t u8Fcn,
                                   uint16_t u16Reg, uint8_t u8ReadLen,
-                                  uint8_t *pPCIReg, uint8_t *cc);
+                                  uint8_t* pPCIReg, uint8_t* cc);
 
 //  Allows sequential RdPCIConfigLocal with the provided peci file descriptor
 EPECIStatus peci_RdPCIConfigLocal_seq(uint8_t target, uint8_t u8Bus,
                                       uint8_t u8Device, uint8_t u8Fcn,
                                       uint16_t u16Reg, uint8_t u8ReadLen,
-                                      uint8_t *pPCIReg, int peci_fd,
-                                      uint8_t *cc);
+                                      uint8_t* pPCIReg, int peci_fd,
+                                      uint8_t* cc);
 
 // Provides write access to the local PCI Configuration space
 EPECIStatus peci_WrPCIConfigLocal(uint8_t target, uint8_t u8Bus,
@@ -160,63 +160,63 @@ EPECIStatus peci_WrPCIConfigLocal(uint8_t target, uint8_t u8Bus,
 EPECIStatus peci_RdEndPointConfigPci(uint8_t target, uint8_t u8Seg,
                                      uint8_t u8Bus, uint8_t u8Device,
                                      uint8_t u8Fcn, uint16_t u16Reg,
-                                     uint8_t u8ReadLen, uint8_t *pPCIData,
-                                     uint8_t *cc);
+                                     uint8_t u8ReadLen, uint8_t* pPCIData,
+                                     uint8_t* cc);
 
 // Allows sequential RdEndPointConfig to PCI Configuration space
 EPECIStatus peci_RdEndPointConfigPci_seq(uint8_t target, uint8_t u8Seg,
                                          uint8_t u8Bus, uint8_t u8Device,
                                          uint8_t u8Fcn, uint16_t u16Reg,
-                                         uint8_t u8ReadLen, uint8_t *pPCIData,
-                                         int peci_fd, uint8_t *cc);
+                                         uint8_t u8ReadLen, uint8_t* pPCIData,
+                                         int peci_fd, uint8_t* cc);
 
 // Provides read access to the local PCI configuration space
 EPECIStatus peci_RdEndPointConfigPciLocal(uint8_t target, uint8_t u8Seg,
                                           uint8_t u8Bus, uint8_t u8Device,
                                           uint8_t u8Fcn, uint16_t u16Reg,
-                                          uint8_t u8ReadLen, uint8_t *pPCIData,
-                                          uint8_t *cc);
+                                          uint8_t u8ReadLen, uint8_t* pPCIData,
+                                          uint8_t* cc);
 
 // Allows sequential RdEndPointConfig to the local PCI Configuration space
 EPECIStatus peci_RdEndPointConfigPciLocal_seq(uint8_t target, uint8_t u8Seg,
                                               uint8_t u8Bus, uint8_t u8Device,
                                               uint8_t u8Fcn, uint16_t u16Reg,
                                               uint8_t u8ReadLen,
-                                              uint8_t *pPCIData, int peci_fd,
-                                              uint8_t *cc);
+                                              uint8_t* pPCIData, int peci_fd,
+                                              uint8_t* cc);
 
 // Provides read access to PCI MMIO space
 EPECIStatus peci_RdEndPointConfigMmio(uint8_t target, uint8_t u8Seg,
                                       uint8_t u8Bus, uint8_t u8Device,
                                       uint8_t u8Fcn, uint8_t u8Bar,
                                       uint8_t u8AddrType, uint64_t u64Offset,
-                                      uint8_t u8ReadLen, uint8_t *pMmioData,
-                                      uint8_t *cc);
+                                      uint8_t u8ReadLen, uint8_t* pMmioData,
+                                      uint8_t* cc);
 
 // Allows sequential RdEndPointConfig to PCI MMIO space
 EPECIStatus peci_RdEndPointConfigMmio_seq(
     uint8_t target, uint8_t u8Seg, uint8_t u8Bus, uint8_t u8Device,
     uint8_t u8Fcn, uint8_t u8Bar, uint8_t u8AddrType, uint64_t u64Offset,
-    uint8_t u8ReadLen, uint8_t *pMmioData, int peci_fd, uint8_t *cc);
+    uint8_t u8ReadLen, uint8_t* pMmioData, int peci_fd, uint8_t* cc);
 
 // Provides access to the Crashdump Discovery API
 EPECIStatus peci_CrashDump_Discovery(uint8_t target, uint8_t subopcode,
                                      uint8_t param0, uint16_t param1,
                                      uint8_t param2, uint8_t u8ReadLen,
-                                     uint8_t *pData, uint8_t *cc);
+                                     uint8_t* pData, uint8_t* cc);
 
 // Provides access to the Crashdump GetFrame API
 EPECIStatus peci_CrashDump_GetFrame(uint8_t target, uint16_t param0,
                                     uint16_t param1, uint16_t param2,
-                                    uint8_t u8ReadLen, uint8_t *pData,
-                                    uint8_t *cc);
+                                    uint8_t u8ReadLen, uint8_t* pData,
+                                    uint8_t* cc);
 
 // Provides raw PECI command access
-EPECIStatus peci_raw(uint8_t target, uint8_t u8ReadLen, const uint8_t *pRawCmd,
-                     const uint32_t cmdSize, uint8_t *pRawResp,
+EPECIStatus peci_raw(uint8_t target, uint8_t u8ReadLen, const uint8_t* pRawCmd,
+                     const uint32_t cmdSize, uint8_t* pRawResp,
                      uint32_t respSize);
 
-EPECIStatus peci_Lock(int *peci_fd, uint32_t timeout_ms);
+EPECIStatus peci_Lock(int* peci_fd, uint32_t timeout_ms);
 void peci_Unlock(int peci_fd);
 EPECIStatus peci_Ping(uint8_t target);
 EPECIStatus peci_Ping_seq(uint8_t target, int peci_fd);

@@ -119,7 +119,7 @@ typedef struct
 typedef struct
 {
     SCrashdumpHeader header;
-    uint32_t *data;
+    uint32_t* data;
 } SCrashdump;
 
 /******************************************************************************
@@ -184,10 +184,10 @@ typedef union
 typedef struct
 {
     crashdump::CPUModel cpuModel;
-    int (*logCrashdumpVx)(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild);
+    int (*logCrashdumpVx)(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);
 } SCrashdumpVx;
 
-int logCrashdump(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild);
+int logCrashdump(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);
 
 #define ICX_A0_FRAME_BYTE_OFFSET 32
 #define ICX_A0_CRASHDUMP_DISABLED 1

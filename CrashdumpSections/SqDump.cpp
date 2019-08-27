@@ -35,13 +35,13 @@ extern "C" {
  *   This function formats the SQ Dump log into a JSON object
  *
  ******************************************************************************/
-static void sqDumpJson(uint32_t u32CoreNum, SSqDump *psSqDump,
-                       cJSON *pJsonChild)
+static void sqDumpJson(uint32_t u32CoreNum, SSqDump* psSqDump,
+                       cJSON* pJsonChild)
 {
-    cJSON *core;
-    cJSON *sq;
-    cJSON *entry;
-    cJSON *sqData;
+    cJSON* core;
+    cJSON* sq;
+    cJSON* entry;
+    cJSON* sqData;
     char jsonItemName[SQ_JSON_STRING_LEN];
     char jsonItemString[SQ_JSON_STRING_LEN];
     uint32_t i;
@@ -144,9 +144,9 @@ static void sqDumpJson(uint32_t u32CoreNum, SSqDump *psSqDump,
  *   This function gathers the specified type of SQ Dump
  *
  ******************************************************************************/
-static int sqDump(crashdump::CPUInfo &cpuInfo, uint32_t u32CoreNum,
-                  uint32_t u32SqType, uint32_t **ppu32SqDumpRet,
-                  uint32_t *pu32SqDumpSize, int peci_fd)
+static int sqDump(crashdump::CPUInfo& cpuInfo, uint32_t u32CoreNum,
+                  uint32_t u32SqType, uint32_t** ppu32SqDumpRet,
+                  uint32_t* pu32SqDumpSize, int peci_fd)
 {
     uint8_t cc = 0;
 
@@ -186,7 +186,7 @@ static int sqDump(crashdump::CPUInfo &cpuInfo, uint32_t u32CoreNum,
     // Get the number of dwords to read
     uint32_t u32NumReads = 0;
     if (peci_RdPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_READ,
-                             sizeof(uint32_t), (uint8_t *)&u32NumReads, peci_fd,
+                             sizeof(uint32_t), (uint8_t*)&u32NumReads, peci_fd,
                              &cc) != PECI_CC_SUCCESS)
     {
         // SQ dump sequence failed, abort the sequence and go to the next CPU
@@ -196,8 +196,8 @@ static int sqDump(crashdump::CPUInfo &cpuInfo, uint32_t u32CoreNum,
     }
 
     // Get the raw data
-    uint32_t *pu32SqDump = NULL;
-    pu32SqDump = (uint32_t *)calloc(u32NumReads, sizeof(uint32_t));
+    uint32_t* pu32SqDump = NULL;
+    pu32SqDump = (uint32_t*)calloc(u32NumReads, sizeof(uint32_t));
     if (pu32SqDump == NULL)
     {
         // calloc failed, abort the sequence and go to the next CPU
@@ -205,7 +205,7 @@ static int sqDump(crashdump::CPUInfo &cpuInfo, uint32_t u32CoreNum,
                              VCU_SQ_DUMP_SEQ, sizeof(uint32_t), peci_fd, &cc);
         return 1;
     }
-    fprintf(stderr, "u32NumReads (%d) :core (%d)\n", u32NumReads,u32CoreNum);
+    fprintf(stderr, "u32NumReads (%d) :core (%d)\n", u32NumReads, u32CoreNum);
     if (u32NumReads > 3000)
     {
         u32NumReads = 3000;
@@ -213,7 +213,7 @@ static int sqDump(crashdump::CPUInfo &cpuInfo, uint32_t u32CoreNum,
     for (int i = 0; i < u32NumReads; i++)
     {
         if (peci_RdPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_READ,
-                                 sizeof(uint32_t), (uint8_t *)&pu32SqDump[i],
+                                 sizeof(uint32_t), (uint8_t*)&pu32SqDump[i],
                                  peci_fd, &cc) != PECI_CC_SUCCESS)
         {
             // SQ dump sequence failed, note the number of dwords read and abort
@@ -269,7 +269,7 @@ static int sqDump(crashdump::CPUInfo &cpuInfo, uint32_t u32CoreNum,
  *         0x80 0x0004 0x00030004 Close SQ Dump Sequence.
  *
  ******************************************************************************/
-int logSqDumpCPX1(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
+int logSqDumpCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 {
     bool bSqDataLogged = false;
     int peci_fd = -1;
@@ -342,7 +342,7 @@ int logSqDumpCPX1(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
  *   The ICX1 SQ dump is part of the core info section, so this does nothing
  *
  ******************************************************************************/
-int logSqDumpICX1(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
+int logSqDumpICX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 {
     return 0;
 }
@@ -363,7 +363,7 @@ static const SSqDumpVx sSqDumpVx[] = {
  *    PECI interface after a platform three (3) strike failure.
  *
  ******************************************************************************/
-int logSqDump(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
+int logSqDump(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 {
     if (pJsonChild == NULL)
     {

@@ -81,15 +81,15 @@ typedef struct
 typedef struct
 {
     char sectionName[SI_JSON_STRING_LEN];
-    void (*FillSysInfoJson)(SSysInfoRawData *sSysInfoRawData,
-                            char *cSectionName, cJSON *pJsonChild);
+    void (*FillSysInfoJson)(SSysInfoRawData* sSysInfoRawData,
+                            char* cSectionName, cJSON* pJsonChild);
 } SSysInfoSection;
 
 typedef struct
 {
     crashdump::CPUModel cpuModel;
-    void (*getPpinVx)(crashdump::CPUInfo &cpuInfo,
-                      SSysInfoRawData *sSysInfoRawData, cJSON *pJsonChild);
+    void (*getPpinVx)(crashdump::CPUInfo& cpuInfo,
+                      SSysInfoRawData* sSysInfoRawData, cJSON* pJsonChild);
 } SPpinVx;
 
-int logSysInfo(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild);
+int logSysInfo(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);

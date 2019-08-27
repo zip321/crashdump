@@ -37,15 +37,15 @@ extern "C" {
  *
  ******************************************************************************/
 static void unCoreMcaCboJson(uint32_t u32CboNum,
-                             SUncoreMcaRawData *psUncoreCboRawData,
-                             cJSON *pJsonChild)
+                             SUncoreMcaRawData* psUncoreCboRawData,
+                             cJSON* pJsonChild)
 {
     char jsonItemString[UNCORE_MCA_JSON_STRING_LEN];
     char jsonNameString[UNCORE_MCA_JSON_STRING_LEN];
 
     // Add the uncore item to the Uncore MCA JSON structure only if it doesn't
     // already exist
-    cJSON *uncore;
+    cJSON* uncore;
     cd_snprintf_s(jsonItemString, UNCORE_MCA_JSON_STRING_LEN,
                   UNCORE_MCA_JSON_SECTION_NAME);
     if ((uncore = cJSON_GetObjectItemCaseSensitive(pJsonChild,
@@ -57,7 +57,7 @@ static void unCoreMcaCboJson(uint32_t u32CboNum,
 
     // Format the Uncore Status CBO MCA data out to the .json debug file
     // Fill in NULL for this CBO MCA if it's not valid
-    cJSON *uncoreMcaCbo;
+    cJSON* uncoreMcaCbo;
     cd_snprintf_s(jsonNameString, UNCORE_MCA_JSON_STRING_LEN,
                   UNCORE_MCA_JSON_CBO_NAME, u32CboNum, uncoreMcaRegNames[0]);
 
@@ -105,8 +105,8 @@ static void unCoreMcaCboJson(uint32_t u32CboNum,
  *   This function gathers the Uncore Cbo MCA registers
  *
  ******************************************************************************/
-static int uncoreCboMcaReadCPX1(crashdump::CPUInfo &cpuInfo, uint32_t u32Param,
-                                SUncoreMcaRawData *sUncoreStatusMcaRawData,
+static int uncoreCboMcaReadCPX1(crashdump::CPUInfo& cpuInfo, uint32_t u32Param,
+                                SUncoreMcaRawData* sUncoreStatusMcaRawData,
                                 int peci_fd)
 {
     uint8_t cc = 0;
@@ -140,7 +140,7 @@ static int uncoreCboMcaReadCPX1(crashdump::CPUInfo &cpuInfo, uint32_t u32Param,
     {
         if (peci_RdPkgConfig_seq(
                 cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_READ, sizeof(uint32_t),
-                (uint8_t *)&sUncoreStatusMcaRawData->uRegData.u32Raw[u8Dword],
+                (uint8_t*)&sUncoreStatusMcaRawData->uRegData.u32Raw[u8Dword],
                 peci_fd, &cc) != PECI_CC_SUCCESS)
         {
             // MCA Bank sequence failed, abort the sequence
@@ -165,11 +165,11 @@ static int uncoreCboMcaReadCPX1(crashdump::CPUInfo &cpuInfo, uint32_t u32Param,
  *   This function formats the Uncore MCA into a JSON object
  *
  ******************************************************************************/
-static void uncoreMcaJsonCPX1(SUncoreMcaRawData *sUncoreMcaRawData,
-                              cJSON *pJsonChild, uint32_t bank)
+static void uncoreMcaJsonCPX1(SUncoreMcaRawData* sUncoreMcaRawData,
+                              cJSON* pJsonChild, uint32_t bank)
 {
-    cJSON *uncore;
-    cJSON *uncoreMca;
+    cJSON* uncore;
+    cJSON* uncoreMca;
     char jsonItemName[UNCORE_MCA_JSON_STRING_LEN];
     char jsonItemString[UNCORE_MCA_JSON_STRING_LEN];
 
@@ -256,7 +256,7 @@ static void uncoreMcaJsonCPX1(SUncoreMcaRawData *sUncoreMcaRawData,
  *   This function gathers the Uncore CBO MCA registers
  *
  ******************************************************************************/
-static int uncoreMcaCboCPX1(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
+static int uncoreMcaCboCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 {
     int peci_fd = -1;
 
@@ -346,7 +346,7 @@ static int uncoreMcaCboCPX1(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
  *         0x80 0x0004 0x00010000 Close Machine Check Dump Sequence.
  *
  ******************************************************************************/
-int logUncoreMcaCPX1(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
+int logUncoreMcaCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 {
     EPECIStatus ePECIStatus;
     int ret = 0;
@@ -398,7 +398,7 @@ int logUncoreMcaCPX1(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
         {
             ePECIStatus = peci_RdPkgConfig_seq(
                 cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_READ, sizeof(uint32_t),
-                (uint8_t *)&sUncoreMcaRawData.uRegData.u32Raw[u8Dword], peci_fd,
+                (uint8_t*)&sUncoreMcaRawData.uRegData.u32Raw[u8Dword], peci_fd,
                 &cc);
             if (ePECIStatus != PECI_CC_SUCCESS)
             {
@@ -579,15 +579,15 @@ static const SUncoreMcaReg sUncoreMcaRegs[] = {
  *   This function formats the Uncore MCA into a JSON object
  *
  ******************************************************************************/
-static void uncoreMcaJsonICX1(const SUncoreMcaReg *sUncoreMcaReg,
-                              uint64_t u64UncoreMcaData, cJSON *pJsonChild,
+static void uncoreMcaJsonICX1(const SUncoreMcaReg* sUncoreMcaReg,
+                              uint64_t u64UncoreMcaData, cJSON* pJsonChild,
                               uint8_t cc)
 {
     char jsonItemString[UNCORE_MCA_JSON_STRING_LEN];
 
     // Add the uncore item to the Uncore MCA JSON structure only if it doesn't
     // already exist
-    cJSON *uncore;
+    cJSON* uncore;
     cd_snprintf_s(jsonItemString, UNCORE_MCA_JSON_STRING_LEN,
                   UNCORE_MCA_JSON_SECTION_NAME);
     if ((uncore = cJSON_GetObjectItemCaseSensitive(pJsonChild,
@@ -599,7 +599,7 @@ static void uncoreMcaJsonICX1(const SUncoreMcaReg *sUncoreMcaReg,
 
     // Add the MCA number item to the Uncore MCA JSON structure only if it
     // doesn't already exist
-    cJSON *uncoreMca;
+    cJSON* uncoreMca;
     if ((uncoreMca = cJSON_GetObjectItemCaseSensitive(
              uncore, sUncoreMcaReg->bankName)) == NULL)
     {
@@ -629,7 +629,7 @@ static void uncoreMcaJsonICX1(const SUncoreMcaReg *sUncoreMcaReg,
  *   This function gathers the UnCore MCA CBO registers
  *
  ******************************************************************************/
-static int logUnCoreMcaCboICX1(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
+static int logUnCoreMcaCboICX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 {
     uint8_t cc = 0;
 
@@ -690,7 +690,7 @@ static int logUnCoreMcaCboICX1(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
  *   debug log.
  *
  ******************************************************************************/
-int logUncoreMcaICX1(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
+int logUncoreMcaICX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 {
     int ret = 0;
     uint8_t cc = 0;
@@ -730,7 +730,7 @@ static const SUncoreMcaLogVx sUncoreMcaLogVx[] = {
  *   debug log.
  *
  ******************************************************************************/
-int logUncoreMca(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
+int logUncoreMca(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 {
     if (pJsonChild == NULL)
     {

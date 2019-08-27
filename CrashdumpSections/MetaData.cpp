@@ -33,10 +33,10 @@ extern "C" {
  *   This function fills in the cpu_type JSON info
  *
  ******************************************************************************/
-void fillCPUIDJson(SSysInfoRawData *sSysInfoRawData, char *cSectionName,
-                   cJSON *pJsonChild)
+void fillCPUIDJson(SSysInfoRawData* sSysInfoRawData, char* cSectionName,
+                   cJSON* pJsonChild)
 {
-    cJSON *cpu;
+    cJSON* cpu;
     char jsonItemName[SI_JSON_STRING_LEN];
     char jsonItemString[SI_JSON_STRING_LEN];
 
@@ -66,10 +66,10 @@ void fillCPUIDJson(SSysInfoRawData *sSysInfoRawData, char *cSectionName,
  *   This function fills in the cpu_stepping JSON info
  *
  ******************************************************************************/
-void fillPECIIDJson(SSysInfoRawData *sSysInfoRawData, char *cSectionName,
-                    cJSON *pJsonChild)
+void fillPECIIDJson(SSysInfoRawData* sSysInfoRawData, char* cSectionName,
+                    cJSON* pJsonChild)
 {
-    cJSON *cpu;
+    cJSON* cpu;
     char jsonItemName[SI_JSON_STRING_LEN];
     char jsonItemString[SI_JSON_STRING_LEN];
 
@@ -98,10 +98,10 @@ void fillPECIIDJson(SSysInfoRawData *sSysInfoRawData, char *cSectionName,
  *   This function fills in the package_id JSON info
  *
  ******************************************************************************/
-void fillPackageIdJson(SSysInfoRawData *sSysInfoRawData, char *cSectionName,
-                       cJSON *pJsonChild)
+void fillPackageIdJson(SSysInfoRawData* sSysInfoRawData, char* cSectionName,
+                       cJSON* pJsonChild)
 {
-    cJSON *cpu;
+    cJSON* cpu;
     char jsonItemName[SI_JSON_STRING_LEN];
 
     // For now, the CPU number is just the bottom nibble of the PECI client ID
@@ -128,10 +128,10 @@ void fillPackageIdJson(SSysInfoRawData *sSysInfoRawData, char *cSectionName,
  *   This function fills in the cores_per_cpu JSON info
  *
  ******************************************************************************/
-void fillCoresPerCpuJson(SSysInfoRawData *sSysInfoRawData, char *cSectionName,
-                         cJSON *pJsonChild)
+void fillCoresPerCpuJson(SSysInfoRawData* sSysInfoRawData, char* cSectionName,
+                         cJSON* pJsonChild)
 {
-    cJSON *cpu;
+    cJSON* cpu;
     char jsonItemName[SI_JSON_STRING_LEN];
     char jsonItemString[SI_JSON_STRING_LEN];
 
@@ -160,10 +160,10 @@ void fillCoresPerCpuJson(SSysInfoRawData *sSysInfoRawData, char *cSectionName,
  *   This function fills in the ucode_patch_ver JSON info
  *
  ******************************************************************************/
-void fillUCodeVersionJson(SSysInfoRawData *sSysInfoRawData, char *cSectionName,
-                          cJSON *pJsonChild)
+void fillUCodeVersionJson(SSysInfoRawData* sSysInfoRawData, char* cSectionName,
+                          cJSON* pJsonChild)
 {
-    cJSON *cpu;
+    cJSON* cpu;
     char jsonItemName[SI_JSON_STRING_LEN];
     char jsonItemString[SI_JSON_STRING_LEN];
 
@@ -192,10 +192,10 @@ void fillUCodeVersionJson(SSysInfoRawData *sSysInfoRawData, char *cSectionName,
  *   This function fills in the vcode_patch_ver JSON info
  *
  ******************************************************************************/
-void fillVCodeVersionJson(SSysInfoRawData *sSysInfoRawData, char *cSectionName,
-                          cJSON *pJsonChild)
+void fillVCodeVersionJson(SSysInfoRawData* sSysInfoRawData, char* cSectionName,
+                          cJSON* pJsonChild)
 {
-    cJSON *cpu;
+    cJSON* cpu;
     char jsonItemName[SI_JSON_STRING_LEN];
     char jsonItemString[SI_JSON_STRING_LEN];
 
@@ -230,8 +230,8 @@ void fillVCodeVersionJson(SSysInfoRawData *sSysInfoRawData, char *cSectionName,
  *   This function fills in the bmc_fw_ver JSON info
  *
  ******************************************************************************/
-void fillBmcVersionJson(SSysInfoRawData *sSysInfoRawData, char *cSectionName,
-                        cJSON *pJsonChild)
+void fillBmcVersionJson(SSysInfoRawData* sSysInfoRawData, char* cSectionName,
+                        cJSON* pJsonChild)
 {
     // Only include system data if available
     if (!sSysInfoRawData->systemData)
@@ -262,8 +262,8 @@ void fillBmcVersionJson(SSysInfoRawData *sSysInfoRawData, char *cSectionName,
  *   This function fills in the me_fw_ver JSON info
  *
  ******************************************************************************/
-void fillMeVersionJson(SSysInfoRawData *sSysInfoRawData, char *cSectionName,
-                       cJSON *pJsonChild)
+void fillMeVersionJson(SSysInfoRawData* sSysInfoRawData, char* cSectionName,
+                       cJSON* pJsonChild)
 {
     // Only include system data if available
     if (!sSysInfoRawData->systemData)
@@ -292,8 +292,8 @@ void fillMeVersionJson(SSysInfoRawData *sSysInfoRawData, char *cSectionName,
  *   This function fills in the bios_id JSON info
  *
  ******************************************************************************/
-void fillBiosIdJson(SSysInfoRawData *sSysInfoRawData, char *cSectionName,
-                    cJSON *pJsonChild)
+void fillBiosIdJson(SSysInfoRawData* sSysInfoRawData, char* cSectionName,
+                    cJSON* pJsonChild)
 {
     // Only include system data if available
     if (!sSysInfoRawData->systemData)
@@ -317,10 +317,10 @@ void fillBiosIdJson(SSysInfoRawData *sSysInfoRawData, char *cSectionName,
  *   This function fills in the mca_err_src_log JSON info
  *
  ******************************************************************************/
-void fillMcaErrSrcLogJson(SSysInfoRawData *sSysInfoRawData, char *cSectionName,
-                          cJSON *pJsonChild)
+void fillMcaErrSrcLogJson(SSysInfoRawData* sSysInfoRawData, char* cSectionName,
+                          cJSON* pJsonChild)
 {
-    cJSON *cpu;
+    cJSON* cpu;
     char jsonItemName[SI_JSON_STRING_LEN];
     char jsonItemString[SI_JSON_STRING_LEN];
 
@@ -349,8 +349,8 @@ void fillMcaErrSrcLogJson(SSysInfoRawData *sSysInfoRawData, char *cSectionName,
  *   This function fills in the crashdump_ver JSON info
  *
  ******************************************************************************/
-void fillCrashdumpVersionJson(SSysInfoRawData *sSysInfoRawData,
-                              char *cSectionName, cJSON *pJsonChild)
+void fillCrashdumpVersionJson(SSysInfoRawData* sSysInfoRawData,
+                              char* cSectionName, cJSON* pJsonChild)
 {
     // Only include system data if available
     if (sSysInfoRawData->systemData)
@@ -366,10 +366,10 @@ void fillCrashdumpVersionJson(SSysInfoRawData *sSysInfoRawData,
  *   This function fills in the PPIN JSON info
  *
  ******************************************************************************/
-void fillPpinJson(SSysInfoRawData *sSysInfoRawData, char *cSectionName,
-                  cJSON *pJsonChild, uint8_t cc)
+void fillPpinJson(SSysInfoRawData* sSysInfoRawData, char* cSectionName,
+                  cJSON* pJsonChild, uint8_t cc)
 {
-    cJSON *cpu;
+    cJSON* cpu;
     char jsonItemName[SI_JSON_STRING_LEN];
     char jsonItemString[SI_JSON_STRING_LEN];
 
@@ -408,15 +408,15 @@ void fillPpinJson(SSysInfoRawData *sSysInfoRawData, char *cSectionName,
  *   This function gets PPIN info
  *
  ******************************************************************************/
-void getPpinDataICX1(crashdump::CPUInfo &cpuInfo,
-                     SSysInfoRawData *sSysInfoRawData, cJSON *pJsonChild)
+void getPpinDataICX1(crashdump::CPUInfo& cpuInfo,
+                     SSysInfoRawData* sSysInfoRawData, cJSON* pJsonChild)
 {
     uint32_t ppinUpper;
     uint32_t ppinLower;
     uint8_t cc = 0;
 
     peci_RdPkgConfig(cpuInfo.clientAddr, SI_PECI_PPIN_IDX, SI_PECI_PPIN_LOWER,
-                     sizeof(uint32_t), (uint8_t *)&ppinLower, &cc);
+                     sizeof(uint32_t), (uint8_t*)&ppinLower, &cc);
     sSysInfoRawData->sCpuData.isPpinNA = false;
     if (PECI_CC_UA(cc))
     {
@@ -425,7 +425,7 @@ void getPpinDataICX1(crashdump::CPUInfo &cpuInfo,
     }
 
     peci_RdPkgConfig(cpuInfo.clientAddr, SI_PECI_PPIN_IDX, SI_PECI_PPIN_UPPER,
-                     sizeof(uint32_t), (uint8_t *)&ppinUpper, &cc);
+                     sizeof(uint32_t), (uint8_t*)&ppinUpper, &cc);
 
     if (PECI_CC_UA(cc))
     {
@@ -446,8 +446,8 @@ void getPpinDataICX1(crashdump::CPUInfo &cpuInfo,
  *   This function gets PPIN info
  *
  ******************************************************************************/
-void getPpinDataCPX1(crashdump::CPUInfo &cpuInfo,
-                     SSysInfoRawData *sSysInfoRawData, cJSON *pJsonChild)
+void getPpinDataCPX1(crashdump::CPUInfo& cpuInfo,
+                     SSysInfoRawData* sSysInfoRawData, cJSON* pJsonChild)
 {
     uint8_t cc = 0;
     sSysInfoRawData->sCpuData.isPpinNA = true;
@@ -469,8 +469,8 @@ static const SPpinVx sSPpinVx[] = {
  *   This function gets the CPU-specific data for this CPU
  *
  ******************************************************************************/
-static int getCPUData(crashdump::CPUInfo &cpuInfo,
-                      SSysInfoRawData *sSysInfoRawData, cJSON *pJsonChild)
+static int getCPUData(crashdump::CPUInfo& cpuInfo,
+                      SSysInfoRawData* sSysInfoRawData, cJSON* pJsonChild)
 {
     int ret = 0;
     uint32_t u32PeciData;
@@ -478,7 +478,7 @@ static int getCPUData(crashdump::CPUInfo &cpuInfo,
 
     if (peci_RdPkgConfig(cpuInfo.clientAddr, PECI_MBX_INDEX_CPU_ID,
                          PECI_PKG_ID_CPU_ID, sizeof(uint32_t),
-                         (uint8_t *)&u32PeciData, &cc) != PECI_CC_SUCCESS)
+                         (uint8_t*)&u32PeciData, &cc) != PECI_CC_SUCCESS)
     {
         ret = 1;
     }
@@ -492,7 +492,7 @@ static int getCPUData(crashdump::CPUInfo &cpuInfo,
     // Get the UCode Version
     if (peci_RdPkgConfig(cpuInfo.clientAddr, PECI_MBX_INDEX_CPU_ID,
                          PECI_PKG_ID_MICROCODE_REV, sizeof(uint32_t),
-                         (uint8_t *)&u32PeciData, &cc) != PECI_CC_SUCCESS)
+                         (uint8_t*)&u32PeciData, &cc) != PECI_CC_SUCCESS)
     {
         ret = 1;
     }
@@ -500,7 +500,7 @@ static int getCPUData(crashdump::CPUInfo &cpuInfo,
 
     // Get the VCode Version if available
     if (peci_RdPkgConfig(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_VERSION,
-                         sizeof(uint32_t), (uint8_t *)&u32PeciData,
+                         sizeof(uint32_t), (uint8_t*)&u32PeciData,
                          &cc) == PECI_CC_SUCCESS)
     {
         sSysInfoRawData->sCpuData.u32VCodeVer = u32PeciData;
@@ -509,7 +509,7 @@ static int getCPUData(crashdump::CPUInfo &cpuInfo,
     // Get the MCA_ERR_SRC_LOG
     if (peci_RdPkgConfig(cpuInfo.clientAddr, PECI_MBX_INDEX_CPU_ID,
                          PECI_PKG_ID_MACHINE_CHECK_STATUS, sizeof(uint32_t),
-                         (uint8_t *)&u32PeciData, &cc) != PECI_CC_SUCCESS)
+                         (uint8_t*)&u32PeciData, &cc) != PECI_CC_SUCCESS)
     {
         ret = 1;
     }
@@ -534,7 +534,7 @@ static int getCPUData(crashdump::CPUInfo &cpuInfo,
  *   This function gets the BMC Version
  *
  ******************************************************************************/
-static int getBMCVersion(SSysInfoRawData *sSysInfoRawData)
+static int getBMCVersion(SSysInfoRawData* sSysInfoRawData)
 {
     return crashdump::getBMCVersionDBus(sSysInfoRawData->bmcVersion,
                                         sizeof(sSysInfoRawData->bmcVersion));
@@ -547,7 +547,7 @@ static int getBMCVersion(SSysInfoRawData *sSysInfoRawData)
  *   This function gets the BIOS ID
  *
  ******************************************************************************/
-static int getBIOSID(uint8_t *biosID)
+static int getBIOSID(uint8_t* biosID)
 {
     return 0;
 }
@@ -571,7 +571,7 @@ static int getMeDeviceId(void)
  *   This function gets the System Info
  *
  ******************************************************************************/
-static int getSystemInfo(SSysInfoRawData *sSysInfoRawData)
+static int getSystemInfo(SSysInfoRawData* sSysInfoRawData)
 {
     int ret = 0;
 
@@ -620,7 +620,7 @@ static SSysInfoSection sSysInfoTable[] = {
  *   This function formats the system information into a JSON object
  *
  ******************************************************************************/
-static void sysInfoJson(SSysInfoRawData *sSysInfoRawData, cJSON *pJsonChild)
+static void sysInfoJson(SSysInfoRawData* sSysInfoRawData, cJSON* pJsonChild)
 {
     uint32_t i;
 
@@ -639,7 +639,7 @@ static void sysInfoJson(SSysInfoRawData *sSysInfoRawData, cJSON *pJsonChild)
  *   into a single group
  *
  ******************************************************************************/
-int logSysInfo(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
+int logSysInfo(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 {
     if (pJsonChild == NULL)
     {

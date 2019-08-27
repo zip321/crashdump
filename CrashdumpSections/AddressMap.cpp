@@ -33,8 +33,8 @@ extern "C" {
  *   This function formats the Address Map entry into a JSON object
  *
  ******************************************************************************/
-static void addressMapJson(const SAddrMapEntry *sAddrMapEntry,
-                           uint64_t *u64Data, cJSON *pJsonChild)
+static void addressMapJson(const SAddrMapEntry* sAddrMapEntry,
+                           uint64_t* u64Data, cJSON* pJsonChild)
 {
     // Add the register if it's valid
     if (u64Data != NULL)
@@ -59,9 +59,9 @@ static void addressMapJson(const SAddrMapEntry *sAddrMapEntry,
  *   and adds it to the debug log
  *
  ******************************************************************************/
-int logAddressMapEntries(crashdump::CPUInfo &cpuInfo,
-                         const SAddrMapEntry *sAddrMapEntries,
-                         int numAddrMapEntries, cJSON *pJsonChild)
+int logAddressMapEntries(crashdump::CPUInfo& cpuInfo,
+                         const SAddrMapEntry* sAddrMapEntries,
+                         int numAddrMapEntries, cJSON* pJsonChild)
 {
     int ret = 0;
     int peci_fd = -1;
@@ -76,7 +76,7 @@ int logAddressMapEntries(crashdump::CPUInfo &cpuInfo,
     for (uint32_t i = 0; i < numAddrMapEntries; i++)
     {
         UAddrMapRegValue uValue = {};
-        uint64_t *pValue = &uValue.u64;
+        uint64_t* pValue = &uValue.u64;
         if (sAddrMapEntries[i].u8Size == 8)
         {
             for (uint8_t u8Dword = 0; u8Dword < 2; u8Dword++)
@@ -85,7 +85,7 @@ int logAddressMapEntries(crashdump::CPUInfo &cpuInfo,
                         cpuInfo.clientAddr, sAddrMapEntries[i].u8Bus,
                         sAddrMapEntries[i].u8Dev, sAddrMapEntries[i].u8Func,
                         sAddrMapEntries[i].u16Reg + (u8Dword * 4),
-                        sizeof(uint32_t), (uint8_t *)&uValue.u32[u8Dword],
+                        sizeof(uint32_t), (uint8_t*)&uValue.u32[u8Dword],
                         peci_fd, &cc) != PECI_CC_SUCCESS)
                 {
                     pValue = NULL;
@@ -100,7 +100,7 @@ int logAddressMapEntries(crashdump::CPUInfo &cpuInfo,
                     cpuInfo.clientAddr, sAddrMapEntries[i].u8Bus,
                     sAddrMapEntries[i].u8Dev, sAddrMapEntries[i].u8Func,
                     sAddrMapEntries[i].u16Reg, sAddrMapEntries[i].u8Size,
-                    (uint8_t *)&uValue.u64, peci_fd, &cc) != PECI_CC_SUCCESS)
+                    (uint8_t*)&uValue.u64, peci_fd, &cc) != PECI_CC_SUCCESS)
             {
                 pValue = NULL;
                 ret = 1;
@@ -151,7 +151,7 @@ static const SAddrMapEntry sAddrMapEntriesCPX1[] = {
  *   This function logs the CPX1 Address Map
  *
  ******************************************************************************/
-int logAddressMapCPX1(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
+int logAddressMapCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 {
     return logAddressMapEntries(
         cpuInfo, sAddrMapEntriesCPX1,
@@ -191,7 +191,7 @@ static const SAddrMapEntry sAddrMapEntriesICX1[] = {
  *   This function logs the ICX1 Address Map
  *
  ******************************************************************************/
-int logAddressMapICX1(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
+int logAddressMapICX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 {
     // TODO: feature enablement
     return 0;
@@ -212,7 +212,7 @@ static const SAddrMapVx sAddrMapVx[] = {
  *   This function gathers the Address Map log and adds it to the debug log
  *
  ******************************************************************************/
-int logAddressMap(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
+int logAddressMap(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 {
     if (pJsonChild == NULL)
     {

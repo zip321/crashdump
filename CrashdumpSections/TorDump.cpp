@@ -34,11 +34,11 @@ extern "C" {
  *   This function formats the TOR dump into a JSON object
  *
  ******************************************************************************/
-static void torDumpJsonCPX1(uint32_t u32NumReads, uint32_t *pu32TorDump,
-                            cJSON *pJsonChild)
+static void torDumpJsonCPX1(uint32_t u32NumReads, uint32_t* pu32TorDump,
+                            cJSON* pJsonChild)
 {
-    cJSON *channel;
-    cJSON *tor;
+    cJSON* channel;
+    cJSON* tor;
     char jsonItemName[TD_JSON_STRING_LEN];
     char jsonItemString[TD_JSON_STRING_LEN];
     uint8_t u8ChannelNum = 0;
@@ -111,7 +111,7 @@ static void torDumpJsonCPX1(uint32_t u32NumReads, uint32_t *pu32TorDump,
  *         0x80 0x0004 0x00030002 Close TOR Dump Sequence.
  *
  ******************************************************************************/
-int logTorDumpCPX1(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
+int logTorDumpCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 {
     EPECIStatus ePECIStatus = PECI_CC_SUCCESS;
     int peci_fd = -1;
@@ -165,7 +165,7 @@ int logTorDumpCPX1(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
     uint32_t u32NumReads = 0;
     ePECIStatus = peci_RdPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU,
                                        VCU_READ, sizeof(uint32_t),
-                                       (uint8_t *)&u32NumReads, peci_fd, &cc);
+                                       (uint8_t*)&u32NumReads, peci_fd, &cc);
     if (ePECIStatus != PECI_CC_SUCCESS)
     {
         // TOR dump sequence failed, abort the sequence
@@ -175,8 +175,8 @@ int logTorDumpCPX1(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
     }
 
     // Get the raw data
-    uint32_t *pu32TorDump;
-    pu32TorDump = (uint32_t *)calloc(u32NumReads, sizeof(uint32_t));
+    uint32_t* pu32TorDump;
+    pu32TorDump = (uint32_t*)calloc(u32NumReads, sizeof(uint32_t));
     if (pu32TorDump == NULL)
     {
         // calloc failed, abort the sequence
@@ -188,7 +188,7 @@ int logTorDumpCPX1(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
     {
         ePECIStatus = peci_RdPkgConfig_seq(
             cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_READ, sizeof(uint32_t),
-            (uint8_t *)&pu32TorDump[i], peci_fd, &cc);
+            (uint8_t*)&pu32TorDump[i], peci_fd, &cc);
         if (ePECIStatus != PECI_CC_SUCCESS)
         {
             // TOR dump sequence failed, note the number of dwords read and
@@ -223,10 +223,10 @@ int logTorDumpCPX1(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
  ******************************************************************************/
 static void torDumpJsonICX1(uint32_t u32Cha, uint32_t u32TorIndex,
                             uint32_t u32TorSubIndex, uint32_t u32PayloadBytes,
-                            uint8_t *pu8TorCrashdumpData, cJSON *pJsonChild)
+                            uint8_t* pu8TorCrashdumpData, cJSON* pJsonChild)
 {
-    cJSON *channel;
-    cJSON *tor;
+    cJSON* channel;
+    cJSON* tor;
     char jsonItemName[TD_JSON_STRING_LEN];
     char jsonItemString[TD_JSON_STRING_LEN];
 
@@ -275,7 +275,7 @@ static void torDumpJsonICX1(uint32_t u32Cha, uint32_t u32TorIndex,
  *    PECI interface after a platform three (3) strike failure.
  *
  ******************************************************************************/
-int logTorDumpICX1(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
+int logTorDumpICX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 {
     // Not supported in A0
     return 0;
@@ -289,7 +289,7 @@ int logTorDumpICX1(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
  *    PECI interface after a platform three (3) strike failure.
  *
  ******************************************************************************/
-int logTorDumpICX2(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
+int logTorDumpICX2(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 {
     EPECIStatus ePeciStatus = PECI_CC_SUCCESS;
     uint8_t u8CrashdumpEnabled;
@@ -312,7 +312,7 @@ int logTorDumpICX2(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
     // Crashdump Number of Agents
     ePeciStatus = peci_CrashDump_Discovery(
         cpuInfo.clientAddr, PECI_CRASHDUMP_NUM_AGENTS, 0, 0, 0,
-        sizeof(uint16_t), (uint8_t *)&u16CrashdumpNumAgents, &cc);
+        sizeof(uint16_t), (uint8_t*)&u16CrashdumpNumAgents, &cc);
     if (ePeciStatus != PECI_CC_SUCCESS ||
         u16CrashdumpNumAgents <= PECI_CRASHDUMP_TOR)
     {
@@ -323,7 +323,7 @@ int logTorDumpICX2(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
     // Agent Unique ID
     ePeciStatus = peci_CrashDump_Discovery(
         cpuInfo.clientAddr, PECI_CRASHDUMP_AGENT_DATA, PECI_CRASHDUMP_AGENT_ID,
-        PECI_CRASHDUMP_TOR, 0, sizeof(uint64_t), (uint8_t *)&u64UniqueId, &cc);
+        PECI_CRASHDUMP_TOR, 0, sizeof(uint64_t), (uint8_t*)&u64UniqueId, &cc);
     if (ePeciStatus != PECI_CC_SUCCESS)
     {
         return 1;
@@ -334,7 +334,7 @@ int logTorDumpICX2(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
         peci_CrashDump_Discovery(cpuInfo.clientAddr, PECI_CRASHDUMP_AGENT_DATA,
                                  PECI_CRASHDUMP_AGENT_PARAM, PECI_CRASHDUMP_TOR,
                                  PECI_CRASHDUMP_PAYLOAD_SIZE, sizeof(uint64_t),
-                                 (uint8_t *)&u64PayloadExp, &cc);
+                                 (uint8_t*)&u64PayloadExp, &cc);
     if (ePeciStatus != PECI_CC_SUCCESS)
     {
         return 1;
@@ -350,8 +350,8 @@ int logTorDumpICX2(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
             for (uint32_t u32TorSubIndex = 0;
                  u32TorSubIndex < TD_SUBINDEX_PER_TOR_ICX1; u32TorSubIndex++)
             {
-                uint8_t *pu8TorCrashdumpData =
-                    (uint8_t *)(calloc(u32PayloadBytes, sizeof(uint8_t)));
+                uint8_t* pu8TorCrashdumpData =
+                    (uint8_t*)(calloc(u32PayloadBytes, sizeof(uint8_t)));
                 if (pu8TorCrashdumpData == NULL)
                 {
                     // calloc failed
@@ -396,7 +396,7 @@ static const STorDumpVx sTorDumpVx[] = {
  *    PECI interface after a platform three (3) strike failure.
  *
  ******************************************************************************/
-int logTorDump(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild)
+int logTorDump(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 {
     if (pJsonChild == NULL)
     {
