@@ -25,16 +25,6 @@ link_directories (${SAFEC_LIBRARY_DIRS})
 set (CMAKE_CXX_STANDARD 17)
 set (CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_library (peci SHARED libpeci/libpeci.c)
-target_link_libraries (peci ${SAFEC_LIBRARIES})
-
-set_property (TARGET peci PROPERTY C_STANDARD 99)
-target_include_directories (peci PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/libpeci)
-set_target_properties (peci PROPERTIES VERSION "1.0" SOVERSION "1")
-
-install (TARGETS peci DESTINATION lib)
-install (FILES libpeci/libpeci.h DESTINATION include/peci)
-
 set (SRC_FILES utils.cpp CrashdumpSections/AddressMap.cpp
      CrashdumpSections/TorDump.cpp CrashdumpSections/BigCore.cpp
      CrashdumpSections/MetaData.cpp CrashdumpSections/CoreMca.cpp
@@ -63,15 +53,6 @@ add_definitions (-DBOOST_ALL_NO_LIB)
 add_definitions (-DBOOST_NO_RTTI)
 add_definitions (-DBOOST_NO_TYPEID)
 
-add_executable (peci_cmds libpeci/peci_cmds.c)
-add_dependencies (peci_cmds peci)
-target_link_libraries (peci_cmds peci)
-
-install (TARGETS peci_cmds
-         RUNTIME DESTINATION bin
-         LIBRARY DESTINATION lib
-         ARCHIVE DESTINATION lib/static)
-
 # Unit Tests
 if (${CRASHDUMP_BUILD_UT})
     include (CTest)
@@ -90,6 +71,7 @@ if (${CRASHDUMP_BUILD_UT})
     target_link_libraries (crashdump_test ${GTEST_LIBRARIES} gmock)
     target_link_libraries (crashdump_test cjson peci -lsystemd pthread)
     target_link_libraries (crashdump_test -lstdc++fs sdbusplus)
+    target_link_libraries (crashdump_test ${SAFEC_LIBRARIES})
 
     add_test (crashdump_test crashdump_test
               "--gtest_output=xml:crashdump_test.xml")

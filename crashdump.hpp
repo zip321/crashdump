@@ -20,10 +20,10 @@
 #pragma once
 #include "utils.hpp"
 
+#include <peci.h>
+
 #include <array>
 #include <vector>
-
-#include "libpeci.h"
 
 namespace crashdump
 {

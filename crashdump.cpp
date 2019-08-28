@@ -21,6 +21,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <peci.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -43,7 +44,6 @@
 extern "C" {
 #include <cjson/cJSON.h>
 
-#include "libpeci.h"
 #include "safe_str_lib.h"
 }
 
