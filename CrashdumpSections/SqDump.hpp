@@ -30,14 +30,9 @@
 #define SQ_CTRL_ARRAY 0x80000000
 
 // Other
-#define SQ_DWORDS_PER_ENTRY 2
-
 #define SQ_JSON_STRING_LEN 32
 #define SQ_JSON_CORE_NAME "core%d"
 #define SQ_JSON_ENTRY_NAME "entry%d"
-#define SQ_JSON_DWORD_NAME "dw%d"
-#define SQ_JSON_ADDR_ARRAY_NAME "mlc_sq_addr"
-#define SQ_JSON_CTRL_ARRAY_NAME "mlc_sq_ctl"
 
 /******************************************************************************
  *

@@ -28,6 +28,10 @@ extern "C" {
 
 #include "crashdump.hpp"
 
+#ifdef COMPILE_UNIT_TESTS
+#define static
+#endif
+
 /******************************************************************************
  *
  *   sqDumpJson
@@ -45,6 +49,7 @@ static void sqDumpJson(uint32_t u32CoreNum, SSqDump* psSqDump,
     char jsonItemName[SQ_JSON_STRING_LEN];
     char jsonItemString[SQ_JSON_STRING_LEN];
     uint32_t i;
+    uint32_t index = 0;
     uint8_t u8DwordNum;
 
     // Only add the section if there is data to include
@@ -74,65 +79,29 @@ static void sqDumpJson(uint32_t u32CoreNum, SSqDump* psSqDump,
     // Add the Address Array data if it exists
     if (psSqDump->pu32SqAddrArray != NULL)
     {
-        // Log the data an entry at a time
-        for (i = 0; (i + SQ_DWORDS_PER_ENTRY - 1) <= psSqDump->u32SqAddrSize;
-             i += SQ_DWORDS_PER_ENTRY)
+        // Log the data as 64 bit entries
+        for (i = 0; (i + 1) < psSqDump->u32SqAddrSize; i += 2)
         {
-            // Add the entry number to the SQ dump JSON structure only if it
-            // doesn't already exist
             cd_snprintf_s(jsonItemName, SQ_JSON_STRING_LEN, SQ_JSON_ENTRY_NAME,
-                          (i / SQ_DWORDS_PER_ENTRY));
-            if ((entry = cJSON_GetObjectItemCaseSensitive(sq, jsonItemName)) ==
-                NULL)
-            {
-                cJSON_AddItemToObject(sq, jsonItemName,
-                                      entry = cJSON_CreateObject());
-            }
-            // Add the address header for this SQ Entry
-            cJSON_AddItemToObject(entry, SQ_JSON_ADDR_ARRAY_NAME,
-                                  sqData = cJSON_CreateObject());
-            // Add the address data for this SQ Entry
-            for (u8DwordNum = 0; u8DwordNum < SQ_DWORDS_PER_ENTRY; u8DwordNum++)
-            {
-                // Add the DWORD number item to the SQ dump JSON structure
-                cd_snprintf_s(jsonItemName, SQ_JSON_STRING_LEN,
-                              SQ_JSON_DWORD_NAME, u8DwordNum);
-                cd_snprintf_s(jsonItemString, SQ_JSON_STRING_LEN, "0x%x",
-                              psSqDump->pu32SqAddrArray[i + u8DwordNum]);
-                cJSON_AddStringToObject(sqData, jsonItemName, jsonItemString);
-            }
+                          index++);
+            cd_snprintf_s(jsonItemString, SQ_JSON_STRING_LEN, "0x%x%08x",
+                          psSqDump->pu32SqAddrArray[i],
+                          psSqDump->pu32SqAddrArray[i + 1]);
+            cJSON_AddStringToObject(sq, jsonItemName, jsonItemString);
         }
     }
     // Add the Control Array data if it exists
     if (psSqDump->pu32SqCtrlArray != NULL)
     {
-        // Log the data an entry at a time
-        for (i = 0; (i + SQ_DWORDS_PER_ENTRY - 1) <= psSqDump->u32SqCtrlSize;
-             i += SQ_DWORDS_PER_ENTRY)
+        // Log the data as 64 bit entries
+        for (i = 0; (i + 1) < psSqDump->u32SqCtrlSize; i += 2)
         {
-            // Add the entry number to the SQ dump JSON structure only if it
-            // doesn't already exist
             cd_snprintf_s(jsonItemName, SQ_JSON_STRING_LEN, SQ_JSON_ENTRY_NAME,
-                          (i / SQ_DWORDS_PER_ENTRY));
-            if ((entry = cJSON_GetObjectItemCaseSensitive(sq, jsonItemName)) ==
-                NULL)
-            {
-                cJSON_AddItemToObject(sq, jsonItemName,
-                                      entry = cJSON_CreateObject());
-            }
-            // Add the control header for this SQ Entry
-            cJSON_AddItemToObject(entry, SQ_JSON_CTRL_ARRAY_NAME,
-                                  sqData = cJSON_CreateObject());
-            // Add the control data for this SQ Entry
-            for (u8DwordNum = 0; u8DwordNum < SQ_DWORDS_PER_ENTRY; u8DwordNum++)
-            {
-                // Add the DWORD number item to the SQ dump JSON structure
-                cd_snprintf_s(jsonItemName, SQ_JSON_STRING_LEN,
-                              SQ_JSON_DWORD_NAME, u8DwordNum);
-                cd_snprintf_s(jsonItemString, SQ_JSON_STRING_LEN, "0x%x",
-                              psSqDump->pu32SqCtrlArray[i + u8DwordNum]);
-                cJSON_AddStringToObject(sqData, jsonItemName, jsonItemString);
-            }
+                          index++);
+            cd_snprintf_s(jsonItemString, SQ_JSON_STRING_LEN, "0x%x%08x",
+                          psSqDump->pu32SqCtrlArray[i],
+                          psSqDump->pu32SqCtrlArray[i + 1]);
+            cJSON_AddStringToObject(sq, jsonItemName, jsonItemString);
         }
     }
 }

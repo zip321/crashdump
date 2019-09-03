@@ -59,6 +59,7 @@ if (${CRASHDUMP_BUILD_UT})
     include_directories (${CMAKE_SOURCE_DIR})
 
     set (UT_FILES tests/CrashdumpSections/UncoreRegs_test.cpp
+         tests/CrashdumpSections/SqDump_test.cpp
          tests/CrashdumpSections/BigCore_test.cpp tests/test_main.cpp)
 
     enable_testing ()
