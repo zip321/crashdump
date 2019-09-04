@@ -296,8 +296,8 @@ int main(int argc, char* argv[])
                 printf("ERROR: Read MSR failed or is not supported. %x\n", ret);
                 break;
             }
-            printf("MSR Read of Thread %02x MSR %04x: 0x%0*llx\n", u8MsrThread,
-                   u16MsrAddr, u8Size * 2, u64MsrVal);
+            printf("MSR Read of Thread %02x MSR %04x: 0x%0*" PRIx64 "\n",
+                   u8MsrThread, u16MsrAddr, u8Size * 2, u64MsrVal);
             break;
 
         case PECI_CMD_RD_PCI_CFG_LOCAL:
