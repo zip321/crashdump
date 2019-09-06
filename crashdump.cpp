@@ -591,8 +591,14 @@ static void incrementCrashdumpCount()
                 fprintf(stderr, "Unable to read Crashdump count\n");
                 return;
             }
+            uint8_t crashdumpCount = *crashdumpCountVariant;
+            if (crashdumpCount == std::numeric_limits<uint8_t>::max())
+            {
+                fprintf(stderr, "Maximum crashdump count reached\n");
+                return;
+            }
             // Increment the count
-            uint8_t crashdumpCount = *crashdumpCountVariant + 1;
+            crashdumpCount++;
             conn->async_method_call(
                 [](boost::system::error_code ec) {
                     if (ec)
