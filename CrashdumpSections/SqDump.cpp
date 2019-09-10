@@ -172,20 +172,9 @@ static int sqDump(crashdump::CPUInfo& cpuInfo, uint32_t u32CoreNum,
         return 1;
     }
 
-    // Start the SQ dump
-    if (peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, SQ_START_PARAM,
-                             0, sizeof(uint32_t), peci_fd,
-                             &cc) != PECI_CC_SUCCESS)
-    {
-        // SQ dump sequence failed, abort the sequence and go to the next CPU
-        peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_ABORT_SEQ,
-                             VCU_SQ_DUMP_SEQ, sizeof(uint32_t), peci_fd, &cc);
-        return 1;
-    }
-
     // Get the number of dwords to read
     uint32_t u32NumReads = 0;
-    if (peci_RdPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_READ,
+    if (peci_RdPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, SQ_START_PARAM,
                              sizeof(uint32_t), (uint8_t*)&u32NumReads, peci_fd,
                              &cc) != PECI_CC_SUCCESS)
     {
@@ -194,7 +183,6 @@ static int sqDump(crashdump::CPUInfo& cpuInfo, uint32_t u32CoreNum,
                              VCU_SQ_DUMP_SEQ, sizeof(uint32_t), peci_fd, &cc);
         return 1;
     }
-
     // Get the raw data
     uint32_t* pu32SqDump = NULL;
     pu32SqDump = (uint32_t*)calloc(u32NumReads, sizeof(uint32_t));
@@ -204,11 +192,6 @@ static int sqDump(crashdump::CPUInfo& cpuInfo, uint32_t u32CoreNum,
         peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_ABORT_SEQ,
                              VCU_SQ_DUMP_SEQ, sizeof(uint32_t), peci_fd, &cc);
         return 1;
-    }
-    fprintf(stderr, "u32NumReads (%d) :core (%d)\n", u32NumReads, u32CoreNum);
-    if (u32NumReads > 3000)
-    {
-        u32NumReads = 3000;
     }
     for (int i = 0; i < u32NumReads; i++)
     {
@@ -254,10 +237,6 @@ static int sqDump(crashdump::CPUInfo& cpuInfo, uint32_t u32CoreNum,
  *
  *    RdPkgConfig() -
  *         0x80 0x3002
- *         Start SQ dump sequence
- *
- *    RdPkgConfig() -
- *         0x80 0x0002
  *         Returns the number of additional RdPkgConfig() commands required to
  *collect all the data for the dump.
  *
