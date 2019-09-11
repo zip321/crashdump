@@ -128,7 +128,7 @@ static const std::string getUuid()
 
 static void getClientAddrs(std::vector<CPUInfo>& cpuInfo)
 {
-    for (int cpu = 0, addr = minClientAddr; addr <= maxClientAddr;
+    for (int cpu = 0, addr = MIN_CLIENT_ADDR; addr <= MAX_CLIENT_ADDR;
          cpu++, addr++)
     {
         if (peci_Ping(addr) == PECI_CC_SUCCESS)
@@ -145,29 +145,32 @@ static bool getCPUModels(std::vector<CPUInfo>& cpuInfo)
 
     for (CPUInfo& cpu : cpuInfo)
     {
-        uint32_t cpuID;
-        if (peci_RdPkgConfig(cpu.clientAddr, PECI_MBX_INDEX_CPU_ID,
-                             PECI_PKG_ID_CPU_ID, sizeof(uint32_t),
-                             (uint8_t*)&cpuID, &cc) != PECI_CC_SUCCESS)
+        if (peci_GetCPUID(cpu.clientAddr, &cpu.model, &cc) != PECI_CC_SUCCESS)
         {
-            fprintf(stderr, "Cannot get cpuID!\n");
+            fprintf(stderr, "Cannot get CPUID!\n");
             continue;
         }
 
-        bool modelFound = false;
-        for (int i = 0; i < cpuIDMap.size(); i++)
+        // Check that it is a supported CPU
+        switch (cpu.model)
         {
-            if (cpuID == cpuIDMap[i].cpuID)
-            {
-                cpu.model = cpuIDMap[i].model;
-                modelFound = true;
+            case skx:
+                fprintf(stderr, "SKX detected (CPUID 0x%x)\n", cpu.model);
                 break;
-            }
-        }
-        if (!modelFound)
-        {
-            fprintf(stderr, "Cannot find Model for CPUID 0x%x\n", cpuID);
-            return false;
+            case clx:
+            case clx2:
+                fprintf(stderr, "CLX detected (CPUID 0x%x)\n", cpu.model);
+                break;
+            case cpx:
+                fprintf(stderr, "CPX detected (CPUID 0x%x)\n", cpu.model);
+                break;
+            case icx:
+                fprintf(stderr, "ICX detected (CPUID 0x%x)\n", cpu.model);
+                break;
+            default:
+                fprintf(stderr, "Unsupported CPUID 0x%x\n", cpu.model);
+                return false;
+                break;
         }
     }
     return true;
@@ -181,10 +184,10 @@ static bool getCoreMasks(std::vector<CPUInfo>& cpuInfo)
     {
         switch (cpu.model)
         {
-            case CPUModel::cpx_a0:
-            case CPUModel::clx_b0:
-            case CPUModel::clx_b1:
-            case CPUModel::skx_h0:
+            case cpx:
+            case clx:
+            case clx2:
+            case skx:
                 // RESOLVED_CORES Local PCI B1:D30:F3 Reg 0xB4
                 uint32_t coreMask;
                 if (peci_RdPCIConfigLocal(cpu.clientAddr, 1, 30, 3, 0xB4,
@@ -196,7 +199,7 @@ static bool getCoreMasks(std::vector<CPUInfo>& cpuInfo)
                 }
                 cpu.coreMask = coreMask;
                 break;
-            case CPUModel::icx_a0:
+            case icx:
                 // RESOLVED_CORES Local PCI B14:D30:F3 Reg 0xD0 and 0xD4
                 uint32_t coreMask0;
                 if (peci_RdPCIConfigLocal(
@@ -233,10 +236,10 @@ static bool getCHACounts(std::vector<CPUInfo>& cpuInfo)
     {
         switch (cpu.model)
         {
-            case CPUModel::cpx_a0:
-            case CPUModel::clx_b0:
-            case CPUModel::clx_b1:
-            case CPUModel::skx_h0:
+            case cpx:
+            case clx:
+            case clx2:
+            case skx:
                 // LLC_SLICE_EN Local PCI B1:D30:F3 Reg 0x9C
                 uint32_t chaMask;
                 if (peci_RdPCIConfigLocal(cpu.clientAddr, 1, 30, 3, 0x9C,
@@ -248,7 +251,7 @@ static bool getCHACounts(std::vector<CPUInfo>& cpuInfo)
                 }
                 cpu.chaCount = __builtin_popcount(chaMask);
                 break;
-            case CPUModel::icx_a0:
+            case icx:
                 // LLC_SLICE_EN Local PCI B14:D30:F3 Reg 0x9C and 0xA0
                 uint32_t chaMask0;
                 if (peci_RdPCIConfigLocal(cpu.clientAddr, 14, 30, 3, 0x9C,
@@ -278,7 +281,7 @@ static bool getCHACounts(std::vector<CPUInfo>& cpuInfo)
 
 static bool getCPUInfo(std::vector<CPUInfo>& cpuInfo)
 {
-    cpuInfo.reserve(maxCPUs);
+    cpuInfo.reserve(MAX_CPUS);
     getClientAddrs(cpuInfo);
     if (!getCPUModels(cpuInfo))
     {
@@ -297,24 +300,24 @@ static void logCrashdumpVersion(cJSON* parent, crashdump::CPUInfo& cpuInfo,
 {
     struct VersionInfo
     {
-        crashdump::CPUModel cpuModel;
+        CPUModel cpuModel;
         int data;
     };
 
     static constexpr const std::array product{
-        VersionInfo{crashdump::CPUModel::clx_b0, product_type::clxSP},
-        VersionInfo{crashdump::CPUModel::clx_b1, product_type::clxSP},
-        VersionInfo{crashdump::CPUModel::cpx_a0, product_type::cpx},
-        VersionInfo{crashdump::CPUModel::skx_h0, product_type::skxSP},
-        VersionInfo{crashdump::CPUModel::icx_a0, product_type::icxSP},
+        VersionInfo{clx, product_type::clxSP},
+        VersionInfo{clx2, product_type::clxSP},
+        VersionInfo{cpx, product_type::cpx},
+        VersionInfo{skx, product_type::skxSP},
+        VersionInfo{icx, product_type::icxSP},
     };
 
     static constexpr const std::array revision{
-        VersionInfo{crashdump::CPUModel::clx_b0, revision::revision1},
-        VersionInfo{crashdump::CPUModel::clx_b1, revision::revision1},
-        VersionInfo{crashdump::CPUModel::cpx_a0, revision::revision1},
-        VersionInfo{crashdump::CPUModel::skx_h0, revision::revision1},
-        VersionInfo{crashdump::CPUModel::icx_a0, revision::revision1},
+        VersionInfo{clx, revision::revision1},
+        VersionInfo{clx2, revision::revision1},
+        VersionInfo{cpx, revision::revision1},
+        VersionInfo{skx, revision::revision1},
+        VersionInfo{icx, revision::revision1},
     };
 
     int productType = 0;

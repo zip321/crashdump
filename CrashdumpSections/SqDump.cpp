@@ -327,11 +327,8 @@ int logSqDumpICX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 }
 
 static const SSqDumpVx sSqDumpVx[] = {
-    {crashdump::CPUModel::clx_b0, logSqDumpCPX1},
-    {crashdump::CPUModel::clx_b1, logSqDumpCPX1},
-    {crashdump::CPUModel::cpx_a0, logSqDumpCPX1},
-    {crashdump::CPUModel::skx_h0, logSqDumpCPX1},
-    {crashdump::CPUModel::icx_a0, logSqDumpICX1},
+    {clx, logSqDumpCPX1}, {clx2, logSqDumpCPX1}, {cpx, logSqDumpCPX1},
+    {skx, logSqDumpCPX1}, {icx, logSqDumpICX1},
 };
 
 /******************************************************************************

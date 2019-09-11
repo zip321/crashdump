@@ -183,7 +183,7 @@ typedef union
 
 typedef struct
 {
-    crashdump::CPUModel cpuModel;
+    CPUModel cpuModel;
     int (*logCrashdumpVx)(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);
 } SCrashdumpVx;
 

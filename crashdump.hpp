@@ -18,7 +18,6 @@
  ******************************************************************************/
 
 #pragma once
-#include "peci_cpus.hpp"
 #include "utils.hpp"
 
 #include <array>

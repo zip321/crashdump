@@ -54,7 +54,7 @@
  ******************************************************************************/
 typedef struct
 {
-    crashdump::CPUModel cpuModel;
+    CPUModel cpuModel;
     char cpuModelName[SI_CPU_NAME_LEN];
 } SCpuIdName;
 
@@ -87,7 +87,7 @@ typedef struct
 
 typedef struct
 {
-    crashdump::CPUModel cpuModel;
+    CPUModel cpuModel;
     void (*getPpinVx)(crashdump::CPUInfo& cpuInfo,
                       SSysInfoRawData* sSysInfoRawData, cJSON* pJsonChild);
 } SPpinVx;

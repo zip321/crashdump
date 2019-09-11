@@ -29,6 +29,20 @@ extern "C" {
 #include <linux/peci-ioctl.h>
 // clang-format on
 
+// PECI Client Address List
+#define MIN_CLIENT_ADDR 0x30
+#define MAX_CLIENT_ADDR 0x37
+#define MAX_CPUS (MAX_CLIENT_ADDR - MIN_CLIENT_ADDR + 1)
+
+typedef enum
+{
+    skx = 0x00050654,
+    clx = 0x00050656,
+    clx2 = 0x00050657,
+    cpx = 0x0005065A,
+    icx = 0x000606A0,
+} CPUModel;
+
 // PECI Completion Codes
 typedef enum
 {
@@ -220,6 +234,8 @@ EPECIStatus peci_Lock(int* peci_fd, uint32_t timeout_ms);
 void peci_Unlock(int peci_fd);
 EPECIStatus peci_Ping(uint8_t target);
 EPECIStatus peci_Ping_seq(uint8_t target, int peci_fd);
+EPECIStatus peci_GetCPUID(const uint8_t clientAddr, CPUModel* cpuModel,
+                          uint8_t* cc);
 
 #ifdef __cplusplus
 }

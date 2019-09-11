@@ -55,7 +55,7 @@ typedef struct
 
 typedef struct
 {
-    crashdump::CPUModel cpuModel;
+    CPUModel cpuModel;
     int (*logAddrMapVx)(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);
 } SAddrMapVx;
 

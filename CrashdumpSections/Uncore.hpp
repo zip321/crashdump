@@ -157,7 +157,7 @@ typedef int (*UncoreStatusRead)(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);
 
 typedef struct
 {
-    crashdump::CPUModel cpuModel;
+    CPUModel cpuModel;
     int (*logUncoreStatusVx)(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);
 } SUncoreStatusLogVx;
 

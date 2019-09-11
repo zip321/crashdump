@@ -380,12 +380,8 @@ int logTorDumpICX2(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 }
 
 static const STorDumpVx sTorDumpVx[] = {
-    {crashdump::CPUModel::clx_b0, logTorDumpCPX1},
-    {crashdump::CPUModel::clx_b1, logTorDumpCPX1},
-    {crashdump::CPUModel::cpx_a0, logTorDumpCPX1},
-    {crashdump::CPUModel::skx_h0, logTorDumpCPX1},
-    {crashdump::CPUModel::icx_a0, logTorDumpICX1},
-    {crashdump::CPUModel::icx_b0, logTorDumpICX2},
+    {clx, logTorDumpCPX1}, {clx2, logTorDumpCPX1}, {cpx, logTorDumpCPX1},
+    {skx, logTorDumpCPX1}, {icx, logTorDumpICX1},
 };
 
 /******************************************************************************

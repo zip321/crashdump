@@ -30,10 +30,10 @@ using namespace ::testing;
 using ::testing::Return;
 using namespace crashdump;
 
-int logCrashdumpICX1(crashdump::CPUInfo &cpuInfo, cJSON *pJsonChild);
+int logCrashdumpICX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);
 void crashdumpJsonICX1(uint32_t u32CoreNum, uint32_t u32ThreadNum,
-                       uint32_t u32CrashSize, uint8_t *pu8Crashdump,
-                       cJSON *pJsonChild, uint8_t cc);
+                       uint32_t u32CrashSize, uint8_t* pu8Crashdump,
+                       cJSON* pJsonChild, uint8_t cc);
 
 class BigCoreMOCK
 {
@@ -44,7 +44,7 @@ class BigCoreMOCK
 
     MOCK_METHOD8(peci_CrashDump_Discovery,
                  EPECIStatus(uint8_t, uint8_t, uint8_t, uint16_t, uint8_t,
-                             uint8_t, uint8_t *, uint8_t *));
+                             uint8_t, uint8_t*, uint8_t*));
 };
 
 class BigCoreTestFixture : public Test
@@ -64,7 +64,7 @@ class BigCoreTestFixture : public Test
     {
         // Initialize cpuInfo
         cpuInfo.clientAddr = 48;
-        cpuInfo.model = CPUModel::icx_a0;
+        cpuInfo.model = icx;
         cpuInfo.coreMask = 0x0000db7e;
         cpuInfo.chaCount = 0;
         cpuInfo.crashedCoreMask = 0x0;
@@ -74,8 +74,8 @@ class BigCoreTestFixture : public Test
     }
 
     CPUInfo cpuInfo = {};
-    cJSON *root = NULL;
-    char *jsonStr = NULL;
+    cJSON* root = NULL;
+    char* jsonStr = NULL;
 
     static std::unique_ptr<BigCoreMOCK> bigCoreMock;
 };
@@ -86,7 +86,7 @@ std::unique_ptr<BigCoreMOCK> BigCoreTestFixture::bigCoreMock;
 EPECIStatus peci_CrashDump_Discovery(uint8_t target, uint8_t subopcode,
                                      uint8_t param0, uint16_t param1,
                                      uint8_t param2, uint8_t u8ReadLen,
-                                     uint8_t *pData, uint8_t *cc)
+                                     uint8_t* pData, uint8_t* cc)
 {
     // minimal mocking
     uint8_t ccode = 0;
@@ -142,10 +142,9 @@ TEST_F(BigCoreTestFixture, logCrashdumpICX1_2nd_return)
 
 TEST_F(BigCoreTestFixture, crashdumpJsonICX1_print_json)
 {
-    uint64_t *pu64Crashdump = (uint64_t *)(calloc(5, 1));
-    crashdumpJsonICX1(1, 1, 1, (uint8_t *)pu64Crashdump, root, 0x40);
+    uint64_t* pu64Crashdump = (uint64_t*)(calloc(5, 1));
+    crashdumpJsonICX1(1, 1, 1, (uint8_t*)pu64Crashdump, root, 0x40);
     jsonStr = cJSON_Print(root);
     printf("%s\n", jsonStr);
     FREE(pu64Crashdump);
 }
-

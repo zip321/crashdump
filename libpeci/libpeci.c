@@ -1121,3 +1121,24 @@ EPECIStatus peci_raw(uint8_t target, uint8_t u8ReadLen, const uint8_t* pRawCmd,
     peci_Close(peci_fd);
     return ret;
 }
+
+/*-------------------------------------------------------------------------
+ * This function returns the CPUID for the given PECI client address
+ *------------------------------------------------------------------------*/
+EPECIStatus peci_GetCPUID(const uint8_t clientAddr, CPUModel* cpuModel,
+                          uint8_t* cc)
+{
+    if (cpuModel == NULL || cc == NULL)
+    {
+        return PECI_CC_INVALID_REQ;
+    }
+
+    if (peci_Ping(clientAddr) != PECI_CC_SUCCESS)
+    {
+        return PECI_CC_CPU_NOT_PRESENT;
+    }
+
+    return peci_RdPkgConfig(clientAddr, PECI_MBX_INDEX_CPU_ID,
+                            PECI_PKG_ID_CPU_ID, sizeof(uint32_t),
+                            (uint8_t*)cpuModel, cc);
+}

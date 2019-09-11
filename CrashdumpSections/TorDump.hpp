@@ -58,7 +58,7 @@ extern "C" {
 
 typedef struct
 {
-    crashdump::CPUModel cpuModel;
+    CPUModel cpuModel;
     int (*logTorDumpVx)(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);
 } STorDumpVx;
 

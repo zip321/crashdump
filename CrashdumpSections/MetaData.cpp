@@ -455,11 +455,8 @@ void getPpinDataCPX1(crashdump::CPUInfo& cpuInfo,
 }
 
 static const SPpinVx sSPpinVx[] = {
-    {crashdump::CPUModel::clx_b0, getPpinDataCPX1},
-    {crashdump::CPUModel::clx_b1, getPpinDataCPX1},
-    {crashdump::CPUModel::cpx_a0, getPpinDataCPX1},
-    {crashdump::CPUModel::skx_h0, getPpinDataCPX1},
-    {crashdump::CPUModel::icx_a0, getPpinDataICX1},
+    {clx, getPpinDataCPX1}, {clx2, getPpinDataCPX1}, {cpx, getPpinDataCPX1},
+    {skx, getPpinDataCPX1}, {icx, getPpinDataICX1},
 };
 
 /******************************************************************************
@@ -652,7 +649,7 @@ int logSysInfo(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
     ret = getCPUData(cpuInfo, &sSysInfoRawData, pJsonChild);
 
     // Only log the system info once
-    if (cpuInfo.clientAddr == crashdump::minClientAddr)
+    if (cpuInfo.clientAddr == MIN_CLIENT_ADDR)
     {
         ret = getSystemInfo(&sSysInfoRawData);
     }

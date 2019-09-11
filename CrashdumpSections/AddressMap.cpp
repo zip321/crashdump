@@ -198,11 +198,9 @@ int logAddressMapICX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 }
 
 static const SAddrMapVx sAddrMapVx[] = {
-    {crashdump::CPUModel::clx_b0, logAddressMapCPX1},
-    {crashdump::CPUModel::clx_b1, logAddressMapCPX1},
-    {crashdump::CPUModel::cpx_a0, logAddressMapCPX1},
-    {crashdump::CPUModel::skx_h0, logAddressMapCPX1},
-    {crashdump::CPUModel::icx_a0, logAddressMapICX1},
+    {clx, logAddressMapCPX1}, {clx2, logAddressMapCPX1},
+    {cpx, logAddressMapCPX1}, {skx, logAddressMapCPX1},
+    {icx, logAddressMapICX1},
 };
 
 /******************************************************************************

@@ -715,11 +715,8 @@ int logUncoreMcaICX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 }
 
 static const SUncoreMcaLogVx sUncoreMcaLogVx[] = {
-    {crashdump::CPUModel::clx_b0, logUncoreMcaCPX1},
-    {crashdump::CPUModel::clx_b1, logUncoreMcaCPX1},
-    {crashdump::CPUModel::cpx_a0, logUncoreMcaCPX1},
-    {crashdump::CPUModel::skx_h0, logUncoreMcaCPX1},
-    {crashdump::CPUModel::icx_a0, logUncoreMcaICX1},
+    {clx, logUncoreMcaCPX1}, {clx2, logUncoreMcaCPX1}, {cpx, logUncoreMcaCPX1},
+    {skx, logUncoreMcaCPX1}, {icx, logUncoreMcaICX1},
 };
 
 /******************************************************************************
