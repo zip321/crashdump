@@ -688,11 +688,16 @@ EPECIStatus peci_RdPCIConfigLocal_seq(uint8_t target, uint8_t u8Bus,
 EPECIStatus peci_WrPCIConfigLocal(uint8_t target, uint8_t u8Bus,
                                   uint8_t u8Device, uint8_t u8Fcn,
                                   uint16_t u16Reg, uint8_t DataLen,
-                                  uint32_t DataVal)
+                                  uint32_t DataVal, uint8_t* cc)
 {
     int peci_fd = -1;
     struct peci_wr_pci_cfg_local_msg cmd;
     EPECIStatus ret;
+
+    if (cc == NULL)
+    {
+        return PECI_CC_INVALID_REQ;
+    }
 
     if (peci_Open(&peci_fd) != PECI_CC_SUCCESS)
     {
@@ -715,6 +720,7 @@ EPECIStatus peci_WrPCIConfigLocal(uint8_t target, uint8_t u8Bus,
     cmd.value = DataVal;
 
     ret = HW_peci_issue_cmd(PECI_IOC_WR_PCI_CFG_LOCAL, (char*)&cmd, peci_fd);
+    *cc = cmd.cc;
 
     peci_Close(peci_fd);
     return ret;

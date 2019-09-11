@@ -357,10 +357,10 @@ int main(int argc, char* argv[])
             printf("Local PCI Write of %02x:%02x:%02x Reg %02x: 0x%0*x\n",
                    u8PciBus, u8PciDev, u8PciFunc, u16PciReg, u8Size * 2,
                    u32PciWriteVal);
+            ret = peci_WrPCIConfigLocal(address, u8PciBus, u8PciDev, u8PciFunc,
+                                        u16PciReg, u8Size, u32PciWriteVal, &cc);
             if (showCc)
                 printf("Local PCI Write cc:0x%x\n", cc);
-            ret = peci_WrPCIConfigLocal(address, u8PciBus, u8PciDev, u8PciFunc,
-                                        u16PciReg, u8Size, u32PciWriteVal);
             (0 == ret) ? printf("Succeeded.\n")
                        : printf("Failed or not supported.\n");
             break;

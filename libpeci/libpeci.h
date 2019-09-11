@@ -168,7 +168,7 @@ EPECIStatus peci_RdPCIConfigLocal_seq(uint8_t target, uint8_t u8Bus,
 EPECIStatus peci_WrPCIConfigLocal(uint8_t target, uint8_t u8Bus,
                                   uint8_t u8Device, uint8_t u8Fcn,
                                   uint16_t u16Reg, uint8_t DataLen,
-                                  uint32_t DataVal);
+                                  uint32_t DataVal, uint8_t* cc);
 
 // Provides read access to PCI configuration space
 EPECIStatus peci_RdEndPointConfigPci(uint8_t target, uint8_t u8Seg,
