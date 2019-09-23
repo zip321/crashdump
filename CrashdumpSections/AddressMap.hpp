@@ -25,7 +25,7 @@
 #include <stdint.h>
 #include <string.h>
 
-#define AM_REG_NAME_LEN 32
+#define AM_REG_NAME_LEN 34
 
 #define AM_JSON_STRING_LEN 32
 
