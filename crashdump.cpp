@@ -806,11 +806,14 @@ int main(int argc, char* argv[])
                           const std::vector<uint8_t>& rawCmd) {
             if (readLen > PECI_BUFFER_SIZE)
             {
-                throw std::invalid_argument("Read length too large");
+                throw std::length_error("Read length too large");
             }
             std::vector<uint8_t> rawResp(readLen);
-            peci_raw(clientAddr, readLen, rawCmd.data(), rawCmd.size(),
-                     rawResp.data(), rawResp.size());
+            if (peci_raw(clientAddr, readLen, rawCmd.data(), rawCmd.size(),
+                         rawResp.data(), rawResp.size()) != PECI_CC_SUCCESS)
+            {
+                throw std::runtime_error("PECI command failed");
+            }
             return rawResp;
         });
     ifaceRawPeci->initialize();
