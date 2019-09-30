@@ -56,6 +56,7 @@ enum US_MMIO_SIZE
 #define US_UNCORE_CRASH_DW_NAME "uncore_crashdump_dw%ld"
 
 #define US_FAILED "N/A"
+#define UNCORE_MCA_UA "UA:0x%x"
 
 /******************************************************************************
  *
@@ -102,6 +103,7 @@ typedef union
 typedef struct
 {
     UUncoreStatusRegValue uValue;
+    uint8_t cc;
     bool bInvalid;
 } SUncoreStatusRegRawData;
 
@@ -141,6 +143,7 @@ typedef union
 typedef struct
 {
     UUncoreStatusMcaRegs uRegData;
+    uint8_t cc;
     bool bInvalid;
 } SUncoreStatusMcaRawData;
 

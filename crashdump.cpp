@@ -75,35 +75,6 @@ constexpr char const* crashdumpRawPeciInterface =
 static const std::experimental::filesystem::path crashdumpDir =
     "/tmp/crashdumps";
 
-namespace revision
-{
-constexpr const int offset = 0;
-constexpr const int revision1 = 0x01;
-} // namespace revision
-
-namespace product_type
-{
-constexpr const int offset = 12;
-constexpr const int clxSP = 0x2C;
-constexpr const int cpx = 0x34;
-constexpr const int skxSP = 0x2A;
-constexpr const int icxSP = 0x1A;
-constexpr const int bmcAutonomous = 0x23;
-} // namespace product_type
-
-namespace record_type
-{
-constexpr const int offset = 24;
-constexpr const int coreCrashLog = 0x04;
-constexpr const int uncoreStatusLog = 0x08;
-constexpr const int torDump = 0x09;
-constexpr const int metadata = 0x0b;
-constexpr const int pmInfo = 0x0c;
-constexpr const int addressMap = 0x0d;
-constexpr const int bmcAutonomous = 0x23;
-constexpr const int mcaLog = 0x3e;
-} // namespace record_type
-
 constexpr char const* triggerTypeOnDemand = "On-Demand";
 
 static const std::string getUuid()
@@ -295,63 +266,6 @@ static bool getCPUInfo(std::vector<CPUInfo>& cpuInfo)
     return getCHACounts(cpuInfo);
 }
 
-static void logCrashdumpVersion(cJSON* parent, crashdump::CPUInfo& cpuInfo,
-                                int recordType)
-{
-    struct VersionInfo
-    {
-        CPUModel cpuModel;
-        int data;
-    };
-
-    static constexpr const std::array product{
-        VersionInfo{clx, product_type::clxSP},
-        VersionInfo{clx2, product_type::clxSP},
-        VersionInfo{cpx, product_type::cpx},
-        VersionInfo{skx, product_type::skxSP},
-        VersionInfo{icx, product_type::icxSP},
-    };
-
-    static constexpr const std::array revision{
-        VersionInfo{clx, revision::revision1},
-        VersionInfo{clx2, revision::revision1},
-        VersionInfo{cpx, revision::revision1},
-        VersionInfo{skx, revision::revision1},
-        VersionInfo{icx, revision::revision1},
-    };
-
-    int productType = 0;
-    for (int i = 0; i < product.size(); i++)
-    {
-        if (cpuInfo.model == product[i].cpuModel)
-        {
-            productType = product[i].data;
-        }
-    }
-
-    int revisionNum = 0;
-    for (int i = 0; i < revision.size(); i++)
-    {
-        if (cpuInfo.model == revision[i].cpuModel)
-        {
-            revisionNum = revision[i].data;
-        }
-    }
-
-    // Build the version number:
-    //  [31:30] Reserved
-    //  [29:24] Crash Record Type
-    //  [23:12] Product
-    //  [11:8] Reserved
-    //  [7:0] Revision
-    int version = recordType << record_type::offset |
-                  productType << product_type::offset |
-                  revisionNum << revision::offset;
-    char versionString[64];
-    cd_snprintf_s(versionString, sizeof(versionString), "0x%x", version);
-    cJSON_AddStringToObject(parent, "_version", versionString);
-}
-
 static void logTimestamp(cJSON* parent)
 {
     char logTime[64];
@@ -507,12 +421,6 @@ void createCrashdump(std::string& crashdumpContents)
 
         // Fill in the Uncore Status
         logSection = addSectionLog(cpu, cpuInfo[i], "uncore", logUncoreStatus);
-        if (logSection)
-        {
-            // Include the version
-            logCrashdumpVersion(logSection, cpuInfo[i],
-                                record_type::uncoreStatusLog);
-        }
 
         // Fill in the TOR Dump
         logSection = addSectionLog(cpu, cpuInfo[i], "TOR", logTorDump);
