@@ -896,10 +896,6 @@ int main(int argc, char* argv[])
     ifaceRawPeci->register_method(
         "SendRawPeci", [](const uint8_t& clientAddr, const uint8_t& readLen,
                           const std::vector<uint8_t>& rawCmd) {
-            if (!crashdump::isPECIAvailable())
-            {
-                throw crashdump::PowerOffException();
-            }
             if (readLen > PECI_BUFFER_SIZE)
             {
                 throw std::invalid_argument("Read length too large");
