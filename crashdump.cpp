@@ -610,6 +610,11 @@ static void newStoredLog(
     // Start the log to the new file
     std::string crashdumpContents;
     createCrashdump(crashdumpContents);
+    if (crashdumpContents.empty())
+    {
+        // Log is empty, so don't save it
+        return;
+    }
 
     // open the JSON file for CPU dump
     fpJson = fopen(out_file.c_str(), "w");
