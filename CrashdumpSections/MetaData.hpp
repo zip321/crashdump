@@ -45,6 +45,7 @@
 #define SI_PECI_PPIN_LOWER 0x01
 #define SI_PECI_PPIN_UPPER 0x02
 
+#define MD_UA "UA:0x%x"
 #define MD_NA "N/A"
 
 /******************************************************************************
@@ -60,36 +61,16 @@ typedef struct
 
 typedef struct
 {
-    struct
-    {
-        uint32_t clientID;
-        uint32_t cpuID;
-        uint32_t packageID;
-        uint32_t u32CoresPerCpu;
-        uint32_t u32UCodeVer;
-        uint32_t u32VCodeVer;
-        uint32_t u32McaErrSrcLog;
-        uint64_t ppin;
-        bool isPpinNA;
-    } sCpuData;
-    bool systemData;
-    char bmcVersion[SI_BMC_VER_LEN];
-    char crashdumpVersion[SI_CRASHDUMP_VER_LEN];
-    uint8_t u8BiosId[SI_BIOS_ID_LEN];
-} SSysInfoRawData;
-
-typedef struct
-{
     char sectionName[SI_JSON_STRING_LEN];
-    void (*FillSysInfoJson)(SSysInfoRawData* sSysInfoRawData,
-                            char* cSectionName, cJSON* pJsonChild);
+    int (*FillSysInfoJson)(crashdump::CPUInfo& cpuInfo, char* cSectionName,
+                           cJSON* pJsonChild);
 } SSysInfoSection;
 
 typedef struct
 {
     CPUModel cpuModel;
-    void (*getPpinVx)(crashdump::CPUInfo& cpuInfo,
-                      SSysInfoRawData* sSysInfoRawData, cJSON* pJsonChild);
+    int (*getPpinVx)(crashdump::CPUInfo& cpuInfo, char* cSectionName,
+                     cJSON* pJsonChild);
 } SPpinVx;
 
 int logSysInfo(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);
