@@ -77,6 +77,49 @@ static const std::experimental::filesystem::path crashdumpDir =
 
 constexpr char const* triggerTypeOnDemand = "On-Demand";
 
+uint64_t metaDataRunTime = 0;
+bool isMetaData = false;
+
+static uint64_t tsToNanosecond(timespec* ts)
+{
+    return (ts->tv_sec * (uint64_t)1e9 + ts->tv_nsec);
+}
+
+static void logRunTime(cJSON* parent, timespec* start, char* key)
+{
+    char timeString[64];
+    timespec finish = {};
+    uint64_t timeVal = 0;
+    cJSON* logSection = NULL;
+
+    clock_gettime(CLOCK_MONOTONIC, &finish);
+    uint64_t runTimeInNs = tsToNanosecond(&finish) - tsToNanosecond(start);
+
+    if (isMetaData)
+    {
+        metaDataRunTime += runTimeInNs;
+        timeVal = metaDataRunTime;
+    }
+    else
+    {
+        timeVal = runTimeInNs;
+    }
+
+    // only log the last metaData run
+    logSection = cJSON_GetObjectItemCaseSensitive(parent, "_time");
+    if ((isMetaData) && (logSection != NULL))
+    {
+        cJSON_DeleteItemFromObjectCaseSensitive(parent, logSection->string);
+    }
+
+    cd_snprintf_s(timeString, sizeof(timeString), "%.2fs",
+                  (double)timeVal / 1e9);
+    cJSON_AddStringToObject(parent, key, timeString);
+
+    clock_gettime(CLOCK_MONOTONIC, start);
+    isMetaData = false;
+}
+
 static const std::string getUuid()
 {
     std::string ret;
@@ -346,6 +389,7 @@ void createCrashdump(std::string& crashdumpContents)
     cJSON* processors = NULL;
     cJSON* cpu = NULL;
     cJSON* logSection = NULL;
+    cJSON* metaSection = NULL;
     char* out = NULL;
     int ret;
 
@@ -376,6 +420,12 @@ void createCrashdump(std::string& crashdumpContents)
 
     // Fill in the Crashdump data in the correct order (uncore to core) for
     // each CPU
+    struct timespec sectionStart, crashdumpStart;
+
+    clock_gettime(CLOCK_MONOTONIC, &sectionStart);
+    clock_gettime(CLOCK_MONOTONIC, &crashdumpStart);
+
+    char timeStr[] = "_time";
     for (int i = 0; i < cpuInfo.size(); i++)
     {
         // Create a section for this cpu
@@ -395,6 +445,7 @@ void createCrashdump(std::string& crashdumpContents)
 
         // Fill in the SQ dump
         addSectionLog(cpu, cpuInfo[i], "big_core", logSqDump);
+        logRunTime(logSection, &sectionStart, timeStr);
 
         // Fill in the Core MCA data
         addSectionLog(cpu, cpuInfo[i], "MCA", logCoreMca);
@@ -405,6 +456,7 @@ void createCrashdump(std::string& crashdumpContents)
         {
             // Include the version
             logCrashdumpVersion(logSection, cpuInfo[i], record_type::mcaLog);
+            logRunTime(logSection, &sectionStart, timeStr);
         }
 
         // Fill in the System Info metadata
@@ -413,14 +465,21 @@ void createCrashdump(std::string& crashdumpContents)
         if (logSection)
         {
             // Include the version and timestamp fields
+            isMetaData = true;
             logCrashdumpVersion(logSection, cpuInfo[i], record_type::metadata);
             logTimestamp(logSection);
             logTriggerType(logSection);
             logPlatformName(logSection);
+            logRunTime(logSection, &sectionStart, timeStr);
+            metaSection = logSection;
         }
 
         // Fill in the Uncore Status
         logSection = addSectionLog(cpu, cpuInfo[i], "uncore", logUncoreStatus);
+        if (logSection)
+        {
+            logRunTime(logSection, &sectionStart, timeStr);
+        }
 
         // Fill in the TOR Dump
         logSection = addSectionLog(cpu, cpuInfo[i], "TOR", logTorDump);
@@ -428,6 +487,7 @@ void createCrashdump(std::string& crashdumpContents)
         {
             // Include the version
             logCrashdumpVersion(logSection, cpuInfo[i], record_type::torDump);
+            logRunTime(logSection, &sectionStart, timeStr);
         }
 
         // Fill in the Power Management Info
@@ -437,6 +497,7 @@ void createCrashdump(std::string& crashdumpContents)
         {
             // Include the version
             logCrashdumpVersion(logSection, cpuInfo[i], record_type::pmInfo);
+            logRunTime(logSection, &sectionStart, timeStr);
         }
 
         // Fill in the Address Map
@@ -447,8 +508,15 @@ void createCrashdump(std::string& crashdumpContents)
             // Include the version
             logCrashdumpVersion(logSection, cpuInfo[i],
                                 record_type::addressMap);
+            logRunTime(logSection, &sectionStart, timeStr);
         }
     }
+
+    if (metaSection != NULL)
+    {
+        logRunTime(metaSection, &crashdumpStart, "_total_time");
+    }
+    metaDataRunTime = 0;
 
     out = cJSON_PrintUnformatted(root);
     if (out != NULL)
