@@ -29,19 +29,37 @@
 
 #define AM_JSON_STRING_LEN 32
 
-#define AM_FAILED "N/A"
+#define AM_NA "N/A"
+#define AM_UA "UA:0x%x"
 #define AM_UINT64_FMT "0x%" PRIx64 ""
+
+#define AM_PCI_SEG 0
 
 /******************************************************************************
  *
  *   Structures
  *
  ******************************************************************************/
+enum AM_REG_SIZE
+{
+    AM_REG_BYTE = 1,
+    AM_REG_WORD = 2,
+    AM_REG_DWORD = 4,
+    AM_REG_QWORD = 8
+};
+
 typedef union
 {
     uint64_t u64;
     uint32_t u32[2];
 } UAddrMapRegValue;
+
+typedef struct
+{
+    UAddrMapRegValue uValue;
+    uint8_t cc;
+    bool bInvalid;
+} SAddressMapRegRawData;
 
 typedef struct
 {
