@@ -209,14 +209,17 @@ static uint8_t u8CrashdumpCoreGroupSizes[] = {
 static void crashdumpJsonCPX1(uint32_t u32NumReads, SCrashdump* sCrashdump,
                               cJSON* pJsonChild)
 {
-    char jsonItemName[CD_JSON_STRING_LEN];
-    char jsonItemString[CD_JSON_STRING_LEN];
+    char jsonItemName[CD_JSON_STRING_LEN] = {0};
+    char jsonItemString[CD_JSON_STRING_LEN] = {0};
     uint32_t u32CrashIndex = 0;
     uint64_t u64RegValue = 0;
-
+    uint8_t CoreHigh = 0;
+    uint8_t CoreLow = 0;
     // Get the number of cores included in the crashdump
     uint32_t u32CoreMask = ((sCrashdump->header.data[3] & 0xFFFF) << 16) |
                            (sCrashdump->header.data[2] & 0xFFFF);
+    uint32_t u32CoreMaskLow = (sCrashdump->header.data[2] & 0xFFFF);
+    uint32_t u32CoreMaskHigh = u32CoreMask;
     uint32_t u32CoreCount = __builtin_popcount(u32CoreMask);
 
     // Use the core count to calculate the expected number of reads and compare
@@ -284,110 +287,136 @@ static void crashdumpJsonCPX1(uint32_t u32NumReads, SCrashdump* sCrashdump,
         cJSON_AddStringToObject(uncore, sCrashdumpUncoreRegs[u32RegNum].name,
                                 jsonItemString);
     }
-    // Write out the core register data
-    for (uint8_t u8GroupNum = 0; u8GroupNum < CD_NUM_GROUPS_CORE; u8GroupNum++)
+    // CoreMask Group 0 (15 - 0) and Core Group 1 (27 - 16)
+    for (uint8_t u8CoreGroup = 0; u8CoreGroup < CD_NUM_COREGROUP_CORE;
+         u8CoreGroup++)
     {
-        // Each group starts with Thread 0 followed by Thread 1 of the
-        // highest core
-        for (uint8_t u8CoreNum = CD_CORES_IN_MASK; u8CoreNum > 0; u8CoreNum--)
+        if (u8CoreGroup == 0)
         {
-            if (!(u32CoreMask & (1 << (u8CoreNum - 1))))
-                continue;
-            // Add the core info to the Crashdump JSON structure for this
-            // group only if it doesn't exist
-            cJSON* core;
-            cd_snprintf_s(jsonItemName, CD_JSON_STRING_LEN, CD_JSON_CORE_NAME,
-                          (u8CoreNum - 1));
-            if ((core = cJSON_GetObjectItemCaseSensitive(pJsonChild,
-                                                         jsonItemName)) == NULL)
-            {
-                cJSON_AddItemToObject(pJsonChild, jsonItemName,
-                                      core = cJSON_CreateObject());
-            }
-
+            CoreHigh = CORE_GROUP0_HIGH;
+            CoreLow = CORE_GROUP0_LOW;
+            u32CoreMask = u32CoreMaskLow;
+        }
+        else
+        {
+            CoreHigh = CORE_GROUP1_HIGH;
+            CoreLow = CORE_GROUP1_LOW;
+            u32CoreMask = u32CoreMaskHigh;
+        }
+        // For each register Group
+        for (uint8_t u8GroupNum = 0; u8GroupNum < CD_NUM_GROUPS_CORE;
+             u8GroupNum++)
+        {
             // Add the thread data to the core
             for (uint8_t u8ThreadNum = 0; u8ThreadNum < CD_THREADS_PER_CORE;
                  u8ThreadNum++)
             {
-                // Add the thread info to the Crashdump JSON structure for
-                // this group only if it doesn't exist
-                cJSON *thread, *thread_temp;
-                cd_snprintf_s(jsonItemName, CD_JSON_STRING_LEN,
-                              CD_JSON_THREAD_NAME, u8ThreadNum);
-                if ((thread = cJSON_GetObjectItemCaseSensitive(
-                         core, jsonItemName)) == NULL)
+                // Write out the core register data
+                for (uint8_t u8CoreNum = CoreHigh; u8CoreNum > CoreLow;
+                     u8CoreNum--)
                 {
-                    cJSON_AddItemToObject(core, jsonItemName,
-                                          thread = cJSON_CreateObject());
-                }
-                if ((thread_temp = cJSON_GetObjectItemCaseSensitive(
-                         core, CD_JSON_THREAD_1)) == NULL)
-                {
-                    cJSON_AddItemToObject(core, CD_JSON_THREAD_1,
-                                          thread_temp = cJSON_CreateObject());
-                }
-                for (uint32_t u32RegNum = 0;
-                     u32RegNum < u8CrashdumpCoreGroupSizes[u8GroupNum];
-                     u32RegNum++)
-                {
-                    // Thread scope registers are dumped for each thread, so
-                    // add them to a thread object
-                    if (sCrashdumpCoreRegsCPX1[u8GroupNum][u32RegNum].scope ==
-                        THREAD_SCOPE)
+                    if (!(u32CoreMask & (1 << (u8CoreNum - 1))))
+                        continue;
+                    // Add the core info to the Crashdump JSON structure for
+                    // this group only if it doesn't exist
+                    cJSON* core;
+                    cd_snprintf_s(jsonItemName, CD_JSON_STRING_LEN,
+                                  CD_JSON_CORE_NAME, (u8CoreNum - 1));
+                    if ((core = cJSON_GetObjectItemCaseSensitive(
+                             pJsonChild, jsonItemName)) == NULL)
                     {
-                        if (sCrashdumpCoreRegsCPX1[u8GroupNum][u32RegNum]
-                                .dwords == 1)
-                        {
-                            cd_snprintf_s(jsonItemString, CD_JSON_STRING_LEN,
-                                          "0x%x",
-                                          sCrashdump->data[u32CrashIndex++]);
-                        }
-                        else if (sCrashdumpCoreRegsCPX1[u8GroupNum][u32RegNum]
-                                     .dwords == 2)
-                        {
-                            u64RegValue = sCrashdump->data[u32CrashIndex++];
-                            u64RegValue |=
-                                (uint64_t)(sCrashdump->data[u32CrashIndex++])
-                                << 32;
-                            cd_snprintf_s(jsonItemString, CD_JSON_STRING_LEN,
-                                          "0x%llx", u64RegValue);
-                        }
-                        cd_snprintf_s(
-                            jsonItemName, CD_JSON_STRING_LEN, "%s",
-                            sCrashdumpCoreRegsCPX1[u8GroupNum][u32RegNum].name);
-                        cJSON_AddStringToObject(thread, jsonItemName,
-                                                jsonItemString);
+                        cJSON_AddItemToObject(pJsonChild, jsonItemName,
+                                              core = cJSON_CreateObject());
                     }
-                    // Core scope registers are only dumped for thread 0
-                    else if (sCrashdumpCoreRegsCPX1[u8GroupNum][u32RegNum]
-                                     .scope == CORE_SCOPE &&
-                             u8ThreadNum == 0)
+                    // Add the thread info to the Crashdump JSON structure for
+                    // this group only if it doesn't exist
+                    cJSON *thread, *thread_temp;
+                    cd_snprintf_s(jsonItemName, CD_JSON_STRING_LEN,
+                                  CD_JSON_THREAD_NAME, u8ThreadNum);
+                    if ((thread = cJSON_GetObjectItemCaseSensitive(
+                             core, jsonItemName)) == NULL)
                     {
+                        cJSON_AddItemToObject(core, jsonItemName,
+                                              thread = cJSON_CreateObject());
+                    }
+                    if ((thread_temp = cJSON_GetObjectItemCaseSensitive(
+                             core, CD_JSON_THREAD_1)) == NULL)
+                    {
+                        cJSON_AddItemToObject(core, CD_JSON_THREAD_1,
+                                              thread_temp =
+                                                  cJSON_CreateObject());
+                    }
+                    for (uint32_t u32RegNum = 0;
+                         u32RegNum < u8CrashdumpCoreGroupSizes[u8GroupNum];
+                         u32RegNum++)
+                    {
+                        // Thread scope registers are dumped for each thread, so
+                        // add them to a thread object
                         if (sCrashdumpCoreRegsCPX1[u8GroupNum][u32RegNum]
-                                .dwords == 1)
+                                .scope == THREAD_SCOPE)
                         {
-                            cd_snprintf_s(jsonItemString, CD_JSON_STRING_LEN,
-                                          "0x%x",
-                                          sCrashdump->data[u32CrashIndex++]);
+                            if (sCrashdumpCoreRegsCPX1[u8GroupNum][u32RegNum]
+                                    .dwords == 1)
+                            {
+                                cd_snprintf_s(
+                                    jsonItemString, CD_JSON_STRING_LEN, "0x%x",
+                                    sCrashdump->data[u32CrashIndex++]);
+                            }
+                            else if (sCrashdumpCoreRegsCPX1[u8GroupNum]
+                                                           [u32RegNum]
+                                                               .dwords == 2)
+                            {
+                                u64RegValue = sCrashdump->data[u32CrashIndex++];
+                                u64RegValue |=
+                                    (uint64_t)(
+                                        sCrashdump->data[u32CrashIndex++])
+                                    << 32;
+                                cd_snprintf_s(jsonItemString,
+                                              CD_JSON_STRING_LEN, "0x%llx",
+                                              u64RegValue);
+                            }
+                            cd_snprintf_s(
+                                jsonItemName, CD_JSON_STRING_LEN, "%s",
+                                sCrashdumpCoreRegsCPX1[u8GroupNum][u32RegNum]
+                                    .name);
+                            cJSON_AddStringToObject(thread, jsonItemName,
+                                                    jsonItemString);
                         }
+                        // Core scope registers are only dumped for thread 0
                         else if (sCrashdumpCoreRegsCPX1[u8GroupNum][u32RegNum]
-                                     .dwords == 2)
+                                         .scope == CORE_SCOPE &&
+                                 u8ThreadNum == 0)
                         {
-                            u64RegValue = sCrashdump->data[u32CrashIndex++];
-                            u64RegValue |=
-                                (uint64_t)(sCrashdump->data[u32CrashIndex++])
-                                << 32;
-                            cd_snprintf_s(jsonItemString, CD_JSON_STRING_LEN,
-                                          "0x%llx", u64RegValue);
+                            if (sCrashdumpCoreRegsCPX1[u8GroupNum][u32RegNum]
+                                    .dwords == 1)
+                            {
+                                cd_snprintf_s(
+                                    jsonItemString, CD_JSON_STRING_LEN, "0x%x",
+                                    sCrashdump->data[u32CrashIndex++]);
+                            }
+                            else if (sCrashdumpCoreRegsCPX1[u8GroupNum]
+                                                           [u32RegNum]
+                                                               .dwords == 2)
+                            {
+                                u64RegValue = sCrashdump->data[u32CrashIndex++];
+                                u64RegValue |=
+                                    (uint64_t)(
+                                        sCrashdump->data[u32CrashIndex++])
+                                    << 32;
+                                cd_snprintf_s(jsonItemString,
+                                              CD_JSON_STRING_LEN, "0x%llx",
+                                              u64RegValue);
+                            }
+                            cd_snprintf_s(
+                                jsonItemName, CD_JSON_STRING_LEN, "%s",
+                                sCrashdumpCoreRegsCPX1[u8GroupNum][u32RegNum]
+                                    .name);
+                            cJSON_AddStringToObject(thread, jsonItemName,
+                                                    jsonItemString);
+
+                            cJSON_AddStringToObject(thread_temp, jsonItemName,
+                                                    jsonItemString);
                         }
-                        cJSON_AddStringToObject(
-                            thread,
-                            sCrashdumpCoreRegsCPX1[u8GroupNum][u32RegNum].name,
-                            jsonItemString);
-                        cJSON_AddStringToObject(
-                            thread_temp,
-                            sCrashdumpCoreRegsCPX1[u8GroupNum][u32RegNum].name,
-                            jsonItemString);
                     }
                 }
             }
@@ -779,12 +808,12 @@ static void crashdumpJsonICX1(uint32_t u32CoreNum, uint32_t u32ThreadNum,
                               uint32_t u32CrashSize, uint8_t* pu8Crashdump,
                               cJSON* pJsonChild, uint8_t cc)
 {
-    char jsonItemName[CD_JSON_STRING_LEN];
-    char jsonItemString[CD_JSON_STRING_LEN];
+    char jsonItemName[CD_JSON_STRING_LEN] = {0};
+    char jsonItemString[CD_JSON_STRING_LEN] = {0};
 
     // Add the core number item to the Crashdump JSON structure only if it
     // doesn't already exist
-    cJSON* core;
+    cJSON* core = NULL;
     cd_snprintf_s(jsonItemName, CD_JSON_STRING_LEN, CD_JSON_CORE_NAME,
                   u32CoreNum);
     if ((core = cJSON_GetObjectItemCaseSensitive(pJsonChild, jsonItemName)) ==

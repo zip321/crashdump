@@ -53,6 +53,7 @@ extern "C" {
 #define CD_REGS_CORE_THREAD 76
 #define CD_DWORDS_CORE 247
 #define CD_NUM_GROUPS_CORE 19
+#define CD_NUM_COREGROUP_CORE 2
 enum CD_CORE_GROUP_SIZES
 {
     CD_CORE_GROUP_1_SIZE = 1,   // IA32_X2APIC_CUR_COUNT
@@ -91,6 +92,11 @@ enum CD_CORE_GROUP_SIZES
 #define CD_JSON_DATA_SIZE_NAME "data_size"
 #define CD_JSON_UNCORE_NAME "uncore"
 #define CD_JSON_CORE_NAME "core%d"
+
+#define CORE_GROUP0_HIGH 16
+#define CORE_GROUP0_LOW 0
+#define CORE_GROUP1_HIGH 28
+#define CORE_GROUP1_LOW 16
 
 /******************************************************************************
  *
