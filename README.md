@@ -1,6 +1,9 @@
 Crashdump
 
 ## Installation Steps:
+Intel Builds CrashDump against this OpenBMC version.
+https://github.com/Intel-BMC/openbmc/tree/intel/meta-openbmc-mods
+
 Dependencies:
 -Install sdbusplus  (https://github.com/openbmc/sdbusplus)
     Tested with: 1befc49be9b32b1c04cc9485c132827c86aa891c
