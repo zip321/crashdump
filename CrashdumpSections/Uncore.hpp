@@ -86,6 +86,7 @@ enum US_MMIO_SIZE
 #define MMIO_ROOT_FUNC 0x02
 #define MMIO_ROOT_REG 0xCC
 
+#define US_NA "N/A"
 #define US_UA "UA:0x%x"
 #define US_UINT64_FMT "0x%" PRIx64 ""
 

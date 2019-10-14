@@ -2797,6 +2797,13 @@ static void uncoreStatusJsonICX(const char* regName,
 
     if (sRegData->bInvalid)
     {
+        cd_snprintf_s(jsonItemString, US_JSON_STRING_LEN, US_NA);
+        cJSON_AddStringToObject(pJsonChild, regName, jsonItemString);
+        return;
+    }
+
+    if (PECI_CC_UA(cc))
+    {
         cd_snprintf_s(jsonItemString, US_JSON_STRING_LEN, US_UA, cc);
     }
     else
@@ -2817,54 +2824,130 @@ static void uncoreStatusJsonICX(const char* regName,
  ******************************************************************************/
 static int uncoreStatusPciICX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 {
+    int peci_fd = -1;
+    int ret = 0;
+
+    if (peci_Lock(&peci_fd, PECI_WAIT_FOREVER) != PECI_CC_SUCCESS)
+    {
+        return 1;
+    }
+
     for (uint32_t i = 0;
          i < (sizeof(sUncoreStatusPciICX1) / sizeof(SUncoreStatusRegPci)); i++)
     {
         SUncoreStatusRegRawData sRegData = {};
         uint8_t cc = 0;
+        uint8_t bus = 0;
+
+        // ICX EDS Reference Section: PCI Configuration Space Registers
+        // Note that registers located in Bus 30 and 31
+        // have been translated to Bus 13 and 14 respectively for PECI access.
+        if (sUncoreStatusPciICX1[i].u8Bus == 30)
+        {
+            bus = 13;
+        }
+        else if (sUncoreStatusPciICX1[i].u8Bus == 31)
+        {
+            bus = 14;
+        }
+        else
+        {
+            bus = sUncoreStatusPciICX1[i].u8Bus;
+        }
+
         switch (sUncoreStatusPciICX1[i].u8Size)
         {
             case US_REG_BYTE:
             case US_REG_WORD:
             case US_REG_DWORD:
-                peci_RdEndPointConfigPciLocal(cpuInfo.clientAddr, US_PCI_SEG,
-                                              sUncoreStatusPciICX1[i].u8Bus,
-                                              sUncoreStatusPciICX1[i].u8Dev,
-                                              sUncoreStatusPciICX1[i].u8Func,
-                                              sUncoreStatusPciICX1[i].u16Reg,
-                                              sUncoreStatusPciICX1[i].u8Size,
-                                              (uint8_t*)&sRegData.uValue.u64,
-                                              &cc);
-                if (PECI_CC_UA(cc))
+                if (peci_RdEndPointConfigPciLocal_seq(
+                        cpuInfo.clientAddr, US_PCI_SEG, bus,
+                        sUncoreStatusPciICX1[i].u8Dev,
+                        sUncoreStatusPciICX1[i].u8Func,
+                        sUncoreStatusPciICX1[i].u16Reg,
+                        sUncoreStatusPciICX1[i].u8Size,
+                        (uint8_t*)&sRegData.uValue.u64, peci_fd,
+                        &cc) != PECI_CC_SUCCESS)
                 {
                     sRegData.bInvalid = true;
+                    ret = 1;
                 }
                 break;
             case US_REG_QWORD:
                 for (uint8_t u8Dword = 0; u8Dword < 2; u8Dword++)
                 {
-                    peci_RdEndPointConfigPciLocal(
-                        cpuInfo.clientAddr, US_PCI_SEG,
-                        sUncoreStatusPciICX1[i].u8Bus,
-                        sUncoreStatusPciICX1[i].u8Dev,
-                        sUncoreStatusPciICX1[i].u8Func,
-                        sUncoreStatusPciICX1[i].u16Reg + (u8Dword * 4),
-                        sizeof(uint32_t),
-                        (uint8_t*)&sRegData.uValue.u32[u8Dword], &cc);
-                    if (PECI_CC_UA(cc))
+                    if (peci_RdEndPointConfigPciLocal_seq(
+                            cpuInfo.clientAddr, US_PCI_SEG, bus,
+                            sUncoreStatusPciICX1[i].u8Dev,
+                            sUncoreStatusPciICX1[i].u8Func,
+                            sUncoreStatusPciICX1[i].u16Reg + (u8Dword * 4),
+                            sizeof(uint32_t),
+                            (uint8_t*)&sRegData.uValue.u32[u8Dword], peci_fd,
+                            &cc) != PECI_CC_SUCCESS)
                     {
                         sRegData.bInvalid = true;
+                        ret = 1;
                         break;
                     }
                 }
                 break;
             default:
                 sRegData.bInvalid = true;
+                ret = 1;
         }
 
         uncoreStatusJsonICX(sUncoreStatusPciICX1[i].regName, &sRegData,
                             pJsonChild, cc);
     }
+    peci_Unlock(peci_fd);
+    return ret;
+}
+
+/******************************************************************************
+ *
+ *   bus30ToPostEnumeratedBus()
+ *
+ *   This function is dedicated to converting bus 30 to post enumerated
+ *   bus number for MMIO read.
+ *
+ ******************************************************************************/
+static int bus30ToPostEnumeratedBus(uint32_t addr, uint8_t* postEnumBus)
+{
+    uint32_t cpubusno_valid = 0;
+    uint32_t cpubusno2 = 0;
+    uint8_t cc = 0;
+
+    // Use PCS Service 76, Parameter 5 to check valid post enumerated bus#
+    if ((peci_RdPkgConfig(addr, 76, 5, sizeof(uint32_t),
+                          (uint8_t*)&cpubusno_valid, &cc) != PECI_CC_SUCCESS) ||
+        (PECI_CC_UA(cc)))
+    {
+        fprintf(stderr, "Unable to read cpubusno_valid - cc: 0x%x\n", cc);
+        return 1;
+    }
+
+    // Bit 11 is for checking bus 30 contains valid post enumerated bus#
+    if (0 == CHECK_BIT(cpubusno_valid, 11))
+    {
+        fprintf(stderr,
+                "Bus 30 does not contain valid post enumerated bus"
+                "number! (0x%x)\n",
+                cpubusno_valid);
+        return 1;
+    }
+
+    // Use PCS Service 76, Parameter 4 to get raw post enumerated buses value
+    if ((peci_RdPkgConfig(addr, 76, 4, sizeof(uint32_t), (uint8_t*)&cpubusno2,
+                          &cc) != PECI_CC_SUCCESS) ||
+        (PECI_CC_UA(cc)))
+    {
+        fprintf(stderr, "Unable to read cpubusno2 - cc: 0x%x\n", cc);
+        return 1;
+    }
+
+    // CPUBUSNO2[23:16] for Bus 30
+    *postEnumBus = ((cpubusno2 >> 16) & 0xff);
+
     return 0;
 }
 
@@ -2879,6 +2962,20 @@ static int uncoreStatusPciMmioICX1(crashdump::CPUInfo& cpuInfo,
                                    cJSON* pJsonChild)
 {
     char jsonNameString[US_REG_NAME_LEN];
+    int peci_fd = -1;
+    int ret = 0;
+    uint8_t cc = 0;
+    uint8_t postEnumBus = 0;
+
+    if (0 != bus30ToPostEnumeratedBus(cpuInfo.clientAddr, &postEnumBus))
+    {
+        return 1;
+    }
+
+    if (peci_Lock(&peci_fd, PECI_WAIT_FOREVER) != PECI_CC_SUCCESS)
+    {
+        return 1;
+    }
 
     for (uint32_t i = 0; i < (sizeof(sUncoreStatusPciMmioICX1) /
                               sizeof(SUncoreStatusRegPciMmioICX1));
@@ -2886,55 +2983,46 @@ static int uncoreStatusPciMmioICX1(crashdump::CPUInfo& cpuInfo,
     {
         SUncoreStatusRegRawData sRegData = {};
         uint8_t addrType = PECI_ENDPTCFG_ADDR_TYPE_MMIO_D;
-        uint8_t cc = 0;
-        uint8_t readLen;
-        uint8_t bus;
-        peci_RdEndPointConfigPciLocal(
-            cpuInfo.clientAddr, US_MMIO_SEG, MMIO_ROOT_BUS, MMIO_ROOT_DEV,
-            MMIO_ROOT_FUNC, MMIO_ROOT_REG, US_REG_DWORD, (uint8_t*)&bus, &cc);
+        uint8_t readLen = 0;
 
-        if (PECI_CC_UA(cc))
+        if (sUncoreStatusPciMmioICX1[i].u64Offset > UINT32_MAX)
         {
-            sRegData.bInvalid = true;
+            addrType = PECI_ENDPTCFG_ADDR_TYPE_MMIO_Q;
         }
-        else
+        switch (sUncoreStatusPciMmioICX1[i].u8Size)
         {
-            if (sUncoreStatusPciMmioICX1[i].u64Offset > UINT32_MAX)
-            {
-                addrType = PECI_ENDPTCFG_ADDR_TYPE_MMIO_Q;
-            }
-            switch (sUncoreStatusPciMmioICX1[i].u8Size)
-            {
-                case US_REG_BYTE:
-                case US_REG_WORD:
-                case US_REG_DWORD:
-                    readLen = US_REG_DWORD;
-                    break;
-                case US_REG_QWORD:
-                    readLen = US_REG_QWORD;
-                    break;
-                default:
-                    sRegData.bInvalid = true;
-            }
+            case US_REG_BYTE:
+            case US_REG_WORD:
+            case US_REG_DWORD:
+                readLen = US_REG_DWORD;
+                break;
+            case US_REG_QWORD:
+                readLen = US_REG_QWORD;
+                break;
+            default:
+                sRegData.bInvalid = true;
+                ret = 1;
+        }
 
-            peci_RdEndPointConfigMmio(
-                cpuInfo.clientAddr, US_MMIO_SEG, bus,
+        if (peci_RdEndPointConfigMmio_seq(
+                cpuInfo.clientAddr, US_MMIO_SEG, postEnumBus,
                 sUncoreStatusPciMmioICX1[i].u8Dev,
                 sUncoreStatusPciMmioICX1[i].u8Func,
                 sUncoreStatusPciMmioICX1[i].u8Bar, addrType,
                 sUncoreStatusPciMmioICX1[i].u64Offset, readLen,
-                (uint8_t*)&sRegData.uValue.u64, &cc);
-
-            if (PECI_CC_UA(cc))
-            {
-                sRegData.bInvalid = true;
-            }
+                (uint8_t*)&sRegData.uValue.u64, peci_fd,
+                &cc) != PECI_CC_SUCCESS)
+        {
+            sRegData.bInvalid = true;
+            ret = 1;
         }
+
         cd_snprintf_s(jsonNameString, US_JSON_STRING_LEN,
-                      sUncoreStatusPciMmioICX1[i].regName, bus);
+                      sUncoreStatusPciMmioICX1[i].regName, postEnumBus);
         uncoreStatusJsonICX(jsonNameString, &sRegData, pJsonChild, cc);
     }
-    return 0;
+    peci_Unlock(peci_fd);
+    return ret;
 }
 
 static UncoreStatusRead UncoreStatusTypesICX1[] = {

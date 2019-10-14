@@ -24,13 +24,13 @@
 TEST(UncoreRegs, sizeCheck)
 {
     // Check Num of PCI registers
-    int expected = 3107;
+    int expected = 3187;
     int val = sizeof(sUncoreStatusPciICX1) / sizeof(SUncoreStatusRegPci);
     EXPECT_EQ(val, expected);
 
     // Check Num of MMIO registers
     val =
         sizeof(sUncoreStatusPciMmioICX1) / sizeof(SUncoreStatusRegPciMmioICX1);
-    expected = 338;
+    expected = 670;
     EXPECT_EQ(val, expected);
 }
