@@ -762,7 +762,8 @@ int main(int argc, char* argv[])
     // vector to store log interfaces
     std::vector<std::pair<std::string,
                           std::shared_ptr<sdbusplus::asio::dbus_interface>>>
-        logIfaces(crashdump::numStoredLogs + 1);
+        logIfaces;
+    logIfaces.reserve(crashdump::numStoredLogs + 1);
     // setup connection to dbus
     crashdump::conn =
         std::make_shared<sdbusplus::asio::connection>(crashdump::io);
