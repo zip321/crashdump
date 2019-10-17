@@ -50,7 +50,7 @@ extern "C" {
 #define UCM_BANK_PARAM 0x1000
 
 #define FIRST_UNCORE_MCA 4
-#define LAST_UNCORE_MCA 19
+#define LAST_UNCORE_MCA 22
 
 #define UCM_NUM_MCA_DWORDS 10
 #define UCM_NUM_MCA_QWORDS (UCM_NUM_MCA_DWORDS / 2)

@@ -68,6 +68,8 @@ constexpr char const* crashdumpPath = "/com/intel/crashdump";
 constexpr char const* crashdumpInterface = "com.intel.crashdump";
 constexpr char const* crashdumpOnDemandPath = "/com/intel/crashdump/OnDemand";
 constexpr char const* crashdumpStoredInterface = "com.intel.crashdump.Stored";
+constexpr char const* crashdumpDeleteAllInterface =
+    "xyz.openbmc_project.Collection.DeleteAll";
 constexpr char const* crashdumpOnDemandInterface =
     "com.intel.crashdump.OnDemand";
 constexpr char const* crashdumpRawPeciInterface =
@@ -593,7 +595,7 @@ static void incrementCrashdumpCount()
         "xyz.openbmc_project.Control.Processor.ErrConfig", "CrashdumpCount");
 }
 
-constexpr int numStoredLogs = 2;
+constexpr int numStoredLogs = 3;
 static void newStoredLog(
     sdbusplus::asio::object_server& server,
     std::vector<std::pair<std::string,
@@ -605,6 +607,15 @@ static void newStoredLog(
     uint64_t crashdump_num = 0;
     FILE* fpJson = NULL;
     std::error_code ec;
+
+    // Start the log
+    std::string crashdumpContents;
+    createCrashdump(crashdumpContents);
+    if (crashdumpContents.empty())
+    {
+        // Log is empty, so don't save it
+        return;
+    }
 
     // create the crashdumps directory if it doesn't exist
     if (!(std::filesystem::create_directories(crashdumpDir, ec)))
@@ -618,27 +629,25 @@ static void newStoredLog(
     }
 
     // Search the crashdumps directory for existing log files
-    int n =
+    int numLogFiles =
         scandir(crashdumpDir.c_str(), &namelist, scandir_filter, versionsort);
-    if (n < 0)
+    if (numLogFiles < 0)
     {
         // scandir failed, so print the error
         perror("scandir");
         return;
     }
 
-    // If this is the first cpu log, just use 0
-    if (n > 0)
-    {
-        // otherwise, get the number of the last log and increment it
-        sscanf_s(namelist[n - 1]->d_name, crashdumpFile, &crashdump_num);
-        crashdump_num++;
-    }
-    // Go through each file in directory
-    for (int i = 0; i < n; i++)
+    // In case multiple crashdumps are triggered for the same error, the policy
+    // is to keep the first log until it is manually cleared and rotate through
+    // additional logs.  This guarantees that we have the first and last log of
+    // a failure.
+
+    // Go through each file in the directory after the first one
+    for (int i = 1; i < numLogFiles; i++)
     {
         // If it's below the number of saved logs, delete it
-        if (i < (n - numStoredLogs))
+        if (i <= (numLogFiles - (numStoredLogs - 1)))
         {
             std::error_code ec;
             if (!(std::filesystem::remove(crashdumpDir / namelist[i]->d_name,
@@ -667,22 +676,22 @@ static void newStoredLog(
     // Free the scandir data
     free(namelist);
 
-    // Create the new cpu log filename
+    // If this is the first log, use 0
+    if (numLogFiles > 0)
+    {
+        // otherwise, get the number of the last log and increment it
+        sscanf_s(namelist[numLogFiles - 1]->d_name, crashdumpFile,
+                 &crashdump_num);
+        crashdump_num++;
+    }
+
+    // Create the new crashdump filename
     char new_log_filename[256];
     cd_snprintf_s(new_log_filename, sizeof(new_log_filename), crashdumpFile,
                   crashdump_num);
     std::filesystem::path out_file = crashdumpDir / new_log_filename;
 
-    // Start the log to the new file
-    std::string crashdumpContents;
-    createCrashdump(crashdumpContents);
-    if (crashdumpContents.empty())
-    {
-        // Log is empty, so don't save it
-        return;
-    }
-
-    // open the JSON file for CPU dump
+    // open the JSON file to write the crashdump contents
     fpJson = fopen(out_file.c_str(), "w");
     if (fpJson != NULL)
     {
@@ -763,7 +772,7 @@ int main(int argc, char* argv[])
     std::vector<std::pair<std::string,
                           std::shared_ptr<sdbusplus::asio::dbus_interface>>>
         logIfaces;
-    logIfaces.reserve(crashdump::numStoredLogs + 1);
+    logIfaces.reserve(crashdump::numStoredLogs);
     // setup connection to dbus
     crashdump::conn =
         std::make_shared<sdbusplus::asio::connection>(crashdump::io);
@@ -796,6 +805,29 @@ int main(int argc, char* argv[])
             return std::string("Log Started");
         });
     ifaceStored->initialize();
+
+    // DeleteAll Interface
+    std::shared_ptr<sdbusplus::asio::dbus_interface> ifaceDeleteAll =
+        server.add_interface(crashdump::crashdumpPath,
+                             crashdump::crashdumpDeleteAllInterface);
+
+    // Delete all stored logs
+    ifaceDeleteAll->register_method("DeleteAll", [&server, &logIfaces]() {
+        std::error_code ec;
+        for (auto& [file, interface] : logIfaces)
+        {
+            if (!(std::filesystem::remove(crashdump::crashdumpDir / file, ec)))
+            {
+                fprintf(stderr, "failed to remove %s: %s\n", file.c_str(),
+                        ec.message().c_str());
+            }
+            server.remove_interface(interface);
+        }
+        logIfaces.clear();
+        fprintf(stderr, "Crashdump logs cleared\n");
+        return std::string("Logs Cleared");
+    });
+    ifaceDeleteAll->initialize();
 
     // OnDemand Log Interface
     std::shared_ptr<sdbusplus::asio::dbus_interface> ifaceImm =

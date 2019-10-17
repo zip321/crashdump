@@ -382,7 +382,7 @@ int logUncoreMcaCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
         ePECIStatus = peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU,
                                            UCM_BANK_PARAM, j, sizeof(uint32_t),
                                            peci_fd, &cc);
-        if (ePECIStatus != PECI_CC_SUCCESS)
+        if (PECI_CC_UA(cc))
         {
             // MCE Bank sequence failed, abort the sequence and go to the next
             // Bank
@@ -400,7 +400,7 @@ int logUncoreMcaCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
                 cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_READ, sizeof(uint32_t),
                 (uint8_t*)&sUncoreMcaRawData.uRegData.u32Raw[u8Dword], peci_fd,
                 &cc);
-            if (ePECIStatus != PECI_CC_SUCCESS)
+            if (PECI_CC_UA(cc))
             {
                 // MCE Bank sequence failed, abort the sequence and go to the
                 // next Bank
