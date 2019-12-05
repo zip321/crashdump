@@ -56,7 +56,7 @@ extern "C" {
 
 #define CORE_MCA_REG_NAME "mc%d_%s"
 
-#define CORE_MCA_JSON_MCA_NAME "mc%d"
+#define CORE_MCA_JSON_MCA_NAME "MC%d"
 
 /******************************************************************************
  *
@@ -115,7 +115,7 @@ typedef struct
 
 typedef struct
 {
-    CPUModel cpuModel;
+    crashdump::cpu::Model cpuModel;
     int (*logCoreMcaVx)(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);
 } SCoreMcaLogVx;
 

@@ -254,8 +254,7 @@ int fillVCodeVersion(crashdump::CPUInfo& cpuInfo, char* cSectionName,
  *   This function fills in the bmc_fw_ver JSON info
  *
  ******************************************************************************/
-int fillBmcVersion(crashdump::CPUInfo& cpuInfo, char* cSectionName,
-                   cJSON* pJsonChild)
+int fillBmcVersion(char* cSectionName, cJSON* pJsonChild)
 {
     char bmcVersion[SI_BMC_VER_LEN] = {0};
     crashdump::getBMCVersionDBus(bmcVersion, sizeof(bmcVersion));
@@ -282,8 +281,7 @@ int fillBmcVersion(crashdump::CPUInfo& cpuInfo, char* cSectionName,
  *   This function fills in the me_fw_ver JSON info
  *
  ******************************************************************************/
-int fillMeVersion(crashdump::CPUInfo& cpuInfo, char* cSectionName,
-                  cJSON* pJsonChild)
+int fillMeVersion(char* cSectionName, cJSON* pJsonChild)
 {
     // Fill in as N/A for now
     cJSON_AddStringToObject(pJsonChild, cSectionName, MD_NA);
@@ -307,8 +305,7 @@ int fillMeVersion(crashdump::CPUInfo& cpuInfo, char* cSectionName,
  *   This function fills in the bios_id JSON info
  *
  ******************************************************************************/
-int fillBiosId(crashdump::CPUInfo& cpuInfo, char* cSectionName,
-               cJSON* pJsonChild)
+int fillBiosId(char* cSectionName, cJSON* pJsonChild)
 {
     // Fill in as N/A for now
     cJSON_AddStringToObject(pJsonChild, cSectionName, MD_NA);
@@ -368,8 +365,7 @@ int fillMcaErrSrcLog(crashdump::CPUInfo& cpuInfo, char* cSectionName,
  *   This function fills in the crashdump_ver JSON info
  *
  ******************************************************************************/
-int fillCrashdumpVersion(crashdump::CPUInfo& cpuInfo, char* cSectionName,
-                         cJSON* pJsonChild)
+int fillCrashdumpVersion(char* cSectionName, cJSON* pJsonChild)
 {
     cJSON_AddStringToObject(pJsonChild, cSectionName, SI_CRASHDUMP_VER);
     return 0;
@@ -463,8 +459,11 @@ int getPpinDataCPX1(crashdump::CPUInfo& cpuInfo, char* cSectionName,
 }
 
 static const SPpinVx sSPpinVx[] = {
-    {clx, getPpinDataCPX1}, {clx2, getPpinDataCPX1}, {cpx, getPpinDataCPX1},
-    {skx, getPpinDataCPX1}, {icx, getPpinDataICX1},
+    {crashdump::cpu::clx, getPpinDataCPX1},
+    {crashdump::cpu::cpx, getPpinDataCPX1},
+    {crashdump::cpu::skx, getPpinDataCPX1},
+    {crashdump::cpu::icx, getPpinDataICX1},
+    {crashdump::cpu::icx2, getPpinDataICX1},
 };
 
 /******************************************************************************
@@ -521,12 +520,15 @@ static SSysInfoSection sSysInfoTable[] = {
     {"cores_per_cpu", fillCoresPerCpu},
     {"ucode_patch_ver", fillUCodeVersion},
     {"vcode_ver", fillVCodeVersion},
-    {"bmc_fw_ver", fillBmcVersion},
-    {"me_fw_ver", fillMeVersion},
-    {"bios_id", fillBiosId},
     {"mca_err_src_log", fillMcaErrSrcLog},
-    {"crashdump_ver", fillCrashdumpVersion},
     {"ppin", fillPpin},
+};
+
+static SSysInfoCommonSection sSysInfoCommonTable[] = {
+    {"me_fw_ver", fillMeVersion},
+    {"bmc_fw_ver", fillBmcVersion},
+    {"bios_id", fillBiosId},
+    {"crashdump_ver", fillCrashdumpVersion},
 };
 
 /******************************************************************************
@@ -554,6 +556,30 @@ static int sysInfoJson(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 
 /******************************************************************************
  *
+ *   sysInfoCommonJson
+ *
+ *   This function formats the system information into a JSON object
+ *
+ ******************************************************************************/
+static int sysInfoCommonJson(cJSON* pJsonChild)
+{
+    uint32_t i = 0;
+    int r = 0;
+    int ret = 0;
+
+    for (i = 0;
+         i < (sizeof(sSysInfoCommonTable) / sizeof(SSysInfoCommonSection)); i++)
+    {
+        r = sSysInfoCommonTable[i].FillSysInfoJson(
+            sSysInfoCommonTable[i].sectionName, pJsonChild);
+        if (r == 1)
+            ret = 1;
+    }
+    return ret;
+}
+
+/******************************************************************************
+ *
  *   logSysInfo
  *
  *   This function gathers various bits of system information and compiles them
@@ -568,4 +594,22 @@ int logSysInfo(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
     }
     // Log the System Info
     return sysInfoJson(cpuInfo, pJsonChild);
+}
+
+/******************************************************************************
+ *
+ *   logSysInfoCommon
+ *
+ *   This function gathers various bits of system information and compiles them
+ *   into a single group
+ *
+ ******************************************************************************/
+int logSysInfoCommon(cJSON* pJsonChild)
+{
+    if (pJsonChild == NULL)
+    {
+        return 1;
+    }
+    // Log the System Info
+    return sysInfoCommonJson(pJsonChild);
 }

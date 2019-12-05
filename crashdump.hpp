@@ -36,10 +36,30 @@ namespace crashdump
 constexpr char const* dbgStatusItemName = "status";
 constexpr const char* dbgFailedStatus = "N/A";
 
+namespace cpu
+{
+enum Model
+{
+    skx,
+    clx,
+    cpx,
+    icx,
+    icx2,
+};
+namespace stepping
+{
+constexpr const uint8_t skx = 0;
+constexpr const uint8_t clx = 6;
+constexpr const uint8_t cpx = 10;
+constexpr const uint8_t icx = 0;
+constexpr const uint8_t icx2 = 4;
+} // namespace stepping
+} // namespace cpu
+
 struct CPUInfo
 {
     int clientAddr;
-    CPUModel model;
+    cpu::Model model;
     uint64_t coreMask;
     uint64_t crashedCoreMask;
     int chaCount;
@@ -82,24 +102,24 @@ inline static void logCrashdumpVersion(cJSON* parent,
 {
     struct VersionInfo
     {
-        CPUModel cpuModel;
+        crashdump::cpu::Model cpuModel;
         int data;
     };
 
     static constexpr const std::array product{
-        VersionInfo{clx, product_type::clxSP},
-        VersionInfo{clx2, product_type::clxSP},
-        VersionInfo{cpx, product_type::cpx},
-        VersionInfo{skx, product_type::skxSP},
-        VersionInfo{icx, product_type::icxSP},
+        VersionInfo{crashdump::cpu::clx, product_type::clxSP},
+        VersionInfo{crashdump::cpu::cpx, product_type::cpx},
+        VersionInfo{crashdump::cpu::skx, product_type::skxSP},
+        VersionInfo{crashdump::cpu::icx, product_type::icxSP},
+        VersionInfo{crashdump::cpu::icx2, product_type::icxSP},
     };
 
     static constexpr const std::array revision{
-        VersionInfo{clx, revision::revision1},
-        VersionInfo{clx2, revision::revision1},
-        VersionInfo{cpx, revision::revision1},
-        VersionInfo{skx, revision::revision1},
-        VersionInfo{icx, revision::revision1},
+        VersionInfo{crashdump::cpu::clx, revision::revision1},
+        VersionInfo{crashdump::cpu::cpx, revision::revision1},
+        VersionInfo{crashdump::cpu::skx, revision::revision1},
+        VersionInfo{crashdump::cpu::icx, revision::revision1},
+        VersionInfo{crashdump::cpu::icx2, revision::revision1},
     };
 
     int productType = 0;

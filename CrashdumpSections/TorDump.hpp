@@ -30,10 +30,12 @@ extern "C" {
  *   Common Defines
  *
  ******************************************************************************/
-#define TD_JSON_STRING_LEN 64
+#define TD_JSON_STRING_LEN 66
 #define TD_JSON_CHA_NAME "cha%d"
 #define TD_JSON_TOR_NAME "index%d"
 #define TD_JSON_SUBINDEX_NAME "subindex%d"
+#define TD_NA "N/A"
+#define TD_UA "UA:0x%x"
 
 /******************************************************************************
  *
@@ -58,7 +60,7 @@ extern "C" {
 
 typedef struct
 {
-    CPUModel cpuModel;
+    crashdump::cpu::Model cpuModel;
     int (*logTorDumpVx)(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);
 } STorDumpVx;
 

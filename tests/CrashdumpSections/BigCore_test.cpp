@@ -64,7 +64,7 @@ class BigCoreTestFixture : public Test
     {
         // Initialize cpuInfo
         cpuInfo.clientAddr = 48;
-        cpuInfo.model = icx;
+        cpuInfo.model = cpu::icx;
         cpuInfo.coreMask = 0x0000db7e;
         cpuInfo.chaCount = 0;
         cpuInfo.crashedCoreMask = 0x0;

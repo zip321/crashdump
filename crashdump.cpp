@@ -78,9 +78,6 @@ static const std::filesystem::path crashdumpDir = "/tmp/crashdumps";
 
 constexpr char const* triggerTypeOnDemand = "On-Demand";
 
-uint64_t metaDataRunTime = 0;
-bool isMetaData = false;
-
 static uint64_t tsToNanosecond(timespec* ts)
 {
     return (ts->tv_sec * (uint64_t)1e9 + ts->tv_nsec);
@@ -96,29 +93,16 @@ static void logRunTime(cJSON* parent, timespec* start, char* key)
     clock_gettime(CLOCK_MONOTONIC, &finish);
     uint64_t runTimeInNs = tsToNanosecond(&finish) - tsToNanosecond(start);
 
-    if (isMetaData)
-    {
-        metaDataRunTime += runTimeInNs;
-        timeVal = metaDataRunTime;
-    }
-    else
-    {
-        timeVal = runTimeInNs;
-    }
+    timeVal = runTimeInNs;
 
     // only log the last metaData run
     logSection = cJSON_GetObjectItemCaseSensitive(parent, "_time");
-    if ((isMetaData) && (logSection != NULL))
-    {
-        cJSON_DeleteItemFromObjectCaseSensitive(parent, logSection->string);
-    }
 
     cd_snprintf_s(timeString, sizeof(timeString), "%.2fs",
                   (double)timeVal / 1e9);
     cJSON_AddStringToObject(parent, key, timeString);
 
     clock_gettime(CLOCK_MONOTONIC, start);
-    isMetaData = false;
 }
 
 static const std::string getUuid()
@@ -157,38 +141,63 @@ static void getClientAddrs(std::vector<CPUInfo>& cpuInfo)
 static bool getCPUModels(std::vector<CPUInfo>& cpuInfo)
 {
     uint8_t cc = 0;
+    bool ret = false;
 
     for (CPUInfo& cpu : cpuInfo)
     {
-        if (peci_GetCPUID(cpu.clientAddr, &cpu.model, &cc) != PECI_CC_SUCCESS)
+        CPUModel cpuModel{};
+        uint8_t stepping = 0;
+        if (peci_GetCPUID(cpu.clientAddr, &cpuModel, &stepping, &cc) !=
+            PECI_CC_SUCCESS)
         {
-            fprintf(stderr, "Cannot get CPUID!\n");
+            fprintf(stderr, "Cannot get CPUID! cc: (0x%x)\n", cc);
             continue;
         }
 
         // Check that it is a supported CPU
-        switch (cpu.model)
+        switch (cpuModel)
         {
             case skx:
-                fprintf(stderr, "SKX detected (CPUID 0x%x)\n", cpu.model);
-                break;
-            case clx:
-            case clx2:
-                fprintf(stderr, "CLX detected (CPUID 0x%x)\n", cpu.model);
-                break;
-            case cpx:
-                fprintf(stderr, "CPX detected (CPUID 0x%x)\n", cpu.model);
+                if (stepping >= cpu::stepping::cpx)
+                {
+                    fprintf(stderr, "CPX detected (CPUID 0x%x)\n",
+                            cpuModel | stepping);
+                    cpu.model = cpu::cpx;
+                }
+                else if (stepping >= cpu::stepping::clx)
+                {
+                    fprintf(stderr, "CLX detected (CPUID 0x%x)\n",
+                            cpuModel | stepping);
+                    cpu.model = cpu::clx;
+                }
+                else
+                {
+                    fprintf(stderr, "SKX detected (CPUID 0x%x)\n",
+                            cpuModel | stepping);
+                    cpu.model = cpu::skx;
+                }
+                ret = true;
                 break;
             case icx:
-                fprintf(stderr, "ICX detected (CPUID 0x%x)\n", cpu.model);
+                fprintf(stderr, "ICX detected (CPUID 0x%x)\n",
+                        cpuModel | stepping);
+                if (stepping >= cpu::stepping::icx2)
+                {
+                    cpu.model = cpu::icx2;
+                }
+                else
+                {
+                    cpu.model = cpu::icx;
+                }
+                ret = true;
                 break;
             default:
-                fprintf(stderr, "Unsupported CPUID 0x%x\n", cpu.model);
-                return false;
+                fprintf(stderr, "Unsupported CPUID 0x%x\n",
+                        cpuModel | stepping);
                 break;
         }
     }
-    return true;
+    return ret;
 }
 
 static bool getCoreMasks(std::vector<CPUInfo>& cpuInfo)
@@ -199,10 +208,9 @@ static bool getCoreMasks(std::vector<CPUInfo>& cpuInfo)
     {
         switch (cpu.model)
         {
-            case cpx:
-            case clx:
-            case clx2:
-            case skx:
+            case cpu::cpx:
+            case cpu::clx:
+            case cpu::skx:
                 // RESOLVED_CORES Local PCI B1:D30:F3 Reg 0xB4
                 uint32_t coreMask;
                 if (peci_RdPCIConfigLocal(cpu.clientAddr, 1, 30, 3, 0xB4,
@@ -214,7 +222,8 @@ static bool getCoreMasks(std::vector<CPUInfo>& cpuInfo)
                 }
                 cpu.coreMask = coreMask;
                 break;
-            case icx:
+            case cpu::icx:
+            case cpu::icx2:
                 // RESOLVED_CORES Local PCI B14:D30:F3 Reg 0xD0 and 0xD4
                 uint32_t coreMask0;
                 if (peci_RdPCIConfigLocal(
@@ -251,10 +260,9 @@ static bool getCHACounts(std::vector<CPUInfo>& cpuInfo)
     {
         switch (cpu.model)
         {
-            case cpx:
-            case clx:
-            case clx2:
-            case skx:
+            case cpu::cpx:
+            case cpu::clx:
+            case cpu::skx:
                 // LLC_SLICE_EN Local PCI B1:D30:F3 Reg 0x9C
                 uint32_t chaMask;
                 if (peci_RdPCIConfigLocal(cpu.clientAddr, 1, 30, 3, 0x9C,
@@ -266,7 +274,8 @@ static bool getCHACounts(std::vector<CPUInfo>& cpuInfo)
                 }
                 cpu.chaCount = __builtin_popcount(chaMask);
                 break;
-            case icx:
+            case cpu::icx:
+            case cpu::icx2:
                 // LLC_SLICE_EN Local PCI B14:D30:F3 Reg 0x9C and 0xA0
                 uint32_t chaMask0;
                 if (peci_RdPCIConfigLocal(cpu.clientAddr, 14, 30, 3, 0x9C,
@@ -326,9 +335,9 @@ static void logTimestamp(cJSON* parent)
     cJSON_AddStringToObject(parent, "timestamp", logTime);
 }
 
-static void logTriggerType(cJSON* parent)
+static void logTriggerType(cJSON* parent, const std::string& triggerType)
 {
-    cJSON_AddStringToObject(parent, "trigger_type", triggerTypeOnDemand);
+    cJSON_AddStringToObject(parent, "trigger_type", triggerType.c_str());
 }
 
 static void logPlatformName(cJSON* parent)
@@ -383,14 +392,14 @@ static cJSON*
     return logSectionJson;
 }
 
-void createCrashdump(std::string& crashdumpContents)
+void createCrashdump(std::string& crashdumpContents,
+                     const std::string& triggerType)
 {
     cJSON* root = NULL;
     cJSON* crashlogData = NULL;
     cJSON* processors = NULL;
     cJSON* cpu = NULL;
     cJSON* logSection = NULL;
-    cJSON* metaSection = NULL;
     char* out = NULL;
     int ret;
 
@@ -460,21 +469,6 @@ void createCrashdump(std::string& crashdumpContents)
             logRunTime(logSection, &sectionStart, timeStr);
         }
 
-        // Fill in the System Info metadata
-        logSection =
-            addSectionLog(crashlogData, cpuInfo[i], "METADATA", logSysInfo);
-        if (logSection)
-        {
-            // Include the version and timestamp fields
-            isMetaData = true;
-            logCrashdumpVersion(logSection, cpuInfo[i], record_type::metadata);
-            logTimestamp(logSection);
-            logTriggerType(logSection);
-            logPlatformName(logSection);
-            logRunTime(logSection, &sectionStart, timeStr);
-            metaSection = logSection;
-        }
-
         // Fill in the Uncore Status
         logSection = addSectionLog(cpu, cpuInfo[i], "uncore", logUncoreStatus);
         if (logSection)
@@ -511,13 +505,22 @@ void createCrashdump(std::string& crashdumpContents)
                                 record_type::addressMap);
             logRunTime(logSection, &sectionStart, timeStr);
         }
+        logSection =
+            addSectionLog(crashlogData, cpuInfo[i], "METADATA", logSysInfo);
     }
 
-    if (metaSection != NULL)
+    // Fill in common System Info
+    logSysInfoCommon(logSection);
+
+    if (logSection != NULL)
     {
-        logRunTime(metaSection, &crashdumpStart, "_total_time");
+        logTimestamp(logSection);
+        logTriggerType(logSection, triggerType);
+        logPlatformName(logSection);
+        logCrashdumpVersion(logSection, cpuInfo[0], record_type::metadata);
+        logRunTime(logSection, &sectionStart, timeStr);
+        logRunTime(logSection, &crashdumpStart, "_total_time");
     }
-    metaDataRunTime = 0;
 
     out = cJSON_PrintUnformatted(root);
     if (out != NULL)
@@ -547,7 +550,7 @@ static int scandir_filter(const struct dirent* dirEntry)
 static void newOnDemandLog(std::string& crashdumpContents)
 {
     // Start the log to the on-demand file
-    createCrashdump(crashdumpContents);
+    createCrashdump(crashdumpContents, triggerTypeOnDemand);
 }
 
 static void incrementCrashdumpCount()
@@ -600,7 +603,8 @@ static void newStoredLog(
     sdbusplus::asio::object_server& server,
     std::vector<std::pair<std::string,
                           std::shared_ptr<sdbusplus::asio::dbus_interface>>>&
-        logIfaces)
+        logIfaces,
+    const std::string& triggerType)
 {
     constexpr char const* crashdumpFile = "crashdump_%llu.json";
     struct dirent** namelist;
@@ -610,7 +614,7 @@ static void newStoredLog(
 
     // Start the log
     std::string crashdumpContents;
-    createCrashdump(crashdumpContents);
+    createCrashdump(crashdumpContents, triggerType);
     if (crashdumpContents.empty())
     {
         // Log is empty, so don't save it
@@ -643,11 +647,21 @@ static void newStoredLog(
     // additional logs.  This guarantees that we have the first and last log of
     // a failure.
 
-    // Go through each file in the directory after the first one
-    for (int i = 1; i < numLogFiles; i++)
+    // Get the number for this crashdump
+    // If this is the first log, use 0
+    if (numLogFiles > 0)
     {
-        // If it's below the number of saved logs, delete it
-        if (i <= (numLogFiles - (numStoredLogs - 1)))
+        // otherwise, get the number of the last log and increment it
+        sscanf_s(namelist[numLogFiles - 1]->d_name, crashdumpFile,
+                 &crashdump_num);
+        crashdump_num++;
+    }
+
+    // Go through each file in the directory
+    for (int i = 0; i < numLogFiles; i++)
+    {
+        // Except for log 0, if it's below the number of saved logs, delete it
+        if ((i != 0) && (i <= (numLogFiles - (numStoredLogs - 1))))
         {
             std::error_code ec;
             if (!(std::filesystem::remove(crashdumpDir / namelist[i]->d_name,
@@ -675,15 +689,6 @@ static void newStoredLog(
     }
     // Free the scandir data
     free(namelist);
-
-    // If this is the first log, use 0
-    if (numLogFiles > 0)
-    {
-        // otherwise, get the number of the last log and increment it
-        sscanf_s(namelist[numLogFiles - 1]->d_name, crashdumpFile,
-                 &crashdump_num);
-        crashdump_num++;
-    }
 
     // Create the new crashdump filename
     char new_log_filename[256];
@@ -762,6 +767,23 @@ struct PowerOffException final : public sdbusplus::exception_t
                "Power off, cannot access peci";
     };
 };
+/** Exception for when a log is attempted while another is in progress. */
+struct LogInProgressException final : public sdbusplus::exception_t
+{
+    const char* name() const noexcept override
+    {
+        return "org.freedesktop.DBus.Error.ObjectPathInUse";
+    };
+    const char* description() const noexcept override
+    {
+        return "Log in progress";
+    };
+    const char* what() const noexcept override
+    {
+        return "org.freedesktop.DBus.Error.ObjectPathInUse: "
+               "Log in progress";
+    };
+};
 } // namespace crashdump
 
 int main(int argc, char* argv[])
@@ -787,9 +809,10 @@ int main(int argc, char* argv[])
         server.add_interface(crashdump::crashdumpPath,
                              crashdump::crashdumpStoredInterface);
 
-    // Generate a Stored Log: This is test method that should be removed
+    // Generate a Stored Log
     ifaceStored->register_method(
-        "GenerateStoredLog", [&server, &logIfaces, &future]() {
+        "GenerateStoredLog",
+        [&server, &logIfaces, &future](const std::string& triggerType) {
             if (!crashdump::isPECIAvailable())
             {
                 throw crashdump::PowerOffException();
@@ -797,11 +820,12 @@ int main(int argc, char* argv[])
             if (future.valid() && future.wait_for(std::chrono::seconds(0)) !=
                                       std::future_status::ready)
             {
-                return std::string("Log in Progress");
+                throw crashdump::LogInProgressException();
             }
-            future = std::async(std::launch::async, [&server, &logIfaces]() {
-                crashdump::newStoredLog(server, logIfaces);
-            });
+            future = std::async(
+                std::launch::async, [&server, &logIfaces, triggerType]() {
+                    crashdump::newStoredLog(server, logIfaces, triggerType);
+                });
             return std::string("Log Started");
         });
     ifaceStored->initialize();
@@ -845,7 +869,7 @@ int main(int argc, char* argv[])
         if (future.valid() && future.wait_for(std::chrono::seconds(0)) !=
                                   std::future_status::ready)
         {
-            return std::string("Log in Progress");
+            throw crashdump::LogInProgressException();
         }
         // Start the log asynchronously since it can take a long time
         future =

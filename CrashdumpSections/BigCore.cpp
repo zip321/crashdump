@@ -1056,9 +1056,21 @@ int logCrashdumpICX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
                 return 0;
             }
 
-            uint32_t u32CrashdumpSize = uCrashdumpVerSize.field.regDumpSize +
-                                        uCrashdumpVerSize.field.sqDumpSize +
-                                        ICX_A0_FRAME_BYTE_OFFSET;
+            uint32_t u32CrashdumpSize = 0;
+
+            switch (cpuInfo.model)
+            {
+                case crashdump::cpu::icx:
+                    u32CrashdumpSize = uCrashdumpVerSize.field.regDumpSize +
+                                       uCrashdumpVerSize.field.sqDumpSize +
+                                       ICX_A0_FRAME_BYTE_OFFSET;
+                    break;
+                default:
+                    u32CrashdumpSize = uCrashdumpVerSize.field.regDumpSize +
+                                       uCrashdumpVerSize.field.sqDumpSize;
+                    break;
+            }
+
             uint64_t* pu64Crashdump = (uint64_t*)(calloc(u32CrashdumpSize, 1));
             if (pu64Crashdump == NULL)
             {
@@ -1133,8 +1145,11 @@ int logCrashdumpICX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 }
 
 static const SCrashdumpVx sCrashdumpVx[] = {
-    {clx, logCrashdumpCPX1}, {clx2, logCrashdumpCPX1}, {cpx, logCrashdumpCPX1},
-    {skx, logCrashdumpCPX1}, {icx, logCrashdumpICX1},
+    {crashdump::cpu::clx, logCrashdumpCPX1},
+    {crashdump::cpu::cpx, logCrashdumpCPX1},
+    {crashdump::cpu::skx, logCrashdumpCPX1},
+    {crashdump::cpu::icx, logCrashdumpICX1},
+    {crashdump::cpu::icx2, logCrashdumpICX1},
 };
 
 /******************************************************************************

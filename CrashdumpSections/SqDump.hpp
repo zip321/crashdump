@@ -49,7 +49,7 @@ typedef struct
 
 typedef struct
 {
-    CPUModel cpuModel;
+    crashdump::cpu::Model cpuModel;
     int (*logSqDumpVx)(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);
 } SSqDumpVx;
 

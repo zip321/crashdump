@@ -39,7 +39,7 @@
 
 #define SI_CPU_NAME_LEN 8
 #define SI_CRASHDUMP_VER_LEN 8
-#define SI_CRASHDUMP_VER "BMC_0.3"
+#define SI_CRASHDUMP_VER "BMC_0.4"
 
 #define SI_PECI_PPIN_IDX 19
 #define SI_PECI_PPIN_LOWER 0x01
@@ -55,12 +55,6 @@
  ******************************************************************************/
 typedef struct
 {
-    CPUModel cpuModel;
-    char cpuModelName[SI_CPU_NAME_LEN];
-} SCpuIdName;
-
-typedef struct
-{
     char sectionName[SI_JSON_STRING_LEN];
     int (*FillSysInfoJson)(crashdump::CPUInfo& cpuInfo, char* cSectionName,
                            cJSON* pJsonChild);
@@ -68,9 +62,16 @@ typedef struct
 
 typedef struct
 {
-    CPUModel cpuModel;
+    char sectionName[SI_JSON_STRING_LEN];
+    int (*FillSysInfoJson)(char* cSectionName, cJSON* pJsonChild);
+} SSysInfoCommonSection;
+
+typedef struct
+{
+    crashdump::cpu::Model cpuModel;
     int (*getPpinVx)(crashdump::CPUInfo& cpuInfo, char* cSectionName,
                      cJSON* pJsonChild);
 } SPpinVx;
 
 int logSysInfo(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);
+int logSysInfoCommon(cJSON* pJsonChild);

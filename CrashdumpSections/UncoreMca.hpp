@@ -114,10 +114,11 @@ typedef struct
 {
     UUncoreMcaRegs uRegData;
     bool bInvalid;
+    uint8_t cc;
 } SUncoreMcaRawData;
 
 static const char uncoreMcaRegNames[][UNCORE_MCA_NAME_LEN] = {
-    "ctl", "ctl2", "status", "addr", "misc"};
+    "ctl", "status", "addr", "misc", "ctl2"};
 
 typedef struct
 {
@@ -129,7 +130,7 @@ typedef struct
 
 typedef struct
 {
-    CPUModel cpuModel;
+    crashdump::cpu::Model cpuModel;
     int (*logUncoreMcaVx)(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);
 } SUncoreMcaLogVx;
 

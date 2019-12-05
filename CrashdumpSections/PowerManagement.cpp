@@ -186,6 +186,68 @@ int logPowerManagementCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 
 /******************************************************************************
  *
+ *   powerManagementJsonICX1
+ *
+ *   This function formats the Power Management log into a JSON object
+ *
+ ******************************************************************************/
+static void powerManagementJsonICX1(const char* regName,
+                                    SPmRegRawData* sRegData, cJSON* pJsonChild,
+                                    uint8_t cc)
+{
+    char jsonItemString[PM_JSON_STRING_LEN] = {0};
+
+    if (sRegData->bInvalid)
+    {
+        cd_snprintf_s(jsonItemString, PM_JSON_STRING_LEN, PM_NA);
+        cJSON_AddStringToObject(pJsonChild, regName, jsonItemString);
+        return;
+    }
+
+    if (PECI_CC_UA(cc))
+    {
+        cd_snprintf_s(jsonItemString, PM_JSON_STRING_LEN, PM_UA, cc);
+    }
+    else
+    {
+        cd_snprintf_s(jsonItemString, PM_JSON_STRING_LEN, PM_UINT32_FMT,
+                      sRegData->uValue, cc);
+    }
+
+    cJSON_AddStringToObject(pJsonChild, regName, jsonItemString);
+}
+
+/******************************************************************************
+ *
+ *   powerManagementJsonPerCoreICX1
+ *
+ *   This function formats Power Management Per Core log into a JSON object
+ *
+ ******************************************************************************/
+static void powerManagementJsonPerCoreICX1(const char* regName,
+                                           uint32_t u32CoreNum,
+                                           SPmRegRawData* sRegData,
+                                           cJSON* pJsonChild, uint8_t cc)
+{
+    char jsonItemName[PM_JSON_STRING_LEN] = {0};
+    cJSON* core = NULL;
+
+    // Add the core number item to the Power Management JSON structure
+    cd_snprintf_s(jsonItemName, PM_JSON_STRING_LEN, PM_JSON_CORE_NAME,
+                  u32CoreNum);
+
+    if ((core = cJSON_GetObjectItemCaseSensitive(pJsonChild, jsonItemName)) ==
+        NULL)
+    {
+        cJSON_AddItemToObject(pJsonChild, jsonItemName,
+                              core = cJSON_CreateObject());
+    }
+
+    powerManagementJsonICX1(regName, sRegData, core, cc);
+}
+
+/******************************************************************************
+ *
  *   logPowerManagementICX1
  *
  *   This function gathers the Power Management log and adds it to the debug log
@@ -194,14 +256,69 @@ int logPowerManagementCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
  ******************************************************************************/
 int logPowerManagementICX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 {
-    // TODO: feature enablement
-    return 0;
+    int ret = 0;
+    int peci_fd = -1;
+
+    if (peci_Lock(&peci_fd, PECI_WAIT_FOREVER) != PECI_CC_SUCCESS)
+    {
+        return 1;
+    }
+
+    for (uint32_t i = 0; i < (sizeof(sPmEntries) / sizeof(SPmEntry)); i++)
+    {
+        uint8_t cc = 0;
+        SPmRegRawData sRegData = {};
+
+        if (sPmEntries[i].isPerCore)
+        {
+            // Go through each enabled core
+            for (uint32_t u32CoreNum = 0; (cpuInfo.coreMask >> u32CoreNum) != 0;
+                 u32CoreNum++)
+            {
+                if (!CHECK_BIT(cpuInfo.coreMask, u32CoreNum))
+                {
+                    continue;
+                }
+
+                uint16_t param =
+                    (u32CoreNum << 8) | (uint8_t)sPmEntries[i].param;
+
+                if (peci_RdPkgConfig(
+                        cpuInfo.clientAddr, PM_PCS_88, param, sizeof(uint32_t),
+                        (uint8_t*)&sRegData.uValue, &cc) != PECI_CC_SUCCESS)
+                {
+                    sRegData.bInvalid = true;
+                    ret = 1;
+                }
+                powerManagementJsonPerCoreICX1(sPmEntries[i].regName,
+                                               u32CoreNum, &sRegData,
+                                               pJsonChild, cc);
+            }
+        }
+        else
+        {
+            if (peci_RdPkgConfig(cpuInfo.clientAddr, PM_PCS_88,
+                                 sPmEntries[i].param, sizeof(uint32_t),
+                                 (uint8_t*)&sRegData.uValue,
+                                 &cc) != PECI_CC_SUCCESS)
+            {
+                sRegData.bInvalid = true;
+                ret = 1;
+            }
+            powerManagementJsonICX1(sPmEntries[i].regName, &sRegData,
+                                    pJsonChild, cc);
+        }
+    }
+
+    return ret;
 }
 
 static const SPowerManagementVx sPowerManagementVx[] = {
-    {clx, logPowerManagementCPX1}, {clx2, logPowerManagementCPX1},
-    {cpx, logPowerManagementCPX1}, {skx, logPowerManagementCPX1},
-    {icx, logPowerManagementICX1},
+    {crashdump::cpu::clx, logPowerManagementCPX1},
+    {crashdump::cpu::cpx, logPowerManagementCPX1},
+    {crashdump::cpu::skx, logPowerManagementCPX1},
+    {crashdump::cpu::icx, logPowerManagementICX1},
+    {crashdump::cpu::icx2, logPowerManagementICX1},
 };
 
 /******************************************************************************

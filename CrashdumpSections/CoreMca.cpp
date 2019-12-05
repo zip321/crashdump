@@ -333,6 +333,14 @@ static void coreMcaJsonICX1(uint32_t u32CoreNum, uint32_t u32ThreadNum,
         cd_snprintf_s(jsonItemString, CORE_MCA_JSON_STRING_LEN,
                       CORE_MCA_UINT64_FMT, u64CoreMcaData);
     }
+
+    // Remove initial N/A entry
+    cJSON* tmp = NULL;
+    tmp = cJSON_GetObjectItemCaseSensitive(coreMca, sCoreMcaReg->regName);
+    if (tmp != NULL)
+    {
+        cJSON_DeleteItemFromObjectCaseSensitive(coreMca, tmp->string);
+    }
     cJSON_AddStringToObject(coreMca, sCoreMcaReg->regName, jsonItemString);
 }
 
@@ -447,8 +455,11 @@ int logCoreMcaICX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 }
 
 static const SCoreMcaLogVx sCoreMcaLogVx[] = {
-    {clx, logCoreMcaCPX1}, {clx2, logCoreMcaCPX1}, {cpx, logCoreMcaCPX1},
-    {skx, logCoreMcaCPX1}, {icx, logCoreMcaICX1},
+    {crashdump::cpu::clx, logCoreMcaCPX1},
+    {crashdump::cpu::cpx, logCoreMcaCPX1},
+    {crashdump::cpu::skx, logCoreMcaCPX1},
+    {crashdump::cpu::icx, logCoreMcaICX1},
+    {crashdump::cpu::icx2, logCoreMcaICX1},
 };
 
 /******************************************************************************
