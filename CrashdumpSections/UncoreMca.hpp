@@ -84,10 +84,10 @@ enum
 typedef enum
 {
     UNCORE_CTL,
-    UNCORE_CTL2,
     UNCORE_STATUS,
     UNCORE_ADDR,
-    UNCORE_MISC
+    UNCORE_MISC,
+    UNCORE_CTL2
 } EUncoreRegNames;
 
 /******************************************************************************
@@ -105,8 +105,8 @@ typedef union
         uint64_t u64UncoreMcaStatus;
         uint64_t u64UncoreMcaAddr;
         uint64_t u64UncoreMcaMisc;
-        uint64_t u64UncoreMcaMisc2;
         uint64_t u64UncoreMcaCtl2;
+        uint64_t u64UncoreMcaMisc2;
     } sReg;
 } UUncoreMcaRegs;
 

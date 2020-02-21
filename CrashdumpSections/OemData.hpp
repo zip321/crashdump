@@ -2,7 +2,7 @@
  *
  * INTEL CONFIDENTIAL
  *
- * Copyright 2019 Intel Corporation.
+ * Copyright 2020 Intel Corporation.
  *
  * This software and the related documents are Intel copyrighted materials,
  * and your use of them is governed by the express license under which they
@@ -18,31 +18,16 @@
  ******************************************************************************/
 
 #pragma once
+
 #include "crashdump.hpp"
 
-#define MAXTESTCHAR 10000
-#define NTIME(n) for (int i = 0; i < n; i++)
+#include <cjson/cJSON.h>
+#include <stdint.h>
 
-// uncomment to enable debug print out
-// #define DEBUG_FLAG
-
-inline void DEBUG_PRINT(cJSON* root, cJSON* expected)
+typedef struct
 {
-#ifdef DEBUG_FLAG
-    char* jsonStr = NULL;
-    jsonStr = cJSON_Print(root);
-    printf("%s\n", jsonStr);
-    jsonStr = cJSON_Print(expected);
-    printf("%s\n", jsonStr);
-#endif
-};
+    crashdump::cpu::Model cpuModel;
+    int (*logOemDataVx)(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);
+} SOemDataVx;
 
-inline void DEBUG_CC_PRINT(uint8_t cc, uint64_t val)
-{
-#ifdef DEBUG_FLAG
-    printf("cc:0x%x val:0x%" PRIx64 "\n", cc, val);
-#endif
-};
-
-char* readTestFile(char* filename);
-char* removeQuotes(char* str);
+int logOemData(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);

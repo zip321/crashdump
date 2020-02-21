@@ -24,7 +24,7 @@
 TEST(UncoreRegs, sizeCheck)
 {
     // Check Num of PCI registers
-    int expected = 3187;
+    int expected = 2702;
     int val = sizeof(sUncoreStatusPciICX1) / sizeof(SUncoreStatusRegPci);
     EXPECT_EQ(val, expected);
 

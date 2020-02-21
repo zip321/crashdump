@@ -56,6 +56,13 @@ constexpr const uint8_t icx2 = 4;
 } // namespace stepping
 } // namespace cpu
 
+typedef enum
+{
+    ON = 1,
+    OFF = 0,
+    UNKNOWN = -1,
+} pwState;
+
 struct CPUInfo
 {
     int clientAddr;
@@ -63,6 +70,7 @@ struct CPUInfo
     uint64_t coreMask;
     uint64_t crashedCoreMask;
     int chaCount;
+    pwState initialPeciWake;
 };
 } // namespace crashdump
 

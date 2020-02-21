@@ -19,6 +19,8 @@
 
 #pragma once
 
+#include <stdint.h>
+
 #include <cstddef>
 
 namespace crashdump
@@ -58,3 +60,7 @@ int getBMCVersionDBus(char* bmcVerStr, size_t bmcVerStrSize);
 #define CHECK_BIT(val, pos) ((val) & ((uint64_t)1 << ((uint64_t)pos)))
 
 int cd_snprintf_s(char* str, size_t len, const char* format, ...);
+
+void setFields(uint32_t* value, uint32_t msb, uint32_t lsb, uint32_t inputVal);
+uint32_t getFields(uint32_t value, uint32_t msb, uint32_t lsb);
+uint32_t bitField(uint32_t offset, uint32_t size, uint32_t val);

@@ -30,9 +30,24 @@ set (SRC_FILES utils.cpp CrashdumpSections/AddressMap.cpp
      CrashdumpSections/MetaData.cpp CrashdumpSections/CoreMca.cpp
      CrashdumpSections/SqDump.cpp CrashdumpSections/Uncore.cpp
      CrashdumpSections/UncoreRegs.hpp CrashdumpSections/PowerManagement.cpp
-     CrashdumpSections/UncoreMca.cpp)
+     CrashdumpSections/UncoreMca.cpp CrashdumpSections/OemData.cpp)
 
 add_executable (crashdump crashdump.cpp ${SRC_FILES})
+
+option (
+    CRASHDUMP_PRINT_UNFORMATTED
+    "Use cJSON_PrintUnformatted() to print the crashdump contents without
+         whitespace to reduce the file size."
+    OFF
+)
+
+option (OEMDATA_SECTION
+        "Adds oemdata Section to the crashdump contents, for OEM usage." OFF)
+
+target_compile_definitions (crashdump PRIVATE
+                            $<$<BOOL:${CRASHDUMP_PRINT_UNFORMATTED}>:
+                            -DCRASHDUMP_PRINT_UNFORMATTED>
+                            $<$<BOOL:${OEMDATA_SECTION}>: -DOEMDATA_SECTION>)
 
 target_include_directories (crashdump PRIVATE ${CMAKE_SOURCE_DIR})
 set_property (TARGET crashdump PROPERTY C_STANDARD 99)
@@ -60,7 +75,8 @@ if (${CRASHDUMP_BUILD_UT})
 
     set (UT_FILES tests/CrashdumpSections/UncoreRegs_test.cpp
          tests/CrashdumpSections/SqDump_test.cpp
-         tests/CrashdumpSections/BigCore_test.cpp tests/test_main.cpp)
+         tests/CrashdumpSections/BigCore_test.cpp tests/test_utils.cpp
+         tests/test_main.cpp)
 
     enable_testing ()
 

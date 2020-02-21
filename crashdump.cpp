@@ -57,11 +57,19 @@ extern "C" {
 #include "CrashdumpSections/Uncore.hpp"
 #include "CrashdumpSections/UncoreMca.hpp"
 #include "utils.hpp"
+#ifdef OEMDATA_SECTION
+#include "CrashdumpSections/OemData.hpp"
+#endif
 
 namespace crashdump
 {
 static boost::asio::io_service io;
 static std::shared_ptr<sdbusplus::asio::connection> conn;
+static std::shared_ptr<sdbusplus::asio::object_server> server;
+static std::shared_ptr<sdbusplus::asio::dbus_interface> onDemandLogIface;
+static std::vector<
+    std::pair<std::string, std::shared_ptr<sdbusplus::asio::dbus_interface>>>
+    storedLogIfaces;
 
 constexpr char const* crashdumpService = "com.intel.crashdump";
 constexpr char const* crashdumpPath = "/com/intel/crashdump";
@@ -77,6 +85,7 @@ constexpr char const* crashdumpRawPeciInterface =
 static const std::filesystem::path crashdumpDir = "/tmp/crashdumps";
 
 constexpr char const* triggerTypeOnDemand = "On-Demand";
+constexpr int const vcuPeciWake = 5;
 
 static uint64_t tsToNanosecond(timespec* ts)
 {
@@ -138,19 +147,97 @@ static void getClientAddrs(std::vector<CPUInfo>& cpuInfo)
     }
 }
 
+static bool savePeciWake(std::vector<CPUInfo>& cpuInfo)
+{
+    uint8_t cc = 0;
+    EPECIStatus retval = PECI_CC_SUCCESS;
+    uint32_t peciRdValue = 0;
+    for (CPUInfo& cpu : cpuInfo)
+    {
+        retval =
+            peci_RdPkgConfig(cpu.clientAddr, vcuPeciWake, ON, sizeof(uint32_t),
+                             (uint8_t*)&peciRdValue, &cc);
+        if (retval != PECI_CC_SUCCESS)
+        {
+            fprintf(stderr,
+                    "Cannot read Wake_on_PECI-> addr: (0x%x), ret: (0x%x), \
+                        cc: (0x%x)\n",
+                    cpu.clientAddr, retval, cc);
+            cpu.initialPeciWake = UNKNOWN;
+            continue;
+        }
+        cpu.initialPeciWake = (peciRdValue & 0x1) ? ON : OFF;
+    }
+    return true;
+}
+
+static bool setPeciWake(std::vector<CPUInfo>& cpuInfo, pwState desiredState)
+{
+    uint8_t cc = 0;
+    EPECIStatus retval = PECI_CC_SUCCESS;
+    int writeValue = OFF;
+    uint32_t peciRdValue = 0;
+    for (CPUInfo& cpu : cpuInfo)
+    {
+        if ((cpu.initialPeciWake == ON) || (cpu.initialPeciWake == UNKNOWN))
+            continue;
+        writeValue = static_cast<int>(desiredState);
+        retval = peci_WrPkgConfig(cpu.clientAddr, vcuPeciWake, writeValue,
+                                  writeValue, sizeof(uint32_t), &cc);
+        if (retval != PECI_CC_SUCCESS)
+        {
+            fprintf(stderr,
+                    "Cannot set Wake_on_PECI-> addr: (0x%x), ret: (0x%x), cc: "
+                    "(0x%x)\n",
+                    cpu.clientAddr, retval, cc);
+        }
+    }
+    return true;
+}
+
+static bool checkPeciWake(std::vector<CPUInfo>& cpuInfo)
+{
+    uint8_t cc = 0;
+    EPECIStatus retval = PECI_CC_SUCCESS;
+    uint32_t peciRdValue = 0;
+    for (CPUInfo& cpu : cpuInfo)
+    {
+        retval =
+            peci_RdPkgConfig(cpu.clientAddr, vcuPeciWake, ON, sizeof(uint32_t),
+                             (uint8_t*)&peciRdValue, &cc);
+        if (retval != PECI_CC_SUCCESS)
+        {
+            fprintf(stderr,
+                    "Cannot read Wake_on_PECI-> addr: (0x%x), ret: (0x%x), \
+                        cc: (0x%x)\n",
+                    cpu.clientAddr, retval, cc);
+            continue;
+        }
+        if (peciRdValue != 1)
+        {
+            fprintf(stderr, "Wake_on_PECI in OFF state: (0x%x)\n",
+                    cpu.clientAddr);
+        }
+    }
+    return true;
+}
+
 static bool getCPUModels(std::vector<CPUInfo>& cpuInfo)
 {
     uint8_t cc = 0;
     bool ret = false;
+    EPECIStatus retval = PECI_CC_SUCCESS;
 
     for (CPUInfo& cpu : cpuInfo)
     {
         CPUModel cpuModel{};
         uint8_t stepping = 0;
-        if (peci_GetCPUID(cpu.clientAddr, &cpuModel, &stepping, &cc) !=
-            PECI_CC_SUCCESS)
+
+        retval = peci_GetCPUID(cpu.clientAddr, &cpuModel, &stepping, &cc);
+        if (retval != PECI_CC_SUCCESS)
         {
-            fprintf(stderr, "Cannot get CPUID! cc: (0x%x)\n", cc);
+            fprintf(stderr, "Cannot get CPUID! ret: (0x%x), cc: (0x%x)\n",
+                    retval, cc);
             continue;
         }
 
@@ -203,6 +290,7 @@ static bool getCPUModels(std::vector<CPUInfo>& cpuInfo)
 static bool getCoreMasks(std::vector<CPUInfo>& cpuInfo)
 {
     uint8_t cc = 0;
+    EPECIStatus retval = PECI_CC_SUCCESS;
 
     for (CPUInfo& cpu : cpuInfo)
     {
@@ -213,11 +301,14 @@ static bool getCoreMasks(std::vector<CPUInfo>& cpuInfo)
             case cpu::skx:
                 // RESOLVED_CORES Local PCI B1:D30:F3 Reg 0xB4
                 uint32_t coreMask;
-                if (peci_RdPCIConfigLocal(cpu.clientAddr, 1, 30, 3, 0xB4,
-                                          sizeof(coreMask), (uint8_t*)&coreMask,
-                                          &cc) != PECI_CC_SUCCESS)
+                retval = peci_RdPCIConfigLocal(cpu.clientAddr, 1, 30, 3, 0xB4,
+                                               sizeof(coreMask),
+                                               (uint8_t*)&coreMask, &cc);
+                if (retval != PECI_CC_SUCCESS)
                 {
-                    fprintf(stderr, "Cannot find coreMask!\n");
+                    fprintf(stderr,
+                            "Cannot find coreMask! ret: (0x%x), cc: (0x%x)\n",
+                            retval, cc);
                     return false;
                 }
                 cpu.coreMask = coreMask;
@@ -226,19 +317,25 @@ static bool getCoreMasks(std::vector<CPUInfo>& cpuInfo)
             case cpu::icx2:
                 // RESOLVED_CORES Local PCI B14:D30:F3 Reg 0xD0 and 0xD4
                 uint32_t coreMask0;
-                if (peci_RdPCIConfigLocal(
-                        cpu.clientAddr, 14, 30, 3, 0xD0, sizeof(coreMask0),
-                        (uint8_t*)&coreMask0, &cc) != PECI_CC_SUCCESS)
+                retval = peci_RdPCIConfigLocal(cpu.clientAddr, 14, 30, 3, 0xD0,
+                                               sizeof(coreMask0),
+                                               (uint8_t*)&coreMask0, &cc);
+                if (retval != PECI_CC_SUCCESS)
                 {
-                    fprintf(stderr, "Cannot find coreMask0!\n");
+                    fprintf(stderr,
+                            "Cannot find coreMask0! ret: (0x%x), cc: (0x%x)\n",
+                            retval, cc);
                     return false;
                 }
                 uint32_t coreMask1;
-                if (peci_RdPCIConfigLocal(
-                        cpu.clientAddr, 14, 30, 3, 0xD4, sizeof(coreMask1),
-                        (uint8_t*)&coreMask1, &cc) != PECI_CC_SUCCESS)
+                retval = peci_RdPCIConfigLocal(cpu.clientAddr, 14, 30, 3, 0xD4,
+                                               sizeof(coreMask1),
+                                               (uint8_t*)&coreMask1, &cc);
+                if (retval != PECI_CC_SUCCESS)
                 {
-                    fprintf(stderr, "Cannot find coreMask1!\n");
+                    fprintf(stderr,
+                            "Cannot find coreMask1! ret: (0x%x), cc: (0x%x)\n",
+                            retval, cc);
                     return false;
                 }
                 cpu.coreMask = coreMask1;
@@ -255,6 +352,7 @@ static bool getCoreMasks(std::vector<CPUInfo>& cpuInfo)
 static bool getCHACounts(std::vector<CPUInfo>& cpuInfo)
 {
     uint8_t cc = 0;
+    EPECIStatus retval = PECI_CC_SUCCESS;
 
     for (CPUInfo& cpu : cpuInfo)
     {
@@ -265,11 +363,14 @@ static bool getCHACounts(std::vector<CPUInfo>& cpuInfo)
             case cpu::skx:
                 // LLC_SLICE_EN Local PCI B1:D30:F3 Reg 0x9C
                 uint32_t chaMask;
-                if (peci_RdPCIConfigLocal(cpu.clientAddr, 1, 30, 3, 0x9C,
-                                          sizeof(chaMask), (uint8_t*)&chaMask,
-                                          &cc) != PECI_CC_SUCCESS)
+                retval = peci_RdPCIConfigLocal(cpu.clientAddr, 1, 30, 3, 0x9C,
+                                               sizeof(chaMask),
+                                               (uint8_t*)&chaMask, &cc);
+                if (retval != PECI_CC_SUCCESS)
                 {
-                    fprintf(stderr, "Cannot find chaMask!\n");
+                    fprintf(stderr,
+                            "Cannot find chaMask! ret: (0x%x), cc: (0x%x)\n",
+                            retval, cc);
                     return false;
                 }
                 cpu.chaCount = __builtin_popcount(chaMask);
@@ -278,19 +379,25 @@ static bool getCHACounts(std::vector<CPUInfo>& cpuInfo)
             case cpu::icx2:
                 // LLC_SLICE_EN Local PCI B14:D30:F3 Reg 0x9C and 0xA0
                 uint32_t chaMask0;
-                if (peci_RdPCIConfigLocal(cpu.clientAddr, 14, 30, 3, 0x9C,
-                                          sizeof(chaMask0), (uint8_t*)&chaMask0,
-                                          &cc) != PECI_CC_SUCCESS)
+                retval = peci_RdPCIConfigLocal(cpu.clientAddr, 14, 30, 3, 0x9C,
+                                               sizeof(chaMask0),
+                                               (uint8_t*)&chaMask0, &cc);
+                if (retval != PECI_CC_SUCCESS)
                 {
-                    fprintf(stderr, "Cannot find chaMask0!\n");
+                    fprintf(stderr,
+                            "Cannot find chaMask0! ret: (0x%x),  cc: (0x%x)\n",
+                            retval, cc);
                     return false;
                 }
                 uint32_t chaMask1;
-                if (peci_RdPCIConfigLocal(cpu.clientAddr, 14, 30, 3, 0xA0,
-                                          sizeof(chaMask1), (uint8_t*)&chaMask1,
-                                          &cc) != PECI_CC_SUCCESS)
+                retval = peci_RdPCIConfigLocal(cpu.clientAddr, 14, 30, 3, 0xA0,
+                                               sizeof(chaMask1),
+                                               (uint8_t*)&chaMask1, &cc);
+                if (retval != PECI_CC_SUCCESS)
                 {
-                    fprintf(stderr, "Cannot find chaMask1!\n");
+                    fprintf(stderr,
+                            "Cannot find chaMask1! ret: (0x%x), cc: (0x%x)\n",
+                            retval, cc);
                     return false;
                 }
                 cpu.chaCount =
@@ -311,6 +418,8 @@ static bool getCPUInfo(std::vector<CPUInfo>& cpuInfo)
     {
         return false;
     }
+    savePeciWake(cpuInfo);
+    setPeciWake(cpuInfo, ON);
     if (!getCoreMasks(cpuInfo))
     {
         return false;
@@ -410,6 +519,8 @@ void createCrashdump(std::string& crashdumpContents,
     if (!crashdump::getCPUInfo(cpuInfo))
     {
         fprintf(stderr, "Failed to get CPU Info!\n");
+        crashdump::checkPeciWake(cpuInfo);
+        crashdump::setPeciWake(cpuInfo, OFF);
         return;
     }
 
@@ -521,8 +632,44 @@ void createCrashdump(std::string& crashdumpContents,
         logRunTime(logSection, &sectionStart, timeStr);
         logRunTime(logSection, &crashdumpStart, "_total_time");
     }
+#ifdef OEMDATA_SECTION
+    // OEM Customer Section
+    clock_gettime(CLOCK_MONOTONIC, &sectionStart);
+    crashdumpStart.tv_sec = sectionStart.tv_sec;
+    crashdumpStart.tv_nsec = sectionStart.tv_nsec cJSON* oemCrashlogData = NULL;
+    cJSON* oemProcessors = NULL;
+    cJSON* oemCpu = NULL;
+    cJSON* oemLogSection = NULL;
+    cJSON_AddItemToObject(root, "oemdata",
+                          oemCrashlogData = cJSON_CreateObject());
+    cJSON_AddItemToObject(oemCrashlogData, "PROCESSORS",
+                          oemProcessors = cJSON_CreateObject());
+    logCrashdumpVersion(oemProcessors, cpuInfo[0], record_type::bmcAutonomous);
 
+    for (int i = 0; i < cpuInfo.size(); i++)
+    {
+        char cpuString[8];
+        cd_snprintf_s(cpuString, sizeof(cpuString), "cpu%d", i);
+        cJSON_AddItemToObject(oemProcessors, cpuString,
+                              oemCpu = cJSON_CreateObject());
+        oemLogSection =
+            addSectionLog(oemCpu, cpuInfo[i], "oemdata", logOemData);
+        if (oemLogSection)
+        {
+            logRunTime(oemLogSection, &sectionStart, timeStr);
+        }
+    }
+    if (oemLogSection != NULL)
+    {
+        logTimestamp(oemCrashlogData);
+        logRunTime(oemCrashlogData, &crashdumpStart, "_total_time");
+    }
+#endif
+#ifdef CRASHDUMP_PRINT_UNFORMATTED
     out = cJSON_PrintUnformatted(root);
+#else
+    out = cJSON_Print(root);
+#endif
     if (out != NULL)
     {
         crashdumpContents = out;
@@ -535,6 +682,8 @@ void createCrashdump(std::string& crashdumpContents,
     }
 
     cJSON_Delete(root);
+    crashdump::checkPeciWake(cpuInfo);
+    crashdump::setPeciWake(cpuInfo, OFF);
 }
 
 static int scandir_filter(const struct dirent* dirEntry)
@@ -547,10 +696,25 @@ static int scandir_filter(const struct dirent* dirEntry)
     return 0;
 }
 
-static void newOnDemandLog(std::string& crashdumpContents)
+static void dbusRemoveOnDemandLog()
 {
-    // Start the log to the on-demand file
-    createCrashdump(crashdumpContents, triggerTypeOnDemand);
+    server->remove_interface(onDemandLogIface);
+    onDemandLogIface.reset();
+}
+
+static void dbusAddOnDemandLog(const std::string& onDemandLogContents)
+{
+    onDemandLogIface =
+        server->add_interface(crashdumpOnDemandPath, crashdumpInterface);
+    // Log Property
+    onDemandLogIface->register_property("Log", onDemandLogContents);
+    onDemandLogIface->initialize();
+}
+
+static void newOnDemandLog(std::string& onDemandLogContents)
+{
+    // Start the log to the on-demand location
+    createCrashdump(onDemandLogContents, triggerTypeOnDemand);
 }
 
 static void incrementCrashdumpCount()
@@ -599,27 +763,13 @@ static void incrementCrashdumpCount()
 }
 
 constexpr int numStoredLogs = 3;
-static void newStoredLog(
-    sdbusplus::asio::object_server& server,
-    std::vector<std::pair<std::string,
-                          std::shared_ptr<sdbusplus::asio::dbus_interface>>>&
-        logIfaces,
-    const std::string& triggerType)
+static void dbusAddStoredLog(const std::string& storedLogContents)
 {
     constexpr char const* crashdumpFile = "crashdump_%llu.json";
     struct dirent** namelist;
     uint64_t crashdump_num = 0;
     FILE* fpJson = NULL;
     std::error_code ec;
-
-    // Start the log
-    std::string crashdumpContents;
-    createCrashdump(crashdumpContents, triggerType);
-    if (crashdumpContents.empty())
-    {
-        // Log is empty, so don't save it
-        return;
-    }
 
     // create the crashdumps directory if it doesn't exist
     if (!(std::filesystem::create_directories(crashdumpDir, ec)))
@@ -671,18 +821,18 @@ static void newStoredLog(
                         namelist[i]->d_name, ec.message().c_str());
             }
             // Now remove the interface for the deleted log
-            logIfaces.erase(
+            storedLogIfaces.erase(
                 std::remove_if(
-                    logIfaces.begin(), logIfaces.end(),
-                    [&server, &namelist, &i](auto& log) {
+                    storedLogIfaces.begin(), storedLogIfaces.end(),
+                    [&namelist, &i](auto& log) {
                         if (std::get<0>(log).compare(namelist[i]->d_name) == 0)
                         {
-                            server.remove_interface(std::get<1>(log));
+                            server->remove_interface(std::get<1>(log));
                             return true;
                         }
                         return false;
                     }),
-                logIfaces.end());
+                storedLogIfaces.end());
         }
         // Free the file data
         free(namelist[i]);
@@ -700,7 +850,7 @@ static void newStoredLog(
     fpJson = fopen(out_file.c_str(), "w");
     if (fpJson != NULL)
     {
-        fprintf(fpJson, "%s", crashdumpContents.c_str());
+        fprintf(fpJson, "%s", storedLogContents.c_str());
         fclose(fpJson);
     }
 
@@ -708,14 +858,21 @@ static void newStoredLog(
     std::filesystem::path path =
         std::filesystem::path(crashdumpPath) / std::to_string(crashdump_num);
     std::shared_ptr<sdbusplus::asio::dbus_interface> ifaceLog =
-        server.add_interface(path.c_str(), crashdumpInterface);
-    logIfaces.emplace_back(new_log_filename, ifaceLog);
+        server->add_interface(path.c_str(), crashdumpInterface);
+    storedLogIfaces.emplace_back(new_log_filename, ifaceLog);
     // Log Property
-    ifaceLog->register_property("Log", crashdumpContents);
+    ifaceLog->register_property("Log", storedLogContents);
     ifaceLog->initialize();
 
     // Increment the count for this completed crashdump
     incrementCrashdumpCount();
+}
+
+static void newStoredLog(std::string& storedLogContents,
+                         const std::string& triggerType)
+{
+    // Start the log
+    createCrashdump(storedLogContents, triggerType);
 }
 
 static int parseLogEntry(const std::string& filename,
@@ -790,29 +947,27 @@ int main(int argc, char* argv[])
 {
     // future to use for long-running tasks
     std::future<void> future;
-    // vector to store log interfaces
-    std::vector<std::pair<std::string,
-                          std::shared_ptr<sdbusplus::asio::dbus_interface>>>
-        logIfaces;
-    logIfaces.reserve(crashdump::numStoredLogs);
+
     // setup connection to dbus
     crashdump::conn =
         std::make_shared<sdbusplus::asio::connection>(crashdump::io);
-    std::string onDemandLogContents;
 
     // CPU Debug Log Object
     crashdump::conn->request_name(crashdump::crashdumpService);
-    auto server = sdbusplus::asio::object_server(crashdump::conn);
+    crashdump::server =
+        std::make_shared<sdbusplus::asio::object_server>(crashdump::conn);
+
+    // Reserve space for the stored log interfaces
+    crashdump::storedLogIfaces.reserve(crashdump::numStoredLogs);
 
     // Stored Log Interface
     std::shared_ptr<sdbusplus::asio::dbus_interface> ifaceStored =
-        server.add_interface(crashdump::crashdumpPath,
-                             crashdump::crashdumpStoredInterface);
+        crashdump::server->add_interface(crashdump::crashdumpPath,
+                                         crashdump::crashdumpStoredInterface);
 
     // Generate a Stored Log
     ifaceStored->register_method(
-        "GenerateStoredLog",
-        [&server, &logIfaces, &future](const std::string& triggerType) {
+        "GenerateStoredLog", [&future](const std::string& triggerType) {
             if (!crashdump::isPECIAvailable())
             {
                 throw crashdump::PowerOffException();
@@ -822,45 +977,55 @@ int main(int argc, char* argv[])
             {
                 throw crashdump::LogInProgressException();
             }
-            future = std::async(
-                std::launch::async, [&server, &logIfaces, triggerType]() {
-                    crashdump::newStoredLog(server, logIfaces, triggerType);
-                });
+            future = std::async(std::launch::async, [triggerType]() {
+                std::string storedLogContents;
+                crashdump::newStoredLog(storedLogContents, triggerType);
+                if (storedLogContents.empty())
+                {
+                    // Log is empty, so don't save it
+                    return;
+                }
+                boost::asio::post(
+                    crashdump::io, [storedLogContents = std::move(
+                                        storedLogContents)]() mutable {
+                        crashdump::dbusAddStoredLog(storedLogContents);
+                    });
+            });
             return std::string("Log Started");
         });
     ifaceStored->initialize();
 
     // DeleteAll Interface
     std::shared_ptr<sdbusplus::asio::dbus_interface> ifaceDeleteAll =
-        server.add_interface(crashdump::crashdumpPath,
-                             crashdump::crashdumpDeleteAllInterface);
+        crashdump::server->add_interface(
+            crashdump::crashdumpPath, crashdump::crashdumpDeleteAllInterface);
 
     // Delete all stored logs
-    ifaceDeleteAll->register_method("DeleteAll", [&server, &logIfaces]() {
+    ifaceDeleteAll->register_method("DeleteAll", []() {
         std::error_code ec;
-        for (auto& [file, interface] : logIfaces)
+        for (auto& [file, interface] : crashdump::storedLogIfaces)
         {
             if (!(std::filesystem::remove(crashdump::crashdumpDir / file, ec)))
             {
                 fprintf(stderr, "failed to remove %s: %s\n", file.c_str(),
                         ec.message().c_str());
             }
-            server.remove_interface(interface);
+            crashdump::server->remove_interface(interface);
         }
-        logIfaces.clear();
+        crashdump::storedLogIfaces.clear();
+        crashdump::dbusRemoveOnDemandLog();
         fprintf(stderr, "Crashdump logs cleared\n");
         return std::string("Logs Cleared");
     });
     ifaceDeleteAll->initialize();
 
     // OnDemand Log Interface
-    std::shared_ptr<sdbusplus::asio::dbus_interface> ifaceImm =
-        server.add_interface(crashdump::crashdumpPath,
-                             crashdump::crashdumpOnDemandInterface);
+    std::shared_ptr<sdbusplus::asio::dbus_interface> ifaceOnDemand =
+        crashdump::server->add_interface(crashdump::crashdumpPath,
+                                         crashdump::crashdumpOnDemandInterface);
 
     // Generate an OnDemand Log
-    ifaceImm->register_method("GenerateOnDemandLog", [&server, &future,
-                                                      &onDemandLogContents]() {
+    ifaceOnDemand->register_method("GenerateOnDemandLog", [&future]() {
         if (!crashdump::isPECIAvailable())
         {
             throw crashdump::PowerOffException();
@@ -871,27 +1036,23 @@ int main(int argc, char* argv[])
         {
             throw crashdump::LogInProgressException();
         }
+        // Remove the old on-demand log
+        crashdump::dbusRemoveOnDemandLog();
+
         // Start the log asynchronously since it can take a long time
-        future =
-            std::async(std::launch::async, [&server, &onDemandLogContents]() {
-                static std::shared_ptr<sdbusplus::asio::dbus_interface>
-                    ifaceLogImm = nullptr;
-                if (ifaceLogImm != nullptr)
-                {
-                    server.remove_interface(ifaceLogImm);
-                }
-                ifaceLogImm =
-                    server.add_interface(crashdump::crashdumpOnDemandPath,
-                                         crashdump::crashdumpInterface);
-                crashdump::newOnDemandLog(onDemandLogContents);
-                // Log Property
-                ifaceLogImm->register_property("Log", onDemandLogContents);
-                ifaceLogImm->initialize();
-            });
+        future = std::async(std::launch::async, []() {
+            std::string onDemandLogContents;
+            crashdump::newOnDemandLog(onDemandLogContents);
+            boost::asio::post(
+                crashdump::io, [onDemandLogContents =
+                                    std::move(onDemandLogContents)]() mutable {
+                    crashdump::dbusAddOnDemandLog(onDemandLogContents);
+                });
+        });
         // Return success
         return std::string("Log Started");
     });
-    ifaceImm->initialize();
+    ifaceOnDemand->initialize();
 
     // Build up paths for any existing stored logs
     if (std::filesystem::exists(crashdump::crashdumpDir))
@@ -909,9 +1070,9 @@ int main(int argc, char* argv[])
                     std::filesystem::path(crashdump::crashdumpPath) /
                     match.str(1);
                 std::shared_ptr<sdbusplus::asio::dbus_interface> ifaceLog =
-                    server.add_interface(path.c_str(),
-                                         crashdump::crashdumpInterface);
-                logIfaces.emplace_back(file, ifaceLog);
+                    crashdump::server->add_interface(
+                        path.c_str(), crashdump::crashdumpInterface);
+                crashdump::storedLogIfaces.emplace_back(file, ifaceLog);
                 // Log Property
                 std::string crashdumpContents;
                 crashdump::parseLogEntry(p.path().string(), crashdumpContents);
@@ -923,22 +1084,30 @@ int main(int argc, char* argv[])
 
     // Send Raw PECI Interface
     std::shared_ptr<sdbusplus::asio::dbus_interface> ifaceRawPeci =
-        server.add_interface(crashdump::crashdumpPath,
-                             crashdump::crashdumpRawPeciInterface);
+        crashdump::server->add_interface(crashdump::crashdumpPath,
+                                         crashdump::crashdumpRawPeciInterface);
 
     // Send a Raw PECI command
     ifaceRawPeci->register_method(
-        "SendRawPeci", [](const uint8_t& clientAddr, const uint8_t& readLen,
-                          const std::vector<uint8_t>& rawCmd) {
-            if (readLen > PECI_BUFFER_SIZE)
+        "SendRawPeci", [](const std::vector<std::vector<uint8_t>>& rawCmds) {
+            std::vector<std::vector<uint8_t>> rawResp;
+            for (auto const& rawCmd : rawCmds)
             {
-                throw std::length_error("Read length too large");
-            }
-            std::vector<uint8_t> rawResp(readLen);
-            if (peci_raw(clientAddr, readLen, rawCmd.data(), rawCmd.size(),
-                         rawResp.data(), rawResp.size()) != PECI_CC_SUCCESS)
-            {
-                throw std::runtime_error("PECI command failed");
+                if (rawCmd.size() < 3)
+                {
+                    throw std::invalid_argument("Command Length too short");
+                }
+                std::vector<uint8_t> resp(rawCmd[2]);
+                if (peci_raw(rawCmd[0], rawCmd[2], rawCmd.data() + 3,
+                             rawCmd.size() - 3, resp.data(),
+                             resp.size()) != PECI_CC_SUCCESS)
+                {
+                    rawResp.push_back({0});
+                }
+                else
+                {
+                    rawResp.push_back(resp);
+                }
             }
             return rawResp;
         });

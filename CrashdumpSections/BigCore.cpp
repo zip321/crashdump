@@ -1095,9 +1095,6 @@ int logCrashdumpICX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
                 {
                     fprintf(stderr, "Error (%d) during GetFrame (num:%d)\n",
                             ePeciStatus, i);
-                    crashdumpJsonICX1(u32CoreNum, u32ThreadNum,
-                                      u32CrashdumpSize, (uint8_t*)pu64Crashdump,
-                                      pJsonChild, cc);
                     FREE(pu64Crashdump);
                     goto nextCore;
                 }
@@ -1106,9 +1103,6 @@ int logCrashdumpICX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
                 {
                     fprintf(stderr, "Error (%d) during GetFrame (num:%d)\n",
                             ePeciStatus, i);
-                    crashdumpJsonICX1(u32CoreNum, u32ThreadNum,
-                                      u32CrashdumpSize, (uint8_t*)pu64Crashdump,
-                                      pJsonChild, cc);
                     FREE(pu64Crashdump);
                     return 0;
                 }
@@ -1117,9 +1111,6 @@ int logCrashdumpICX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
                 {
                     fprintf(stderr, "Error (%d) during GetFrame (num:%d)\n",
                             ePeciStatus, i);
-                    crashdumpJsonICX1(u32CoreNum, u32ThreadNum,
-                                      u32CrashdumpSize, (uint8_t*)pu64Crashdump,
-                                      pJsonChild, cc);
                     FREE(pu64Crashdump);
                     goto nextCore;
                 }
@@ -1134,8 +1125,14 @@ int logCrashdumpICX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
                     u32Threads = CD_MT_THREADS_PER_CORE;
                 }
             }
+
+            uint8_t threadId = 0;
+            if (CHECK_BIT(pu64Crashdump[CD_WHO_MISC_OFFSET], 0))
+            {
+                threadId = 1;
+            }
             // Log this Crashdump
-            crashdumpJsonICX1(u32CoreNum, u32ThreadNum, u32CrashdumpSize,
+            crashdumpJsonICX1(u32CoreNum, threadId, u32CrashdumpSize,
                               (uint8_t*)pu64Crashdump, pJsonChild, cc);
             FREE(pu64Crashdump);
         }

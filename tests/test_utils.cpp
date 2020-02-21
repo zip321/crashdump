@@ -17,32 +17,38 @@
  *
  ******************************************************************************/
 
-#pragma once
-#include "crashdump.hpp"
+#include "test_utils.hpp"
 
-#define MAXTESTCHAR 10000
-#define NTIME(n) for (int i = 0; i < n; i++)
+#include <cstring>
 
-// uncomment to enable debug print out
-// #define DEBUG_FLAG
-
-inline void DEBUG_PRINT(cJSON* root, cJSON* expected)
+char* readTestFile(char* filename)
 {
-#ifdef DEBUG_FLAG
-    char* jsonStr = NULL;
-    jsonStr = cJSON_Print(root);
-    printf("%s\n", jsonStr);
-    jsonStr = cJSON_Print(expected);
-    printf("%s\n", jsonStr);
-#endif
-};
+    char* buffer = NULL;
+    uint64_t length = 0;
+    FILE* fp = fopen(filename, "r");
+    if (fp != NULL)
+    {
+        fseek(fp, 0, SEEK_END);
+        length = ftell(fp);
+        fseek(fp, 0, SEEK_SET);
+        buffer = (char*)calloc(length, MAXTESTCHAR);
+        if (buffer)
+        {
+            fread(buffer, 1, length, fp);
+        }
+        fclose(fp);
+    }
+    else
+    {
+        printf("Fail to open %s\n", filename);
+    }
+    return buffer;
+}
 
-inline void DEBUG_CC_PRINT(uint8_t cc, uint64_t val)
+char* removeQuotes(char* str)
 {
-#ifdef DEBUG_FLAG
-    printf("cc:0x%x val:0x%" PRIx64 "\n", cc, val);
-#endif
-};
-
-char* readTestFile(char* filename);
-char* removeQuotes(char* str);
+    char* ptr = str;
+    ptr++;
+    ptr[strlen(ptr) - 1] = 0;
+    return ptr;
+}
