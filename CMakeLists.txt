@@ -44,10 +44,14 @@ option (
 option (OEMDATA_SECTION
         "Adds oemdata Section to the crashdump contents, for OEM usage." OFF)
 
+option (CRASHDUMP_INPUT_FILE "Enable dynamic loading feature." OFF)
+
 target_compile_definitions (crashdump PRIVATE
                             $<$<BOOL:${CRASHDUMP_PRINT_UNFORMATTED}>:
                             -DCRASHDUMP_PRINT_UNFORMATTED>
-                            $<$<BOOL:${OEMDATA_SECTION}>: -DOEMDATA_SECTION>)
+                            $<$<BOOL:${OEMDATA_SECTION}>: -DOEMDATA_SECTION>
+                            $<$<BOOL:${CRASHDUMP_INPUT_FILE}>:
+                            -DCRASHDUMP_INPUT_FILE>)
 
 target_include_directories (crashdump PRIVATE ${CMAKE_SOURCE_DIR})
 set_property (TARGET crashdump PROPERTY C_STANDARD 99)
@@ -58,6 +62,10 @@ install (TARGETS crashdump
          RUNTIME DESTINATION bin
          LIBRARY DESTINATION lib
          ARCHIVE DESTINATION lib/static)
+
+install (FILES ${CMAKE_CURRENT_SOURCE_DIR}/crashdump_input_icx.json
+               ${CMAKE_CURRENT_SOURCE_DIR}/crashdump_input_cpx.json PERMISSIONS
+               OWNER_READ DESTINATION /usr/share/crashdump/)
 
 find_package (Boost 1.66 REQUIRED)
 include_directories (${BOOST_SRC_DIR})
@@ -76,24 +84,24 @@ if (${CRASHDUMP_BUILD_UT})
     set (UT_FILES tests/CrashdumpSections/UncoreRegs_test.cpp
          tests/CrashdumpSections/SqDump_test.cpp
          tests/CrashdumpSections/BigCore_test.cpp tests/test_utils.cpp
-         tests/test_main.cpp)
+         tests/test_main.cpp tests/CrashdumpSections/Uncore_test.cpp
+         tests/crashdump_test.cpp)
 
     enable_testing ()
 
     add_definitions (-DCOMPILE_UNIT_TESTS)
     add_definitions (-DMOCK)
-    add_executable (crashdump_test ${SRC_FILES} ${UT_FILES})
+    add_executable (crashdump_ut ${SRC_FILES} ${UT_FILES})
 
     find_package (GTest REQUIRED)
-    target_link_libraries (crashdump_test ${GTEST_LIBRARIES} gmock)
-    target_link_libraries (crashdump_test cjson peci -lsystemd pthread)
-    target_link_libraries (crashdump_test -lstdc++fs sdbusplus)
-    target_link_libraries (crashdump_test ${SAFEC_LIBRARIES})
+    target_link_libraries (crashdump_ut ${GTEST_LIBRARIES} gmock)
+    target_link_libraries (crashdump_ut cjson peci -lsystemd pthread)
+    target_link_libraries (crashdump_ut -lstdc++fs sdbusplus)
+    target_link_libraries (crashdump_ut ${SAFEC_LIBRARIES})
 
-    add_test (crashdump_test crashdump_test
-              "--gtest_output=xml:crashdump_test.xml")
+    add_test (crashdump_ut crashdump_ut "--gtest_output=xml:crashdump_test.xml")
 
-    install (TARGETS crashdump_test
+    install (TARGETS crashdump_ut
              RUNTIME DESTINATION bin
              LIBRARY DESTINATION lib
              ARCHIVE DESTINATION lib/static)

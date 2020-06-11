@@ -33,6 +33,10 @@
 #define SQ_JSON_STRING_LEN 32
 #define SQ_JSON_CORE_NAME "core%d"
 #define SQ_JSON_ENTRY_NAME "entry%d"
+#define SQ_UA_DF "UA:0x%x:0x%x,DF:0x%x:0x%x"
+#define SQ_DF "DF:0x%x:0x%x"
+#define SQ_UA "UA:0x%x:0x%x"
+#define SIZE_FAILURE 7
 
 /******************************************************************************
  *
@@ -42,9 +46,13 @@
 typedef struct
 {
     uint32_t* pu32SqAddrArray;
+    uint8_t* pu8SqAddrCc;
+    int* puSqAddrRet;
     uint32_t u32SqAddrSize;
     uint32_t* pu32SqCtrlArray;
     uint32_t u32SqCtrlSize;
+    uint8_t* pu8SqCtrlCc;
+    int* puSqCtrlRet;
 } SSqDump;
 
 typedef struct

@@ -38,7 +38,7 @@ extern "C" {
  ******************************************************************************/
 static void unCoreMcaCboJson(uint32_t u32CboNum,
                              SUncoreMcaRawData* psUncoreCboRawData,
-                             cJSON* pJsonChild)
+                             cJSON* pJsonChild, int ret)
 {
     char jsonItemString[UNCORE_MCA_JSON_STRING_LEN];
     char jsonNameString[UNCORE_MCA_JSON_STRING_LEN];
@@ -69,8 +69,20 @@ static void unCoreMcaCboJson(uint32_t u32CboNum,
         cJSON_AddItemToObject(uncore, jsonItemString,
                               uncoreMcaCbo = cJSON_CreateObject());
     }
-
     if (psUncoreCboRawData->bInvalid)
+    {
+        for (int i = 0; i < UCM_NUM_MCA_QWORDS; i++)
+        {
+            cd_snprintf_s(jsonNameString, UNCORE_MCA_JSON_STRING_LEN,
+                          UNCORE_MCA_CBO_REG_NAME, u32CboNum,
+                          uncoreMcaRegNames[i]);
+            cd_snprintf_s(jsonItemString, UNCORE_MCA_JSON_STRING_LEN,
+                          UNCORE_MCA_UA_DF, psUncoreCboRawData->cc, ret);
+            cJSON_AddStringToObject(uncoreMcaCbo, jsonNameString,
+                                    jsonItemString);
+        }
+    }
+    else if (PECI_CC_UA(psUncoreCboRawData->cc))
     {
         for (int i = 0; i < UCM_NUM_MCA_QWORDS; i++)
         {
@@ -82,16 +94,14 @@ static void unCoreMcaCboJson(uint32_t u32CboNum,
             cJSON_AddStringToObject(uncoreMcaCbo, jsonNameString,
                                     jsonItemString);
         }
-        // Otherwise fill in the register data
     }
-    else
+    else // Otherwise fill in the register data
     {
         for (int i = 0; i < UCM_NUM_MCA_QWORDS; i++)
         {
             cd_snprintf_s(jsonNameString, UNCORE_MCA_JSON_STRING_LEN,
                           UNCORE_MCA_CBO_REG_NAME, u32CboNum,
                           uncoreMcaRegNames[i]);
-
             cd_snprintf_s(jsonItemString, UNCORE_MCA_JSON_STRING_LEN, "0x%llx",
                           psUncoreCboRawData->uRegData.u64Raw[i]);
             cJSON_AddStringToObject(uncoreMcaCbo, jsonNameString,
@@ -112,48 +122,56 @@ static int uncoreCboMcaReadCPX1(crashdump::CPUInfo& cpuInfo, uint32_t u32Param,
                                 int peci_fd)
 {
     uint8_t cc = 0;
+    int ret = 0;
 
     // Open the MCA Bank dump sequence
-    peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_OPEN_SEQ,
-                         VCU_UNCORE_MCA_SEQ, sizeof(uint32_t), peci_fd, &cc);
-    if (PECI_CC_UA(cc))
+    ret = peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_OPEN_SEQ,
+                               VCU_UNCORE_MCA_SEQ, sizeof(uint32_t), peci_fd,
+                               &cc);
+    sUncoreStatusMcaRawData->cc = cc;
+    sUncoreStatusMcaRawData->ret = ret;
+    if (ret != PECI_CC_SUCCESS)
     {
         // MCA Bank sequence failed, abort the sequence
-        sUncoreStatusMcaRawData->cc = cc;
         peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_ABORT_SEQ,
                              VCU_UNCORE_MCA_SEQ, sizeof(uint32_t), peci_fd,
                              &cc);
-        return -1;
+        return ret;
     }
 
     // Set MCA Bank number
-    peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, UCM_BANK_PARAM,
-                         u32Param, sizeof(uint32_t), peci_fd, &cc);
-    if (PECI_CC_UA(cc))
+    ret =
+        peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, UCM_BANK_PARAM,
+                             u32Param, sizeof(uint32_t), peci_fd, &cc);
+    sUncoreStatusMcaRawData->cc = cc;
+    sUncoreStatusMcaRawData->ret = ret;
+    if (ret != PECI_CC_SUCCESS)
     {
         // MCA Bank sequence failed, abort the sequence
         sUncoreStatusMcaRawData->cc = cc;
         peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_ABORT_SEQ,
                              VCU_UNCORE_MCA_SEQ, sizeof(uint32_t), peci_fd,
                              &cc);
-        return -1;
+        return ret;
     }
 
     // Get the MCA Bank Registers
     for (uint8_t u8Dword = 0; u8Dword < UCM_NUM_MCA_DWORDS; u8Dword++)
     {
-        peci_RdPkgConfig_seq(
+        ret = peci_RdPkgConfig_seq(
             cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_READ, sizeof(uint32_t),
             (uint8_t*)&sUncoreStatusMcaRawData->uRegData.u32Raw[u8Dword],
             peci_fd, &cc);
-        if (PECI_CC_UA(cc))
+        sUncoreStatusMcaRawData->cc = cc;
+        sUncoreStatusMcaRawData->ret = ret;
+        if (ret != PECI_CC_SUCCESS)
         {
             // MCA Bank sequence failed, abort the sequence
             sUncoreStatusMcaRawData->cc = cc;
             peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU,
                                  VCU_ABORT_SEQ, VCU_UNCORE_MCA_SEQ,
                                  sizeof(uint32_t), peci_fd, &cc);
-            return -1;
+            return ret;
         }
     }
 
@@ -161,7 +179,7 @@ static int uncoreCboMcaReadCPX1(crashdump::CPUInfo& cpuInfo, uint32_t u32Param,
     peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_CLOSE_SEQ,
                          VCU_UNCORE_MCA_SEQ, sizeof(uint32_t), peci_fd, &cc);
 
-    return 0;
+    return ret;
 }
 
 /******************************************************************************
@@ -202,35 +220,54 @@ static void uncoreMcaJsonCPX1(SUncoreMcaRawData* sUncoreMcaRawData,
     {
         cd_snprintf_s(jsonItemName, UNCORE_MCA_JSON_STRING_LEN,
                       UNCORE_MCA_REG_NAME, bank, uncoreMcaRegNames[UNCORE_CTL]);
+        cd_snprintf_s(jsonItemString, UNCORE_MCA_JSON_STRING_LEN,
+                      UNCORE_MCA_UA_DF, sUncoreMcaRawData->cc,
+                      sUncoreMcaRawData->ret);
+        cJSON_AddStringToObject(uncoreMca, jsonItemName, jsonItemString);
+        cd_snprintf_s(jsonItemName, UNCORE_MCA_JSON_STRING_LEN,
+                      UNCORE_MCA_REG_NAME, bank,
+                      uncoreMcaRegNames[UNCORE_STATUS]);
+        cJSON_AddStringToObject(uncoreMca, jsonItemName, jsonItemString);
+        cd_snprintf_s(jsonItemName, UNCORE_MCA_JSON_STRING_LEN,
+                      UNCORE_MCA_REG_NAME, bank,
+                      uncoreMcaRegNames[UNCORE_ADDR]);
+        cJSON_AddStringToObject(uncoreMca, jsonItemName, jsonItemString);
+        cd_snprintf_s(jsonItemName, UNCORE_MCA_JSON_STRING_LEN,
+                      UNCORE_MCA_REG_NAME, bank,
+                      uncoreMcaRegNames[UNCORE_MISC]);
+        cJSON_AddStringToObject(uncoreMca, jsonItemName, jsonItemString);
+        cd_snprintf_s(jsonItemName, UNCORE_MCA_JSON_STRING_LEN,
+                      UNCORE_MCA_REG_NAME, bank,
+                      uncoreMcaRegNames[UNCORE_CTL2]);
+        cJSON_AddStringToObject(uncoreMca, jsonItemName, jsonItemString);
+        return;
+    }
+    else if (PECI_CC_UA(sUncoreMcaRawData->cc))
+    {
+        cd_snprintf_s(jsonItemName, UNCORE_MCA_JSON_STRING_LEN,
+                      UNCORE_MCA_REG_NAME, bank, uncoreMcaRegNames[UNCORE_CTL]);
         cd_snprintf_s(jsonItemString, UNCORE_MCA_JSON_STRING_LEN, UNCORE_MCA_UA,
                       sUncoreMcaRawData->cc);
         cJSON_AddStringToObject(uncoreMca, jsonItemName, jsonItemString);
         cd_snprintf_s(jsonItemName, UNCORE_MCA_JSON_STRING_LEN,
                       UNCORE_MCA_REG_NAME, bank,
                       uncoreMcaRegNames[UNCORE_STATUS]);
-        cd_snprintf_s(jsonItemString, UNCORE_MCA_JSON_STRING_LEN, UNCORE_MCA_UA,
-                      sUncoreMcaRawData->cc);
         cJSON_AddStringToObject(uncoreMca, jsonItemName, jsonItemString);
         cd_snprintf_s(jsonItemName, UNCORE_MCA_JSON_STRING_LEN,
                       UNCORE_MCA_REG_NAME, bank,
                       uncoreMcaRegNames[UNCORE_ADDR]);
-        cd_snprintf_s(jsonItemString, UNCORE_MCA_JSON_STRING_LEN, UNCORE_MCA_UA,
-                      sUncoreMcaRawData->cc);
         cJSON_AddStringToObject(uncoreMca, jsonItemName, jsonItemString);
         cd_snprintf_s(jsonItemName, UNCORE_MCA_JSON_STRING_LEN,
                       UNCORE_MCA_REG_NAME, bank,
                       uncoreMcaRegNames[UNCORE_MISC]);
-        cd_snprintf_s(jsonItemString, UNCORE_MCA_JSON_STRING_LEN, UNCORE_MCA_UA,
-                      sUncoreMcaRawData->cc);
         cJSON_AddStringToObject(uncoreMca, jsonItemName, jsonItemString);
         cd_snprintf_s(jsonItemName, UNCORE_MCA_JSON_STRING_LEN,
                       UNCORE_MCA_REG_NAME, bank,
                       uncoreMcaRegNames[UNCORE_CTL2]);
-        cd_snprintf_s(jsonItemString, UNCORE_MCA_JSON_STRING_LEN, UNCORE_MCA_UA,
-                      sUncoreMcaRawData->cc);
         cJSON_AddStringToObject(uncoreMca, jsonItemName, jsonItemString);
-        // Otherwise fill in the register data
+        return;
     }
+    // Otherwise fill in the register data
     else
     {
         cd_snprintf_s(jsonItemName, UNCORE_MCA_JSON_STRING_LEN,
@@ -275,10 +312,11 @@ static void uncoreMcaJsonCPX1(SUncoreMcaRawData* sUncoreMcaRawData,
 static int uncoreMcaCboCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 {
     int peci_fd = -1;
-
-    if (peci_Lock(&peci_fd, PECI_WAIT_FOREVER) != PECI_CC_SUCCESS)
+    int ret = 0;
+    ret = peci_Lock(&peci_fd, PECI_WAIT_FOREVER);
+    if (ret != PECI_CC_SUCCESS)
     {
-        return -1;
+        return ret;
     }
 
     // Go through each CBO in this CPU
@@ -290,17 +328,18 @@ static int uncoreMcaCboCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
                                ((i % US_NUM_CBO_BANKS) + US_BASE_CBO_BANK);
 
         // Get the CBO MCA data
-        if (uncoreCboMcaReadCPX1(cpuInfo, u32CboParam, &sMcaData, peci_fd) != 0)
+        ret = uncoreCboMcaReadCPX1(cpuInfo, u32CboParam, &sMcaData, peci_fd);
+        if (ret != 0)
         {
             sMcaData.bInvalid = true;
         }
 
         // Log the MCA for this CBO
-        unCoreMcaCboJson(i, &sMcaData, pJsonChild);
+        unCoreMcaCboJson(i, &sMcaData, pJsonChild, ret);
     }
 
     peci_Unlock(peci_fd);
-    return 0;
+    return ret;
 }
 
 /******************************************************************************
@@ -364,14 +403,14 @@ static int uncoreMcaCboCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
  ******************************************************************************/
 int logUncoreMcaCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 {
-    EPECIStatus ePECIStatus;
     int ret = 0;
     int peci_fd = -1;
     uint8_t cc = 0;
 
-    if (peci_Lock(&peci_fd, PECI_WAIT_FOREVER) != PECI_CC_SUCCESS)
+    ret = peci_Lock(&peci_fd, PECI_WAIT_FOREVER);
+    if (ret != PECI_CC_SUCCESS)
     {
-        return -1;
+        return ret;
     }
 
     // Read the Uncore MCA registers from the CPU
@@ -379,10 +418,12 @@ int logUncoreMcaCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
     {
         SUncoreMcaRawData sUncoreMcaRawData = {};
         // Open the MCA Bank dump sequence
-        peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_OPEN_SEQ,
-                             VCU_UNCORE_MCA_SEQ, sizeof(uint32_t), peci_fd,
-                             &cc);
-        if (PECI_CC_UA(cc))
+        ret = peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU,
+                                   VCU_OPEN_SEQ, VCU_UNCORE_MCA_SEQ,
+                                   sizeof(uint32_t), peci_fd, &cc);
+        sUncoreMcaRawData.cc = cc;
+        sUncoreMcaRawData.ret = ret;
+        if (ret != PECI_CC_SUCCESS)
         {
             // MCE Bank sequence failed, abort the sequence and go to the next
             // Bank
@@ -390,17 +431,17 @@ int logUncoreMcaCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
                                  VCU_ABORT_SEQ, VCU_UNCORE_MCA_SEQ,
                                  sizeof(uint32_t), peci_fd, &cc);
             sUncoreMcaRawData.bInvalid = true;
-            sUncoreMcaRawData.cc = cc;
             uncoreMcaJsonCPX1(&sUncoreMcaRawData, pJsonChild, j);
-            ret = 1;
             continue;
         }
 
         // Set MCE Bank number
-        ePECIStatus = peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU,
-                                           UCM_BANK_PARAM, j, sizeof(uint32_t),
-                                           peci_fd, &cc);
-        if (PECI_CC_UA(cc))
+        ret = peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU,
+                                   UCM_BANK_PARAM, j, sizeof(uint32_t), peci_fd,
+                                   &cc);
+        sUncoreMcaRawData.cc = cc;
+        sUncoreMcaRawData.ret = ret;
+        if (ret != PECI_CC_SUCCESS)
         {
             // MCE Bank sequence failed, abort the sequence and go to the next
             // Bank
@@ -408,20 +449,20 @@ int logUncoreMcaCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
                                  VCU_ABORT_SEQ, VCU_UNCORE_MCA_SEQ,
                                  sizeof(uint32_t), peci_fd, &cc);
             sUncoreMcaRawData.bInvalid = true;
-            sUncoreMcaRawData.cc = cc;
             uncoreMcaJsonCPX1(&sUncoreMcaRawData, pJsonChild, j);
-            ret = 1;
             continue;
         }
 
         // Get the MCE Bank Registers
         for (uint8_t u8Dword = 0; u8Dword < UCM_NUM_MCA_DWORDS; u8Dword++)
         {
-            ePECIStatus = peci_RdPkgConfig_seq(
+            ret = peci_RdPkgConfig_seq(
                 cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_READ, sizeof(uint32_t),
                 (uint8_t*)&sUncoreMcaRawData.uRegData.u32Raw[u8Dword], peci_fd,
                 &cc);
-            if (PECI_CC_UA(cc))
+            sUncoreMcaRawData.cc = cc;
+            sUncoreMcaRawData.ret = ret;
+            if (ret != PECI_CC_SUCCESS)
             {
                 // MCE Bank sequence failed, abort the sequence and go to the
                 // next Bank
@@ -429,8 +470,6 @@ int logUncoreMcaCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
                                      VCU_ABORT_SEQ, VCU_UNCORE_MCA_SEQ,
                                      sizeof(uint32_t), peci_fd, &cc);
                 sUncoreMcaRawData.bInvalid = true;
-                sUncoreMcaRawData.cc = cc;
-                ret = 1;
                 break;
             }
         }
@@ -488,24 +527,15 @@ static const SUncoreMcaReg sUncoreMcaRegs[] = {
     {"MC8", "mc8_ctl2", 0x288, 2},
 
     // CHA0
-    {"MC9", "mc9_ctl", 0x424, 0},
     {"MC9", "mc9_status", 0x425, 0},
-    {"MC9", "mc9_addr", 0x426, 0},
-    {"MC9", "mc9_misc", 0x427, 0},
     {"MC9", "mc9_ctl2", 0x289, 0},
 
     // CHA1
-    {"MC10", "mc10_ctl", 0x428, 0},
     {"MC10", "mc10_status", 0x429, 0},
-    {"MC10", "mc10_addr", 0x42a, 0},
-    {"MC10", "mc10_misc", 0x42b, 0},
     {"MC10", "mc10_ctl2", 0x28a, 0},
 
     // CHA2
-    {"MC11", "mc11_ctl", 0x42c, 0},
     {"MC11", "mc11_status", 0x42d, 0},
-    {"MC11", "mc11_addr", 0x42e, 0},
-    {"MC11", "mc11_misc", 0x42f, 0},
     {"MC11", "mc11_ctl2", 0x28b, 0},
 
     // M2M0
@@ -603,7 +633,7 @@ static const SUncoreMcaReg sUncoreMcaRegs[] = {
  ******************************************************************************/
 static void uncoreMcaJsonICX1(const SUncoreMcaReg* sUncoreMcaReg,
                               uint64_t u64UncoreMcaData, cJSON* pJsonChild,
-                              uint8_t cc)
+                              uint8_t cc, int ret)
 {
     char jsonItemString[UNCORE_MCA_JSON_STRING_LEN];
 
@@ -628,8 +658,12 @@ static void uncoreMcaJsonICX1(const SUncoreMcaReg* sUncoreMcaReg,
         cJSON_AddItemToObject(uncore, sUncoreMcaReg->bankName,
                               uncoreMca = cJSON_CreateObject());
     }
-
-    if (PECI_CC_UA(cc))
+    if (ret != PECI_CC_SUCCESS)
+    {
+        cd_snprintf_s(jsonItemString, UNCORE_MCA_JSON_STRING_LEN,
+                      UNCORE_MCA_UA_DF, cc, ret);
+    }
+    else if (PECI_CC_UA(cc))
     {
         cd_snprintf_s(jsonItemString, UNCORE_MCA_JSON_STRING_LEN, UNCORE_MCA_UA,
                       cc);
@@ -654,54 +688,66 @@ static void uncoreMcaJsonICX1(const SUncoreMcaReg* sUncoreMcaReg,
 static int logUnCoreMcaCboICX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 {
     uint8_t cc = 0;
+    int ret = 0;
 
     // Go through each CBO in this CPU
     for (uint32_t i = 0; i < cpuInfo.chaCount; i++)
     {
         SUncoreMcaRawData sMcaData = {};
+        sMcaData.bInvalid = false;
         do
         {
-            if (peci_RdIAMSR(cpuInfo.clientAddr, i, UCM_CBO_MCA_PARAM_CTL,
-                             &sMcaData.uRegData.sReg.u64UncoreMcaCtl,
-                             &cc) != PECI_CC_SUCCESS)
+            ret = peci_RdIAMSR(cpuInfo.clientAddr, i, UCM_CBO_MCA_PARAM_CTL,
+                               &sMcaData.uRegData.sReg.u64UncoreMcaCtl, &cc);
+            sMcaData.ret = ret;
+            sMcaData.cc = cc;
+            if (ret != PECI_CC_SUCCESS)
             {
                 sMcaData.bInvalid = true;
                 break;
             }
-            if (peci_RdIAMSR(cpuInfo.clientAddr, i, UCM_CBO_MCA_PARAM_STATUS,
-                             &sMcaData.uRegData.sReg.u64UncoreMcaStatus,
-                             &cc) != PECI_CC_SUCCESS)
+            ret = peci_RdIAMSR(cpuInfo.clientAddr, i, UCM_CBO_MCA_PARAM_STATUS,
+                               &sMcaData.uRegData.sReg.u64UncoreMcaStatus, &cc);
+            sMcaData.ret = ret;
+            sMcaData.cc = cc;
+            if (ret != PECI_CC_SUCCESS)
             {
                 sMcaData.bInvalid = true;
                 break;
             }
-            if (peci_RdIAMSR(cpuInfo.clientAddr, i, UCM_CBO_MCA_PARAM_ADDR,
-                             &sMcaData.uRegData.sReg.u64UncoreMcaAddr,
-                             &cc) != PECI_CC_SUCCESS)
+            ret = peci_RdIAMSR(cpuInfo.clientAddr, i, UCM_CBO_MCA_PARAM_ADDR,
+                               &sMcaData.uRegData.sReg.u64UncoreMcaAddr, &cc);
+            sMcaData.ret = ret;
+            sMcaData.cc = cc;
+            if (ret != PECI_CC_SUCCESS)
             {
                 sMcaData.bInvalid = true;
                 break;
             }
-            if (peci_RdIAMSR(cpuInfo.clientAddr, i, UCM_CBO_MCA_PARAM_MISC,
-                             &sMcaData.uRegData.sReg.u64UncoreMcaMisc,
-                             &cc) != PECI_CC_SUCCESS)
+            ret = peci_RdIAMSR(cpuInfo.clientAddr, i, UCM_CBO_MCA_PARAM_MISC,
+                               &sMcaData.uRegData.sReg.u64UncoreMcaMisc, &cc);
+            sMcaData.ret = ret;
+            sMcaData.cc = cc;
+            if (ret != PECI_CC_SUCCESS)
             {
                 sMcaData.bInvalid = true;
                 break;
             }
-            if (peci_RdIAMSR(cpuInfo.clientAddr, i, UCM_CBO_MCA_PARAM_MISC2,
-                             &sMcaData.uRegData.sReg.u64UncoreMcaMisc2,
-                             &cc) != PECI_CC_SUCCESS)
+            ret = peci_RdIAMSR(cpuInfo.clientAddr, i, UCM_CBO_MCA_PARAM_MISC2,
+                               &sMcaData.uRegData.sReg.u64UncoreMcaMisc2, &cc);
+            sMcaData.ret = ret;
+            sMcaData.cc = cc;
+            if (ret != PECI_CC_SUCCESS)
             {
                 sMcaData.bInvalid = true;
                 break;
             }
         } while (0);
         // Log the MCA for this CBO
-        unCoreMcaCboJson(i, &sMcaData, pJsonChild);
+        unCoreMcaCboJson(i, &sMcaData, pJsonChild, ret);
     }
 
-    return 0;
+    return ret;
 }
 
 /******************************************************************************
@@ -722,13 +768,11 @@ int logUncoreMcaICX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
          i++)
     {
         uint64_t u64UncoreMcaData;
-        if (peci_RdIAMSR(cpuInfo.clientAddr, 0, sUncoreMcaRegs[i].addr,
-                         &u64UncoreMcaData, &cc) == PECI_CC_SUCCESS)
-        {
-            // Log the MCA register
-            uncoreMcaJsonICX1(&sUncoreMcaRegs[i], u64UncoreMcaData, pJsonChild,
-                              cc);
-        }
+        ret = peci_RdIAMSR(cpuInfo.clientAddr, sUncoreMcaRegs[i].instance_id,
+                           sUncoreMcaRegs[i].addr, &u64UncoreMcaData, &cc);
+        // Log the MCA register
+        uncoreMcaJsonICX1(&sUncoreMcaRegs[i], u64UncoreMcaData, pJsonChild, cc,
+                          ret);
     }
 
     logUnCoreMcaCboICX1(cpuInfo, pJsonChild);
@@ -757,6 +801,12 @@ int logUncoreMca(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
     if (pJsonChild == NULL)
     {
         return 1;
+    }
+
+    if (!CHECK_BIT(cpuInfo.sectionMask, crashdump::MCA))
+    {
+        updateRecordEnable(pJsonChild, false);
+        return 0;
     }
 
     for (uint32_t i = 0;

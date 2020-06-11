@@ -39,14 +39,20 @@
 
 #define SI_CPU_NAME_LEN 8
 #define SI_CRASHDUMP_VER_LEN 8
-#define SI_CRASHDUMP_VER "BMC_0.5"
+#define SI_CRASHDUMP_VER "BMC_0.65"
 
 #define SI_PECI_PPIN_IDX 19
 #define SI_PECI_PPIN_LOWER 0x01
 #define SI_PECI_PPIN_UPPER 0x02
-
+#define MD_UINT64 "0x%" PRIx64 ""
 #define MD_UA "UA:0x%x"
+#define MD_DF "DF:0x%x"
+#define MD_UA_DF "UA:0x%x,DF:0x%x"
 #define MD_NA "N/A"
+#define MD_STARTUP "STARTUP"
+#define MD_EVENT "EVENT"
+#define MD_OVERWRITTEN "OVERWRITTEN"
+#define MD_INVALID "INVALID"
 
 /******************************************************************************
  *
@@ -68,6 +74,14 @@ typedef struct
 
 typedef struct
 {
+    char sectionName[SI_JSON_STRING_LEN];
+    int (*FillSysInfoJson)(crashdump::CPUInfo& cpuInfo, char* cSectionName,
+                           cJSON* pJsonChild,
+                           crashdump::InputFileInfo* inputFileInfo);
+} SSysInfoInputFileSection;
+
+typedef struct
+{
     crashdump::cpu::Model cpuModel;
     int (*getPpinVx)(crashdump::CPUInfo& cpuInfo, char* cSectionName,
                      cJSON* pJsonChild);
@@ -75,3 +89,5 @@ typedef struct
 
 int logSysInfo(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);
 int logSysInfoCommon(cJSON* pJsonChild);
+int logSysInfoInputfile(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild,
+                        crashdump::InputFileInfo* inputFileInfo);

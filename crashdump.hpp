@@ -20,6 +20,7 @@
 #pragma once
 #include "utils.hpp"
 
+#include <linux/peci-ioctl.h>
 #include <peci.h>
 
 #include <array>
@@ -29,6 +30,17 @@ extern "C" {
 #include <cjson/cJSON.h>
 
 #include "safe_str_lib.h"
+}
+
+namespace cpuid
+{
+typedef enum
+{
+    STARTUP = 1,
+    EVENT = 0,
+    INVALID = 2,
+    OVERWRITTEN = 3,
+} cpuidState;
 }
 
 namespace crashdump
@@ -45,6 +57,7 @@ enum Model
     cpx,
     icx,
     icx2,
+    numberOfModels,
 };
 namespace stepping
 {
@@ -63,14 +76,79 @@ typedef enum
     UNKNOWN = -1,
 } pwState;
 
+typedef enum
+{
+    BIG_CORE,
+    TOR,
+    MCA,
+    UNCORE,
+    PM_INFO,
+    ADDRESS_MAP,
+    METADATA,
+    NUMBER_OF_SECTIONS,
+} Section;
+
+typedef struct
+{
+    char* name;
+    Section section;
+} CrashdumpSection;
+
+const CrashdumpSection sectionNames[NUMBER_OF_SECTIONS] = {
+    {"big_core", BIG_CORE}, {"TOR", TOR},         {"MCA", MCA},
+    {"uncore", UNCORE},     {"PM_info", PM_INFO}, {"address_map", ADDRESS_MAP},
+    {"METADATA", METADATA}};
+
+#define NUMBER_OF_CPU_MODELS crashdump::cpu::Model::numberOfModels
+
+typedef struct _InputFileInfo
+{
+    bool unique;
+    char* filenames[NUMBER_OF_CPU_MODELS];
+    cJSON* buffers[NUMBER_OF_CPU_MODELS];
+} InputFileInfo;
+
+typedef struct _JSONInfo
+{
+    char* filenamePtr;
+    cJSON* bufferPtr;
+} JSONInfo;
+
+typedef struct COREMaskRead
+{
+    uint8_t coreMaskCc;
+    int coreMaskRet;
+} COREMaskRead;
+
+typedef struct CHACountRead
+{
+    uint8_t chaCountCc;
+    int chaCountRet;
+} CHACountRead;
+
+typedef struct CPUIDRead
+{
+    uint8_t cpuidCc;
+    int cpuidRet;
+    CPUModel cpuModel;
+    uint8_t stepping;
+    bool cpuidValid;
+    cpuid::cpuidState source;
+} CPUIDRead;
+
 struct CPUInfo
 {
     int clientAddr;
     cpu::Model model;
     uint64_t coreMask;
     uint64_t crashedCoreMask;
+    uint8_t sectionMask = 0xff;
     int chaCount;
     pwState initialPeciWake;
+    JSONInfo inputFile;
+    CPUIDRead cpuidRead;
+    CHACountRead chaCountRead;
+    COREMaskRead coreMaskRead;
 };
 } // namespace crashdump
 

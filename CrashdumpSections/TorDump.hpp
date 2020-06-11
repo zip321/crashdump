@@ -36,6 +36,9 @@ extern "C" {
 #define TD_JSON_SUBINDEX_NAME "subindex%d"
 #define TD_NA "N/A"
 #define TD_UA "UA:0x%x"
+#define TD_DF "DF:0x%x"
+#define TD_UA_DF "UA:0x%x,DF:0x%x"
+#define SIZE_FAILURE 7
 
 /******************************************************************************
  *

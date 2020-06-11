@@ -40,6 +40,8 @@ extern "C" {
 
 #define UNCORE_MCA_FAILED "N/A"
 #define UNCORE_MCA_UA "UA:0x%x"
+#define UNCORE_MCA_DF "DF:0x%x"
+#define UNCORE_MCA_UA_DF "UA:0x%x,DF:0x%x"
 
 /******************************************************************************
  *
@@ -115,6 +117,7 @@ typedef struct
     UUncoreMcaRegs uRegData;
     bool bInvalid;
     uint8_t cc;
+    int ret;
 } SUncoreMcaRawData;
 
 static const char uncoreMcaRegNames[][UNCORE_MCA_NAME_LEN] = {

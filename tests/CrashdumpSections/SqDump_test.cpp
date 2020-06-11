@@ -50,6 +50,13 @@ class SqDumpTestFixture : public Test
 
     ~SqDumpTestFixture()
     {
+        FREE(psSqDump->pu32SqCtrlArray);
+        FREE(psSqDump->pu32SqAddrArray);
+        FREE(psSqDump->puSqAddrRet);
+        FREE(psSqDump->pu8SqAddrCc);
+        FREE(psSqDump->puSqCtrlRet);
+        FREE(psSqDump->pu8SqCtrlCc);
+        FREE(psSqDump);
         SqDumpMock.reset();
     }
 
@@ -58,10 +65,18 @@ class SqDumpTestFixture : public Test
 
         // Initialize json object
         root = cJSON_CreateObject();
+        psSqDump = (SSqDump*)malloc(sizeof(SSqDump));
+        psSqDump->pu32SqCtrlArray = (uint32_t*)malloc(8 * sizeof(uint32_t));
+        psSqDump->pu32SqAddrArray = (uint32_t*)malloc(8 * sizeof(uint32_t));
+        psSqDump->puSqAddrRet = (int*)malloc(8 * sizeof(int));
+        psSqDump->pu8SqAddrCc = (uint8_t*)malloc(8 * sizeof(uint8_t));
+        psSqDump->puSqCtrlRet = (int*)malloc(8 * sizeof(int));
+        psSqDump->pu8SqCtrlCc = (uint8_t*)malloc(8 * sizeof(uint8_t));
     }
 
     cJSON* root = NULL;
     char* jsonStr = NULL;
+    SSqDump* psSqDump = NULL;
 
     static std::unique_ptr<SqDumpMOCK> SqDumpMock;
 };
@@ -74,10 +89,6 @@ std::unique_ptr<SqDumpMOCK> SqDumpTestFixture::SqDumpMock;
 
 TEST_F(SqDumpTestFixture, sqDumpJson_ctrl_bigger_addr)
 {
-    SSqDump* psSqDump = NULL;
-    psSqDump = (SSqDump*)malloc(sizeof(SSqDump));
-    psSqDump->pu32SqCtrlArray = (uint32_t*)malloc(8 * sizeof(uint32_t));
-    psSqDump->pu32SqAddrArray = (uint32_t*)malloc(8 * sizeof(uint32_t));
     psSqDump->pu32SqAddrArray[0] = 0x1d;
     psSqDump->pu32SqAddrArray[1] = 0x0;
     psSqDump->pu32SqAddrArray[2] = 0x0;
@@ -98,17 +109,10 @@ TEST_F(SqDumpTestFixture, sqDumpJson_ctrl_bigger_addr)
     sqDumpJson(numcore, psSqDump, root);
     jsonStr = cJSON_Print(root);
     printf("%s\n", jsonStr);
-    FREE(psSqDump->pu32SqAddrArray);
-    FREE(psSqDump->pu32SqCtrlArray);
-    FREE(psSqDump);
 }
 
 TEST_F(SqDumpTestFixture, sqDumpJson_addr_bigger_ctrl)
 {
-    SSqDump* psSqDump = NULL;
-    psSqDump = (SSqDump*)malloc(sizeof(SSqDump));
-    psSqDump->pu32SqCtrlArray = (uint32_t*)malloc(8 * sizeof(uint32_t));
-    psSqDump->pu32SqAddrArray = (uint32_t*)malloc(8 * sizeof(uint32_t));
     psSqDump->pu32SqAddrArray[0] = 0x1d;
     psSqDump->pu32SqAddrArray[1] = 0x0;
     psSqDump->pu32SqAddrArray[2] = 0x0;
@@ -129,17 +133,10 @@ TEST_F(SqDumpTestFixture, sqDumpJson_addr_bigger_ctrl)
     sqDumpJson(numcore, psSqDump, root);
     jsonStr = cJSON_Print(root);
     printf("%s\n", jsonStr);
-    FREE(psSqDump->pu32SqAddrArray);
-    FREE(psSqDump->pu32SqCtrlArray);
-    FREE(psSqDump);
 }
 
 TEST_F(SqDumpTestFixture, sqDumpJson_addr_same_ctrl)
 {
-    SSqDump* psSqDump = NULL;
-    psSqDump = (SSqDump*)malloc(sizeof(SSqDump));
-    psSqDump->pu32SqCtrlArray = (uint32_t*)malloc(8 * sizeof(uint32_t));
-    psSqDump->pu32SqAddrArray = (uint32_t*)malloc(8 * sizeof(uint32_t));
     psSqDump->pu32SqAddrArray[0] = 0xAAAAAAAA;
     psSqDump->pu32SqAddrArray[1] = 0xBBBBBBBB;
     psSqDump->pu32SqAddrArray[2] = 0xCCCCCCCC;
@@ -161,32 +158,19 @@ TEST_F(SqDumpTestFixture, sqDumpJson_addr_same_ctrl)
     sqDumpJson(numcore, psSqDump, root);
     jsonStr = cJSON_Print(root);
     printf("%s\n", jsonStr);
-    FREE(psSqDump->pu32SqAddrArray);
-    FREE(psSqDump->pu32SqCtrlArray);
-    FREE(psSqDump);
 }
 
 TEST_F(SqDumpTestFixture, sqDumpJson_null_addr)
 {
-    SSqDump* psSqDump = NULL;
-    psSqDump = (SSqDump*)malloc(sizeof(SSqDump));
-    psSqDump->pu32SqCtrlArray = (uint32_t*)malloc(8 * sizeof(uint32_t));
-    psSqDump->pu32SqAddrArray = NULL;
     uint32_t numcore = 1;
 
     sqDumpJson(numcore, psSqDump, root);
     jsonStr = cJSON_Print(root);
     printf("%s\n", jsonStr);
-    FREE(psSqDump->pu32SqAddrArray);
-    FREE(psSqDump);
 }
 
 TEST_F(SqDumpTestFixture, sqDumpJson_null_ctrl)
 {
-    SSqDump* psSqDump = NULL;
-    psSqDump = (SSqDump*)malloc(sizeof(SSqDump));
-    psSqDump->pu32SqCtrlArray = NULL;
-    psSqDump->pu32SqAddrArray = (uint32_t*)malloc(8 * sizeof(uint32_t));
     psSqDump->pu32SqAddrArray[0] = 0xAAAAAAAA;
     psSqDump->pu32SqAddrArray[1] = 0xBBBBBBBB;
     psSqDump->pu32SqAddrArray[2] = 0xCCCCCCCC;
@@ -200,6 +184,4 @@ TEST_F(SqDumpTestFixture, sqDumpJson_null_ctrl)
     sqDumpJson(numcore, psSqDump, root);
     jsonStr = cJSON_Print(root);
     printf("%s\n", jsonStr);
-    FREE(psSqDump->pu32SqAddrArray);
-    FREE(psSqDump);
 }

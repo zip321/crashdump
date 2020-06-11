@@ -32,8 +32,9 @@ using namespace crashdump;
 
 int logCrashdumpICX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);
 void crashdumpJsonICX1(uint32_t u32CoreNum, uint32_t u32ThreadNum,
-                       uint32_t u32CrashSize, uint8_t* pu8Crashdump,
-                       cJSON* pJsonChild, uint8_t cc);
+                       uint32_t u32CrashSize, uint32_t u32NumReads,
+                       uint8_t* pu8Crashdump, cJSON* pJsonChild, uint8_t cc,
+                       int retval);
 
 class BigCoreMOCK
 {
@@ -143,7 +144,7 @@ TEST_F(BigCoreTestFixture, logCrashdumpICX1_2nd_return)
 TEST_F(BigCoreTestFixture, crashdumpJsonICX1_print_json)
 {
     uint64_t* pu64Crashdump = (uint64_t*)(calloc(5, 1));
-    crashdumpJsonICX1(1, 1, 1, (uint8_t*)pu64Crashdump, root, 0x40);
+    crashdumpJsonICX1(1, 1, 1, 5, (uint8_t*)pu64Crashdump, root, 0x40, 0);
     jsonStr = cJSON_Print(root);
     printf("%s\n", jsonStr);
     FREE(pu64Crashdump);

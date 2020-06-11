@@ -20,7 +20,6 @@
 #pragma once
 #include "crashdump.hpp"
 
-#define MAXTESTCHAR 10000
 #define NTIME(n) for (int i = 0; i < n; i++)
 
 // uncomment to enable debug print out

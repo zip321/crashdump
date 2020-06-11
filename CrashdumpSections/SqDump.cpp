@@ -84,10 +84,32 @@ static void sqDumpJson(uint32_t u32CoreNum, SSqDump* psSqDump,
         {
             cd_snprintf_s(jsonItemName, SQ_JSON_STRING_LEN, SQ_JSON_ENTRY_NAME,
                           index++);
-            cd_snprintf_s(jsonItemString, SQ_JSON_STRING_LEN, "0x%x%08x",
-                          psSqDump->pu32SqAddrArray[i],
-                          psSqDump->pu32SqAddrArray[i + 1]);
-            cJSON_AddStringToObject(sq, jsonItemName, jsonItemString);
+            if ((psSqDump->puSqAddrRet[i] != PECI_CC_SUCCESS) ||
+                (psSqDump->puSqAddrRet[i + 1] != PECI_CC_SUCCESS))
+            {
+                cd_snprintf_s(
+                    jsonItemString, SQ_JSON_STRING_LEN, SQ_UA_DF,
+                    psSqDump->pu8SqAddrCc[i], psSqDump->pu8SqAddrCc[i + 1],
+                    psSqDump->puSqAddrRet[i], psSqDump->puSqAddrRet[i + 1]);
+                cJSON_AddStringToObject(sq, jsonItemName, jsonItemString);
+                break;
+            }
+            else if (PECI_CC_UA(psSqDump->pu8SqAddrCc[i]) ||
+                     PECI_CC_UA(psSqDump->pu8SqAddrCc[i + 1]))
+            {
+                cd_snprintf_s(jsonItemString, SQ_JSON_STRING_LEN, SQ_UA,
+                              psSqDump->pu8SqAddrCc[i],
+                              psSqDump->pu8SqAddrCc[i + 1]);
+                cJSON_AddStringToObject(sq, jsonItemName, jsonItemString);
+                break;
+            }
+            else
+            {
+                cd_snprintf_s(jsonItemString, SQ_JSON_STRING_LEN, "0x%x%08x",
+                              psSqDump->pu32SqAddrArray[i],
+                              psSqDump->pu32SqAddrArray[i + 1]);
+                cJSON_AddStringToObject(sq, jsonItemName, jsonItemString);
+            }
         }
     }
     // Add the Control Array data if it exists
@@ -98,10 +120,32 @@ static void sqDumpJson(uint32_t u32CoreNum, SSqDump* psSqDump,
         {
             cd_snprintf_s(jsonItemName, SQ_JSON_STRING_LEN, SQ_JSON_ENTRY_NAME,
                           index++);
-            cd_snprintf_s(jsonItemString, SQ_JSON_STRING_LEN, "0x%x%08x",
-                          psSqDump->pu32SqCtrlArray[i],
-                          psSqDump->pu32SqCtrlArray[i + 1]);
-            cJSON_AddStringToObject(sq, jsonItemName, jsonItemString);
+            if ((psSqDump->puSqCtrlRet[i] != PECI_CC_SUCCESS) ||
+                (psSqDump->puSqCtrlRet[i + 1] != PECI_CC_SUCCESS))
+            {
+                cd_snprintf_s(
+                    jsonItemString, SQ_JSON_STRING_LEN, SQ_UA_DF,
+                    psSqDump->pu8SqCtrlCc[i], psSqDump->pu8SqCtrlCc[i + 1],
+                    psSqDump->puSqCtrlRet[i], psSqDump->puSqCtrlRet[i + 1]);
+                cJSON_AddStringToObject(sq, jsonItemName, jsonItemString);
+                break;
+            }
+            else if ((PECI_CC_UA(psSqDump->pu8SqCtrlCc[i])) ||
+                     PECI_CC_UA(psSqDump->pu8SqCtrlCc[i + 1]))
+            {
+                cd_snprintf_s(jsonItemString, SQ_JSON_STRING_LEN, SQ_UA,
+                              psSqDump->pu8SqCtrlCc[i],
+                              psSqDump->pu8SqCtrlCc[i + 1]);
+                cJSON_AddStringToObject(sq, jsonItemName, jsonItemString);
+                break;
+            }
+            else
+            {
+                cd_snprintf_s(jsonItemString, SQ_JSON_STRING_LEN, "0x%x%08x",
+                              psSqDump->pu32SqCtrlArray[i],
+                              psSqDump->pu32SqCtrlArray[i + 1]);
+                cJSON_AddStringToObject(sq, jsonItemName, jsonItemString);
+            }
         }
     }
 }
@@ -115,58 +159,68 @@ static void sqDumpJson(uint32_t u32CoreNum, SSqDump* psSqDump,
  ******************************************************************************/
 static int sqDump(crashdump::CPUInfo& cpuInfo, uint32_t u32CoreNum,
                   uint32_t u32SqType, uint32_t** ppu32SqDumpRet,
-                  uint32_t* pu32SqDumpSize, int peci_fd)
+                  uint32_t* pu32SqDumpSize, int peci_fd, uint8_t** ppu8Cc,
+                  int** ppuRet)
 {
     uint8_t cc = 0;
+    int ret = 0;
 
     // Open the SQ dump sequence
-    if (peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_OPEN_SEQ,
-                             VCU_SQ_DUMP_SEQ, sizeof(uint32_t), peci_fd,
-                             &cc) != PECI_CC_SUCCESS)
+    ret = peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_OPEN_SEQ,
+                               VCU_SQ_DUMP_SEQ, sizeof(uint32_t), peci_fd, &cc);
+    if (ret != PECI_CC_SUCCESS)
     {
         // SQ dump sequence failed, abort the sequence and go to the next CPU
         peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_ABORT_SEQ,
                              VCU_SQ_DUMP_SEQ, sizeof(uint32_t), peci_fd, &cc);
-        return 1;
+        return ret;
     }
 
     // Set SQ dump parameter 0
-    if (peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_SET_PARAM,
-                             (u32SqType | u32CoreNum), sizeof(uint32_t),
-                             peci_fd, &cc) != PECI_CC_SUCCESS)
+    ret = peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_SET_PARAM,
+                               (u32SqType | u32CoreNum), sizeof(uint32_t),
+                               peci_fd, &cc);
+    if (ret != PECI_CC_SUCCESS)
     {
         // SQ dump sequence failed, abort the sequence and go to the next CPU
         peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_ABORT_SEQ,
                              VCU_SQ_DUMP_SEQ, sizeof(uint32_t), peci_fd, &cc);
-        return 1;
+        return ret;
     }
 
     // Get the number of dwords to read
     uint32_t u32NumReads = 0;
-    if (peci_RdPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, SQ_START_PARAM,
-                             sizeof(uint32_t), (uint8_t*)&u32NumReads, peci_fd,
-                             &cc) != PECI_CC_SUCCESS)
+    ret = peci_RdPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU,
+                               SQ_START_PARAM, sizeof(uint32_t),
+                               (uint8_t*)&u32NumReads, peci_fd, &cc);
+    if (ret != PECI_CC_SUCCESS)
     {
         // SQ dump sequence failed, abort the sequence and go to the next CPU
         peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_ABORT_SEQ,
                              VCU_SQ_DUMP_SEQ, sizeof(uint32_t), peci_fd, &cc);
-        return 1;
+        return ret;
     }
     // Get the raw data
     uint32_t* pu32SqDump = NULL;
+    uint8_t* pu8Cc = NULL;
+    int* puRet = NULL;
     pu32SqDump = (uint32_t*)calloc(u32NumReads, sizeof(uint32_t));
-    if (pu32SqDump == NULL)
+    pu8Cc = (uint8_t*)calloc(u32NumReads, sizeof(uint8_t));
+    puRet = (int*)calloc(u32NumReads, sizeof(int));
+    if (pu32SqDump == NULL || pu8Cc == NULL || puRet == NULL)
     {
         // calloc failed, abort the sequence and go to the next CPU
         peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_ABORT_SEQ,
                              VCU_SQ_DUMP_SEQ, sizeof(uint32_t), peci_fd, &cc);
-        return 1;
+        return SIZE_FAILURE;
     }
     for (int i = 0; i < u32NumReads; i++)
     {
-        if (peci_RdPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_READ,
-                                 sizeof(uint32_t), (uint8_t*)&pu32SqDump[i],
-                                 peci_fd, &cc) != PECI_CC_SUCCESS)
+        ret = peci_RdPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_READ,
+                                   sizeof(uint32_t), (uint8_t*)&pu32SqDump[i],
+                                   peci_fd, &pu8Cc[i]);
+        puRet[i] = ret;
+        if (ret != PECI_CC_SUCCESS)
         {
             // SQ dump sequence failed, note the number of dwords read and abort
             // the sequence
@@ -185,8 +239,10 @@ static int sqDump(crashdump::CPUInfo& cpuInfo, uint32_t u32CoreNum,
     // Set the return data
     *ppu32SqDumpRet = pu32SqDump;
     *pu32SqDumpSize = u32NumReads;
+    *ppu8Cc = pu8Cc;
+    *ppuRet = puRet;
 
-    return 0;
+    return ret;
 }
 
 /******************************************************************************
@@ -221,10 +277,13 @@ int logSqDumpCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 {
     bool bSqDataLogged = false;
     int peci_fd = -1;
+    int ret = 0;
+    int retval = 0;
 
-    if (peci_Lock(&peci_fd, PECI_WAIT_FOREVER) != PECI_CC_SUCCESS)
+    ret = peci_Lock(&peci_fd, PECI_WAIT_FOREVER);
+    if (ret != PECI_CC_SUCCESS)
     {
-        return 1;
+        return ret;
     }
 
     // Start the SQ dump log
@@ -239,20 +298,26 @@ int logSqDumpCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
         SSqDump sSqDump = {};
 
         // Get the SQ Dump Address Array data
-        if (sqDump(cpuInfo, u32CoreNum, SQ_ADDR_ARRAY, &sSqDump.pu32SqAddrArray,
-                   &sSqDump.u32SqAddrSize, peci_fd) == 0)
+        ret = sqDump(cpuInfo, u32CoreNum, SQ_ADDR_ARRAY,
+                     &sSqDump.pu32SqAddrArray, &sSqDump.u32SqAddrSize, peci_fd,
+                     &sSqDump.pu8SqAddrCc, &sSqDump.puSqAddrRet);
+        if (ret == 0)
         {
             // Set the flag indicating that we found SQ data in one of the
             // cores, so we should return success
             bSqDataLogged = true;
+            retval = ret;
         }
         // Get the SQ Dump Control Array data
-        if (sqDump(cpuInfo, u32CoreNum, SQ_CTRL_ARRAY, &sSqDump.pu32SqCtrlArray,
-                   &sSqDump.u32SqCtrlSize, peci_fd) == 0)
+        ret = sqDump(cpuInfo, u32CoreNum, SQ_CTRL_ARRAY,
+                     &sSqDump.pu32SqCtrlArray, &sSqDump.u32SqCtrlSize, peci_fd,
+                     &sSqDump.pu8SqCtrlCc, &sSqDump.puSqCtrlRet);
+        if (ret == 0)
         {
             // Set the flag indicating that we found SQ data in one of the
             // cores, so we should return success
             bSqDataLogged = true;
+            retval = ret;
         }
 
         // Log the SQ dump for this Core
@@ -263,9 +328,25 @@ int logSqDumpCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
         {
             free(sSqDump.pu32SqAddrArray);
         }
+        if (sSqDump.pu8SqAddrCc)
+        {
+            free(sSqDump.pu8SqAddrCc);
+        }
+        if (sSqDump.puSqAddrRet)
+        {
+            free(sSqDump.puSqAddrRet);
+        }
         if (sSqDump.pu32SqCtrlArray)
         {
             free(sSqDump.pu32SqCtrlArray);
+        }
+        if (sSqDump.pu8SqCtrlCc)
+        {
+            free(sSqDump.pu8SqCtrlCc);
+        }
+        if (sSqDump.puSqCtrlRet)
+        {
+            free(sSqDump.puSqCtrlRet);
         }
     }
     peci_Unlock(peci_fd);
@@ -273,14 +354,11 @@ int logSqDumpCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
     // Cores that have no SQ data will return a PECI failure, so we have to scan
     // all the cores. If any core has data, we should return success. If no
     // cores have data, return failure.
-    if (bSqDataLogged)
+    if (retval != PECI_CC_SUCCESS)
     {
-        return 0;
+        return retval;
     }
-    else
-    {
-        return 1;
-    }
+    return ret;
 }
 
 /******************************************************************************
@@ -314,6 +392,12 @@ int logSqDump(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
     if (pJsonChild == NULL)
     {
         return 1;
+    }
+
+    if (!CHECK_BIT(cpuInfo.sectionMask, crashdump::BIG_CORE))
+    {
+        updateRecordEnable(pJsonChild, false);
+        return 0;
     }
 
     for (int i = 0; i < (sizeof(sSqDumpVx) / sizeof(SSqDumpVx)); i++)

@@ -48,6 +48,38 @@ enum US_MMIO_SIZE
     US_MMIO_QWORD = 3
 };
 
+enum US_PCI
+{
+    US_PCI_REG_NAME,
+    US_PCI_BUS,
+    US_PCI_DEVICE,
+    US_PCI_FUNCTION,
+    US_PCI_OFFSET,
+    US_PCI_SIZE,
+    US_PCI_TELEMETRY
+};
+
+enum US_MMIO
+{
+    US_MMIO_REG_NAME,
+    US_MMIO_BAR_ID,
+    US_MMIO_BUS,
+    US_MMIO_DEVICE,
+    US_MMIO_FUNCTION,
+    US_MMIO_OFFSET,
+    US_MMIO_SIZE,
+    US_MMIO_TELEMETRY
+};
+
+enum US_RDIAMSR
+{
+    US_RDIAMSR_REG_NAME,
+    US_RDIAMSR_ADDR,
+    US_RDIAMSR_THREAD_ID,
+    US_RDIAMSR_SIZE,
+    US_RDIAMSR_TELEMETRY
+};
+
 #define US_REG_NAME_LEN 64
 #define US_NUM_MCA_DWORDS 10
 #define US_NUM_MCA_QWORDS (US_NUM_MCA_DWORDS / 2)
@@ -57,6 +89,7 @@ enum US_MMIO_SIZE
 
 #define US_FAILED "N/A"
 #define UNCORE_MCA_UA "UA:0x%x"
+#define UNCORE_UA_DF "UA:0x%x,DF:0x%x"
 
 /******************************************************************************
  *
@@ -88,7 +121,21 @@ enum US_MMIO_SIZE
 
 #define US_NA "N/A"
 #define US_UA "UA:0x%x"
+#define US_DF "DF:0x%x"
 #define US_UINT64_FMT "0x%" PRIx64 ""
+#define SIZE_FAILURE 7
+
+/******************************************************************************
+ *
+ *   Input File Defines
+ *
+ ******************************************************************************/
+#define FILE_PCI_KEY "_input_file_pci"
+#define FILE_PCI_ERR "Error parsing pci section"
+#define FILE_MMIO_KEY "_input_file_mmio"
+#define FILE_MMIO_ERR "Error parsing mmio section"
+#define FILE_RDIAMSR_KEY "_input_file_rdiamsr"
+#define FILE_RDIAMSR_ERR "Error parsing rdiamsr section"
 
 /******************************************************************************
  *
@@ -105,6 +152,7 @@ typedef struct
 {
     UUncoreStatusRegValue uValue;
     uint8_t cc;
+    int ret;
     bool bInvalid;
 } SUncoreStatusRegRawData;
 
@@ -127,6 +175,25 @@ typedef struct
     } uMmioReg;
 } SUncoreStatusRegPciMmio;
 
+typedef struct
+{
+    char* regName;
+    union
+    {
+        struct
+        {
+            uint32_t lenCode : 2;
+            uint32_t bar : 2;
+            uint32_t bus : 3;
+            uint32_t rsvd : 1;
+            uint32_t func : 3;
+            uint32_t dev : 5;
+            uint32_t reg : 16;
+        } fields;
+        uint32_t raw;
+    } uMmioReg;
+} SUncoreStatusRegPciMmioCPX;
+
 typedef union
 {
     uint64_t u64Raw[US_NUM_MCA_QWORDS];
@@ -145,6 +212,7 @@ typedef struct
 {
     UUncoreStatusMcaRegs uRegData;
     uint8_t cc;
+    int ret;
     bool bInvalid;
 } SUncoreStatusMcaRawData;
 
@@ -153,6 +221,38 @@ typedef struct
     char regName[US_REG_NAME_LEN];
     uint8_t u8IioNum;
 } SUncoreStatusRegIio;
+
+typedef struct
+{
+    char* regName;
+    uint8_t u8Bus;
+    uint8_t u8Dev;
+    uint8_t u8Func;
+    uint16_t u16Reg;
+    uint8_t u8Size;
+    bool bTelemetry;
+} SUncoreStatusRegPciIcxCpx;
+
+typedef struct
+{
+    char* regName;
+    uint8_t u8Bar;
+    uint8_t u8Bus;
+    uint8_t u8Dev;
+    uint8_t u8Func;
+    uint64_t u64Offset;
+    uint8_t u8Size;
+    bool bTelemetry;
+} SUncoreStatusRegPciMmioICX;
+
+typedef struct
+{
+    char* regName;
+    uint16_t addr;
+    uint8_t threadID;
+    uint8_t u8Size;
+    bool bTelemetry;
+} SUncoreStatusMsrRegICX;
 
 static const char uncoreStatusMcaRegNames[][US_MCA_NAME_LEN] = {
     "ctl", "status", "addr", "misc", "ctl2"};
@@ -163,6 +263,7 @@ typedef struct
 {
     crashdump::cpu::Model cpuModel;
     int (*logUncoreStatusVx)(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);
+    int ssVersion;
 } SUncoreStatusLogVx;
 
 int logUncoreStatus(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);

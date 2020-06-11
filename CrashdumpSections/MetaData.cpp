@@ -26,6 +26,8 @@ extern "C" {
 #include "crashdump.hpp"
 #include "utils.hpp"
 
+bool commonMetaDataEnabled = true;
+
 /******************************************************************************
  *
  *   fillCPUID
@@ -37,14 +39,10 @@ int fillCPUID(crashdump::CPUInfo& cpuInfo, char* cSectionName,
               cJSON* pJsonChild)
 {
     cJSON* cpu = NULL;
-    uint32_t u32PeciData = 0;
-    uint8_t cc = 0;
     char jsonItemName[SI_JSON_STRING_LEN] = {0};
     char jsonItemString[SI_JSON_STRING_LEN] = {0};
-
     // For now, the CPU number is just the bottom nibble of the PECI client ID
     int cpuNum = cpuInfo.clientAddr & 0xF;
-
     // Add the CPU number object if it doesn't already exist
     cd_snprintf_s(jsonItemName, SI_JSON_STRING_LEN, SI_JSON_SOCKET_NAME,
                   cpuNum);
@@ -54,15 +52,154 @@ int fillCPUID(crashdump::CPUInfo& cpuInfo, char* cSectionName,
         cJSON_AddItemToObject(pJsonChild, jsonItemName,
                               cpu = cJSON_CreateObject());
     }
-    if (peci_RdPkgConfig(cpuInfo.clientAddr, PECI_MBX_INDEX_CPU_ID,
-                         PECI_PKG_ID_CPU_ID, sizeof(uint32_t),
-                         (uint8_t*)&u32PeciData, &cc) != PECI_CC_SUCCESS)
+
+    if (cpuInfo.cpuidRead.cpuidRet != PECI_CC_SUCCESS)
     {
-        cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN, MD_UA, cc);
-        cJSON_AddStringToObject(cpu, cSectionName, jsonItemString);
-        return 1;
+        cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN, MD_UA_DF,
+                      cpuInfo.cpuidRead.cpuidCc, cpuInfo.cpuidRead.cpuidRet);
     }
-    cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN, "0x%x", u32PeciData);
+    else if (PECI_CC_UA(cpuInfo.cpuidRead.cpuidCc))
+    {
+        cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN, MD_UA,
+                      cpuInfo.cpuidRead.cpuidCc);
+    }
+    else
+    {
+        cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN, "0x%x",
+                      cpuInfo.cpuidRead.cpuModel | cpuInfo.cpuidRead.stepping);
+    }
+    cJSON_AddStringToObject(cpu, cSectionName, jsonItemString);
+    return 0;
+}
+
+/******************************************************************************
+ *
+ *   fillChaCount
+ *
+ *   This function reads and fills in the Cha count
+ *
+ ******************************************************************************/
+int fillChaCount(crashdump::CPUInfo& cpuInfo, char* cSectionName,
+                 cJSON* pJsonChild)
+{
+    cJSON* cpu = NULL;
+    char jsonItemString[SI_JSON_STRING_LEN] = {0};
+    char jsonItemName[SI_JSON_STRING_LEN] = {0};
+    // For now, the CPU number is just the bottom nibble of the PECI client ID
+    int cpuNum = cpuInfo.clientAddr & 0xF;
+    // Add the CPU number object if it doesn't already exist
+    cd_snprintf_s(jsonItemName, SI_JSON_STRING_LEN, SI_JSON_SOCKET_NAME,
+                  cpuNum);
+    if ((cpu = cJSON_GetObjectItemCaseSensitive(pJsonChild, jsonItemName)) ==
+        NULL)
+    {
+        cJSON_AddItemToObject(pJsonChild, jsonItemName,
+                              cpu = cJSON_CreateObject());
+    }
+    if (cpuInfo.chaCountRead.chaCountRet != PECI_CC_SUCCESS)
+    {
+        cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN, MD_UA_DF,
+                      cpuInfo.chaCountRead.chaCountCc,
+                      cpuInfo.chaCountRead.chaCountRet);
+    }
+    else if (PECI_CC_UA(cpuInfo.chaCountRead.chaCountCc))
+    {
+        cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN, MD_UA,
+                      cpuInfo.chaCountRead.chaCountCc);
+    }
+    else
+    {
+        cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN, "0x%x",
+                      cpuInfo.chaCount);
+    }
+    cJSON_AddStringToObject(cpu, cSectionName, jsonItemString);
+    return 0;
+}
+
+/******************************************************************************
+ *
+ *   fillCoreMask
+ *
+ *   This function reads and fills in the Core Mask
+ *
+ ******************************************************************************/
+int fillCoreMask(crashdump::CPUInfo& cpuInfo, char* cSectionName,
+                 cJSON* pJsonChild)
+{
+    cJSON* cpu = NULL;
+    int cpuNum = cpuInfo.clientAddr & 0xF;
+    char jsonItemName[SI_JSON_STRING_LEN] = {0};
+    char jsonItemString[SI_JSON_STRING_LEN] = {0};
+    // Add the CPU number object if it doesn't already exist
+    cd_snprintf_s(jsonItemName, SI_JSON_STRING_LEN, SI_JSON_SOCKET_NAME,
+                  cpuNum);
+    if ((cpu = cJSON_GetObjectItemCaseSensitive(pJsonChild, jsonItemName)) ==
+        NULL)
+    {
+        cJSON_AddItemToObject(pJsonChild, jsonItemName,
+                              cpu = cJSON_CreateObject());
+    }
+    if (cpuInfo.coreMaskRead.coreMaskRet != PECI_CC_SUCCESS)
+    {
+        cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN, MD_UA_DF,
+                      cpuInfo.coreMaskRead.coreMaskCc,
+                      cpuInfo.coreMaskRead.coreMaskRet);
+    }
+    else if (PECI_CC_UA(cpuInfo.coreMaskRead.coreMaskCc))
+    {
+        cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN, MD_UA,
+                      cpuInfo.coreMaskRead.coreMaskCc);
+    }
+    else
+    {
+        cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN, "0x%llx",
+                      cpuInfo.coreMask);
+    }
+    cJSON_AddStringToObject(cpu, cSectionName, jsonItemString);
+    return 0;
+}
+
+/******************************************************************************
+ *
+ *   fillCPUIdSource
+ *
+ *   This function reads and fills the _CPUID Source of each cpu
+ *
+ ******************************************************************************/
+int fillCPUIdSource(crashdump::CPUInfo& cpuInfo, char* cSectionName,
+                    cJSON* pJsonChild)
+{
+    cJSON* cpu = NULL;
+    int cpuNum = cpuInfo.clientAddr & 0xF;
+    char jsonItemString[SI_JSON_STRING_LEN] = {0};
+    char jsonItemName[SI_JSON_STRING_LEN] = {0};
+    // For now, the CPU number is just the bottom nibble of the PECI client ID
+    // Add the CPU number object if it doesn't already exist
+    cd_snprintf_s(jsonItemName, SI_JSON_STRING_LEN, SI_JSON_SOCKET_NAME,
+                  cpuNum);
+    if ((cpu = cJSON_GetObjectItemCaseSensitive(pJsonChild, jsonItemName)) ==
+        NULL)
+    {
+        cJSON_AddItemToObject(pJsonChild, jsonItemName,
+                              cpu = cJSON_CreateObject());
+    }
+    switch (cpuInfo.cpuidRead.source)
+    {
+        case cpuid::STARTUP:
+            cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN, MD_STARTUP);
+            break;
+        case cpuid::EVENT:
+            cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN, MD_EVENT);
+            break;
+        case cpuid::OVERWRITTEN:
+            cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN, MD_OVERWRITTEN);
+            break;
+        case cpuid::INVALID:
+            cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN, MD_INVALID);
+            break;
+        default:
+            return false;
+    }
     cJSON_AddStringToObject(cpu, cSectionName, jsonItemString);
     return 0;
 }
@@ -178,6 +315,7 @@ int fillUCodeVersion(crashdump::CPUInfo& cpuInfo, char* cSectionName,
     uint8_t cc = 0;
     char jsonItemName[SI_JSON_STRING_LEN] = {0};
     char jsonItemString[SI_JSON_STRING_LEN] = {0};
+    int ret = 0;
 
     // For now, the CPU number is just the bottom nibble of the PECI client ID
     int cpuNum = cpuInfo.clientAddr & 0xF;
@@ -192,15 +330,21 @@ int fillUCodeVersion(crashdump::CPUInfo& cpuInfo, char* cSectionName,
                               cpu = cJSON_CreateObject());
     }
     // Get the UCode Version
-    if (peci_RdPkgConfig(cpuInfo.clientAddr, PECI_MBX_INDEX_CPU_ID,
-                         PECI_PKG_ID_MICROCODE_REV, sizeof(uint32_t),
-                         (uint8_t*)&u32PeciData, &cc) != PECI_CC_SUCCESS)
+    ret = peci_RdPkgConfig(cpuInfo.clientAddr, PECI_MBX_INDEX_CPU_ID,
+                           PECI_PKG_ID_MICROCODE_REV, sizeof(uint32_t),
+                           (uint8_t*)&u32PeciData, &cc);
+    if (ret != PECI_CC_SUCCESS)
+    {
+        cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN, MD_UA_DF, cc, ret);
+    }
+    else if (PECI_CC_UA(cc))
     {
         cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN, MD_UA, cc);
-        cJSON_AddStringToObject(cpu, cSectionName, jsonItemString);
-        return 1;
     }
-    cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN, "0x%x", u32PeciData);
+    else
+    {
+        cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN, "0x%x", u32PeciData);
+    }
     cJSON_AddStringToObject(cpu, cSectionName, jsonItemString);
     return 0;
 }
@@ -220,6 +364,7 @@ int fillVCodeVersion(crashdump::CPUInfo& cpuInfo, char* cSectionName,
     uint8_t cc = 0;
     char jsonItemName[SI_JSON_STRING_LEN] = {0};
     char jsonItemString[SI_JSON_STRING_LEN] = {0};
+    int ret = 0;
 
     // For now, the CPU number is just the bottom nibble of the PECI client ID
     int cpuNum = cpuInfo.clientAddr & 0xF;
@@ -234,17 +379,22 @@ int fillVCodeVersion(crashdump::CPUInfo& cpuInfo, char* cSectionName,
                               cpu = cJSON_CreateObject());
     }
     // Get the VCode Version if available
-    if (peci_RdPkgConfig(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_VERSION,
-                         sizeof(uint32_t), (uint8_t*)&u32PeciData,
-                         &cc) != PECI_CC_SUCCESS)
+    ret = peci_RdPkgConfig(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_VERSION,
+                           sizeof(uint32_t), (uint8_t*)&u32PeciData, &cc);
+    if (ret != PECI_CC_SUCCESS)
+    {
+        cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN, MD_UA_DF, cc, ret);
+    }
+    else if (PECI_CC_UA(cc))
     {
         cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN, MD_UA, cc);
-        cJSON_AddStringToObject(cpu, cSectionName, jsonItemString);
-        return 1;
     }
-    cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN, "0x%x", u32PeciData);
+    else
+    {
+        cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN, "0x%x", u32PeciData);
+    }
     cJSON_AddStringToObject(cpu, cSectionName, jsonItemString);
-    return 0;
+    return ret;
 }
 
 /******************************************************************************
@@ -332,6 +482,7 @@ int fillMcaErrSrcLog(crashdump::CPUInfo& cpuInfo, char* cSectionName,
     uint8_t cc = 0;
     char jsonItemName[SI_JSON_STRING_LEN] = {0};
     char jsonItemString[SI_JSON_STRING_LEN] = {0};
+    int ret;
 
     // For now, the CPU number is just the bottom nibble of the PECI client ID
     int cpuNum = cpuInfo.clientAddr & 0xF;
@@ -345,17 +496,23 @@ int fillMcaErrSrcLog(crashdump::CPUInfo& cpuInfo, char* cSectionName,
         cJSON_AddItemToObject(pJsonChild, jsonItemName,
                               cpu = cJSON_CreateObject());
     }
-    if (peci_RdPkgConfig(cpuInfo.clientAddr, PECI_MBX_INDEX_CPU_ID,
-                         PECI_PKG_ID_MACHINE_CHECK_STATUS, sizeof(uint32_t),
-                         (uint8_t*)&u32PeciData, &cc) != PECI_CC_SUCCESS)
+    ret = peci_RdPkgConfig(cpuInfo.clientAddr, PECI_MBX_INDEX_CPU_ID,
+                           PECI_PKG_ID_MACHINE_CHECK_STATUS, sizeof(uint32_t),
+                           (uint8_t*)&u32PeciData, &cc);
+    if (ret != PECI_CC_SUCCESS)
+    {
+        cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN, MD_UA_DF, cc, ret);
+    }
+    else if (PECI_CC_UA(cc))
     {
         cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN, MD_UA, cc);
-        cJSON_AddStringToObject(cpu, cSectionName, jsonItemString);
-        return 1;
     }
-    cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN, "0x%x", u32PeciData);
+    else
+    {
+        cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN, "0x%x", u32PeciData);
+    }
     cJSON_AddStringToObject(cpu, cSectionName, jsonItemString);
-    return 0;
+    return ret;
 }
 
 /******************************************************************************
@@ -386,6 +543,7 @@ int getPpinDataICX1(crashdump::CPUInfo& cpuInfo, char* cSectionName,
     uint32_t ppinLower = 0;
     uint8_t cc = 0;
     uint64_t ppin = 0;
+    int ret = 0;
     char jsonItemName[SI_JSON_STRING_LEN] = {0};
     char jsonItemString[SI_JSON_STRING_LEN] = {0};
 
@@ -402,23 +560,36 @@ int getPpinDataICX1(crashdump::CPUInfo& cpuInfo, char* cSectionName,
                               cpu = cJSON_CreateObject());
     }
 
-    peci_RdPkgConfig(cpuInfo.clientAddr, SI_PECI_PPIN_IDX, SI_PECI_PPIN_LOWER,
-                     sizeof(uint32_t), (uint8_t*)&ppinLower, &cc);
-    if (PECI_CC_UA(cc))
+    ret = peci_RdPkgConfig(cpuInfo.clientAddr, SI_PECI_PPIN_IDX,
+                           SI_PECI_PPIN_LOWER, sizeof(uint32_t),
+                           (uint8_t*)&ppinLower, &cc);
+    if (ret != PECI_CC_SUCCESS)
     {
-        cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN, "UA:0x%x", cc);
+        cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN, MD_UA_DF, cc, ret);
         cJSON_AddStringToObject(cpu, cSectionName, jsonItemString);
-        return 1;
+        return ret;
+    }
+    else if (PECI_CC_UA(cc))
+    {
+        cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN, MD_UA, cc);
+        cJSON_AddStringToObject(cpu, cSectionName, jsonItemString);
+        return ret;
     }
 
-    peci_RdPkgConfig(cpuInfo.clientAddr, SI_PECI_PPIN_IDX, SI_PECI_PPIN_UPPER,
-                     sizeof(uint32_t), (uint8_t*)&ppinUpper, &cc);
-
-    if (PECI_CC_UA(cc))
+    ret = peci_RdPkgConfig(cpuInfo.clientAddr, SI_PECI_PPIN_IDX,
+                           SI_PECI_PPIN_UPPER, sizeof(uint32_t),
+                           (uint8_t*)&ppinUpper, &cc);
+    if (ret != PECI_CC_SUCCESS)
     {
-        cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN, "UA:0x%x", cc);
+        cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN, MD_UA_DF, cc, ret);
         cJSON_AddStringToObject(cpu, cSectionName, jsonItemString);
-        return 1;
+        return ret;
+    }
+    else if (PECI_CC_UA(cc))
+    {
+        cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN, MD_UA, cc);
+        cJSON_AddStringToObject(cpu, cSectionName, jsonItemString);
+        return ret;
     }
     ppin = ppinUpper;
     ppin <<= 32;
@@ -468,6 +639,53 @@ static const SPpinVx sSPpinVx[] = {
 
 /******************************************************************************
  *
+ *   fillInputFile
+ *
+ *   This function fills in the crashdump input filename.
+ *
+ ******************************************************************************/
+int fillInputFile(crashdump::CPUInfo& cpuInfo, char* cSectionName,
+                  cJSON* pJsonChild, crashdump::InputFileInfo* inputFileInfo)
+{
+    cJSON* cpu = NULL;
+    char jsonItemName[SI_JSON_STRING_LEN] = {0};
+
+    if (inputFileInfo->unique)
+    {
+        cJSON_AddStringToObject(pJsonChild, cSectionName,
+                                cpuInfo.inputFile.filenamePtr);
+    }
+    else
+    {
+        // For now, the CPU number is just the bottom nibble of the
+        // PECI client ID
+        int cpuNum = cpuInfo.clientAddr & 0xF;
+        // Add the CPU number object if it doesn't already exist
+        cd_snprintf_s(jsonItemName, SI_JSON_STRING_LEN, SI_JSON_SOCKET_NAME,
+                      cpuNum);
+        if ((cpu = cJSON_GetObjectItemCaseSensitive(pJsonChild,
+                                                    jsonItemName)) == NULL)
+        {
+            cJSON_AddItemToObject(pJsonChild, jsonItemName,
+                                  cpu = cJSON_CreateObject());
+        }
+
+        if (cpuInfo.inputFile.filenamePtr == NULL)
+        {
+            cJSON_AddStringToObject(cpu, cSectionName, MD_NA);
+        }
+        else
+        {
+            cJSON_AddStringToObject(cpu, cSectionName,
+                                    cpuInfo.inputFile.filenamePtr);
+        }
+    }
+
+    return 0;
+}
+
+/******************************************************************************
+ *
  *   fillPpin
  *
  *   This function gets PPIN info
@@ -483,7 +701,9 @@ int fillPpin(crashdump::CPUInfo& cpuInfo, char* cSectionName, cJSON* pJsonChild)
         {
             r = sSPpinVx[i].getPpinVx(cpuInfo, cSectionName, pJsonChild);
             if (r == 1)
+            {
                 ret = 1;
+            }
         }
     }
     return ret;
@@ -512,16 +732,82 @@ static int getMeDeviceId(void)
 {
     return 0;
 }
+/******************************************************************************
+ *
+ *   fillCrashCoreCount
+ *
+ *   This function gets the number of Crash Cores information
+ *
+ ******************************************************************************/
+static int fillCrashCoreCount(crashdump::CPUInfo& cpuInfo, char* cSectionName,
+                              cJSON* pJsonChild)
+{
+    cJSON* cpu = NULL;
+    char jsonItemString[SI_JSON_STRING_LEN] = {0};
+    char jsonItemName[SI_JSON_STRING_LEN] = {0};
+    // For now, the CPU number is just the bottom nibble of the PECI client ID
+    int cpuNum = cpuInfo.clientAddr & 0xF;
+    // Add the CPU number object if it doesn't already exist
+    cd_snprintf_s(jsonItemName, SI_JSON_STRING_LEN, SI_JSON_SOCKET_NAME,
+                  cpuNum);
+    if ((cpu = cJSON_GetObjectItemCaseSensitive(pJsonChild, jsonItemName)) ==
+        NULL)
+    {
+        cJSON_AddItemToObject(pJsonChild, jsonItemName,
+                              cpu = cJSON_CreateObject());
+    }
+    // Get the crashCore data obtain during BigCore
+    cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN, "0x%x",
+                  __builtin_popcount(cpuInfo.crashedCoreMask));
+    cJSON_AddStringToObject(cpu, cSectionName, jsonItemString);
+    return 0;
+}
+
+/******************************************************************************
+ *
+ *   fillCrashCoreMask
+ *
+ *   This function gets the Crash Cores Mask information
+ *
+ ******************************************************************************/
+static int fillCrashCoreMask(crashdump::CPUInfo& cpuInfo, char* cSectionName,
+                             cJSON* pJsonChild)
+{
+    cJSON* cpu = NULL;
+    char jsonItemString[SI_JSON_STRING_LEN] = {0};
+    char jsonItemName[SI_JSON_STRING_LEN] = {0};
+    // For now, the CPU number is just the bottom nibble of the PECI client ID
+    int cpuNum = cpuInfo.clientAddr & 0xF;
+    // Add the CPU number object if it doesn't already exist
+    cd_snprintf_s(jsonItemName, SI_JSON_STRING_LEN, SI_JSON_SOCKET_NAME,
+                  cpuNum);
+    if ((cpu = cJSON_GetObjectItemCaseSensitive(pJsonChild, jsonItemName)) ==
+        NULL)
+    {
+        cJSON_AddItemToObject(pJsonChild, jsonItemName,
+                              cpu = cJSON_CreateObject());
+    }
+    // Get the crashCore data obtain during BigCore
+    cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN, MD_UINT64,
+                  cpuInfo.crashedCoreMask);
+    cJSON_AddStringToObject(cpu, cSectionName, jsonItemString);
+    return 0;
+}
 
 static SSysInfoSection sSysInfoTable[] = {
     {"peci_id", fillPECI},
     {"cpuid", fillCPUID},
+    {"_cpuid_source", fillCPUIdSource},
+    {"core_mask", fillCoreMask},
+    {"chaCount", fillChaCount},
     {"package_id", fillPackageId},
     {"cores_per_cpu", fillCoresPerCpu},
     {"ucode_patch_ver", fillUCodeVersion},
     {"vcode_ver", fillVCodeVersion},
     {"mca_err_src_log", fillMcaErrSrcLog},
     {"ppin", fillPpin},
+    {"crashcoreCount", fillCrashCoreCount},
+    {"crashcore_mask", fillCrashCoreMask},
 };
 
 static SSysInfoCommonSection sSysInfoCommonTable[] = {
@@ -529,6 +815,10 @@ static SSysInfoCommonSection sSysInfoCommonTable[] = {
     {"bmc_fw_ver", fillBmcVersion},
     {"bios_id", fillBiosId},
     {"crashdump_ver", fillCrashdumpVersion},
+};
+
+static SSysInfoInputFileSection sSysInfoInputFileTable[] = {
+    {"_input_file", fillInputFile},
 };
 
 /******************************************************************************
@@ -549,7 +839,9 @@ static int sysInfoJson(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
         r = sSysInfoTable[i].FillSysInfoJson(
             cpuInfo, sSysInfoTable[i].sectionName, pJsonChild);
         if (r == 1)
+        {
             ret = 1;
+        }
     }
     return ret;
 }
@@ -573,7 +865,9 @@ static int sysInfoCommonJson(cJSON* pJsonChild)
         r = sSysInfoCommonTable[i].FillSysInfoJson(
             sSysInfoCommonTable[i].sectionName, pJsonChild);
         if (r == 1)
+        {
             ret = 1;
+        }
     }
     return ret;
 }
@@ -592,6 +886,14 @@ int logSysInfo(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
     {
         return 1;
     }
+
+    commonMetaDataEnabled = CHECK_BIT(cpuInfo.sectionMask, crashdump::METADATA);
+    if (!commonMetaDataEnabled)
+    {
+        updateRecordEnable(pJsonChild, false);
+        return 0;
+    }
+
     // Log the System Info
     return sysInfoJson(cpuInfo, pJsonChild);
 }
@@ -610,6 +912,49 @@ int logSysInfoCommon(cJSON* pJsonChild)
     {
         return 1;
     }
-    // Log the System Info
-    return sysInfoCommonJson(pJsonChild);
+
+    return commonMetaDataEnabled ? sysInfoCommonJson(pJsonChild) : 0;
+}
+
+/******************************************************************************
+ *
+ *   logSysInfoInputFile
+ *
+ *   This function gathers various bits of input file information and compiles
+ *   them into a single group
+ *
+ ******************************************************************************/
+int logSysInfoInputfile(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild,
+                        crashdump::InputFileInfo* inputFileInfo)
+{
+    uint32_t i = 0;
+    int r = 0;
+    int ret = 0;
+
+    if (pJsonChild == NULL)
+    {
+        return 1;
+    }
+
+    commonMetaDataEnabled = CHECK_BIT(cpuInfo.sectionMask, crashdump::METADATA);
+    if (!commonMetaDataEnabled)
+    {
+        commonMetaDataEnabled = false;
+        updateRecordEnable(pJsonChild, false);
+        return 0;
+    }
+
+    for (i = 0; i < (sizeof(sSysInfoInputFileTable) /
+                     sizeof(SSysInfoInputFileSection));
+         i++)
+    {
+        r = sSysInfoInputFileTable[i].FillSysInfoJson(
+            cpuInfo, sSysInfoInputFileTable[i].sectionName, pJsonChild,
+            inputFileInfo);
+        if (r == 1)
+        {
+            ret = 1;
+        }
+    }
+    return ret;
 }

@@ -38,6 +38,8 @@ extern "C" {
 
 #define CORE_MCA_NA "N/A"
 #define CORE_MCA_UA "UA:0x%x"
+#define CORE_MCA_DF "DF:0x%x"
+#define CORE_MCA_UA_DF "UA:0x%x,DF:0x%x"
 #define CORE_MCA_UINT64_FMT "0x%" PRIx64 ""
 #define CORE_MCA_VALID true
 
@@ -80,6 +82,8 @@ typedef struct
 {
     UCoreMcaRegs uRegData;
     bool bInvalid;
+    int ret;
+    uint8_t cc;
 } SCoreMcaRawData;
 
 static const char coreMcaRegNames[][CORE_MCA_NAME_LEN] = {

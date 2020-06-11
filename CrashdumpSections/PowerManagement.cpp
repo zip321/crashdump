@@ -49,12 +49,35 @@ static void powerManagementJson(uint32_t u32CoreNum,
 
     // Add the register data for this core to the Power Management JSON
     // structure
-    cd_snprintf_s(jsonItemString, PM_JSON_STRING_LEN, "0x%x",
-                  sCpuPowerState->u32CState);
-    cJSON_AddStringToObject(core, PM_JSON_CSTATE_REG_NAME, jsonItemString);
-    cd_snprintf_s(jsonItemString, PM_JSON_STRING_LEN, "0x%x",
-                  sCpuPowerState->u32VidRatio);
-    cJSON_AddStringToObject(core, PM_JSON_VID_REG_NAME, jsonItemString);
+    if (sCpuPowerState->retCstate != PECI_CC_SUCCESS ||
+        sCpuPowerState->retVratio != PECI_CC_SUCCESS)
+    {
+        cd_snprintf_s(jsonItemString, PM_JSON_STRING_LEN, PM_UA_DF,
+                      sCpuPowerState->ccCstate, sCpuPowerState->retCstate);
+        cJSON_AddStringToObject(core, PM_JSON_CSTATE_REG_NAME, jsonItemString);
+        cd_snprintf_s(jsonItemString, PM_JSON_STRING_LEN, PM_UA_DF,
+                      sCpuPowerState->ccVratio, sCpuPowerState->retVratio);
+        cJSON_AddStringToObject(core, PM_JSON_VID_REG_NAME, jsonItemString);
+    }
+    else if (PECI_CC_UA(sCpuPowerState->ccCstate) ||
+             PECI_CC_UA(sCpuPowerState->ccVratio))
+    {
+        cd_snprintf_s(jsonItemString, PM_JSON_STRING_LEN, PM_UA,
+                      sCpuPowerState->ccCstate);
+        cJSON_AddStringToObject(core, PM_JSON_CSTATE_REG_NAME, jsonItemString);
+        cd_snprintf_s(jsonItemString, PM_JSON_STRING_LEN, PM_UA,
+                      sCpuPowerState->ccVratio);
+        cJSON_AddStringToObject(core, PM_JSON_VID_REG_NAME, jsonItemString);
+    }
+    else
+    {
+        cd_snprintf_s(jsonItemString, PM_JSON_STRING_LEN, "0x%x",
+                      sCpuPowerState->u32CState);
+        cJSON_AddStringToObject(core, PM_JSON_CSTATE_REG_NAME, jsonItemString);
+        cd_snprintf_s(jsonItemString, PM_JSON_STRING_LEN, "0x%x",
+                      sCpuPowerState->u32VidRatio);
+        cJSON_AddStringToObject(core, PM_JSON_VID_REG_NAME, jsonItemString);
+    }
 }
 
 /******************************************************************************
@@ -70,48 +93,58 @@ static void powerManagementJson(uint32_t u32CoreNum,
  ******************************************************************************/
 static int powerManagementReadReg(crashdump::CPUInfo& cpuInfo,
                                   uint32_t u32CoreNum, uint32_t u32RegParam,
-                                  uint32_t* u32RegData, int peci_fd)
+                                  uint32_t* u32RegData, int peci_fd,
+                                  uint8_t* ccData, int* retData)
 {
     uint8_t cc = 0;
+    int ret = 0;
 
     // Open the register read sequence
-    if (peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_OPEN_SEQ,
-                             VCU_PWR_MGT_SEQ, sizeof(uint32_t), peci_fd,
-                             &cc) != PECI_CC_SUCCESS)
+    ret = peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_OPEN_SEQ,
+                               VCU_PWR_MGT_SEQ, sizeof(uint32_t), peci_fd, &cc);
+    *ccData = cc;
+    *retData = ret;
+    if (ret != PECI_CC_SUCCESS)
     {
         // Reg read sequence failed, abort the sequence
         peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_ABORT_SEQ,
                              VCU_PWR_MGT_SEQ, sizeof(uint32_t), peci_fd, &cc);
-        return 1;
+        return ret;
     }
 
     // Set register number
-    if (peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_SET_PARAM,
-                             (u32CoreNum << PM_CORE_OFFSET) | u32RegParam,
-                             sizeof(uint32_t), peci_fd, &cc) != PECI_CC_SUCCESS)
+    ret = peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_SET_PARAM,
+                               (u32CoreNum << PM_CORE_OFFSET) | u32RegParam,
+                               sizeof(uint32_t), peci_fd, &cc);
+    *ccData = cc;
+    *retData = ret;
+    if (ret != PECI_CC_SUCCESS)
     {
         // Reg read sequence failed, abort the sequence
         peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_ABORT_SEQ,
                              VCU_PWR_MGT_SEQ, sizeof(uint32_t), peci_fd, &cc);
-        return 1;
+        return ret;
     }
 
     // Get the register data
-    if (peci_RdPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, PM_READ_PARAM,
-                             sizeof(uint32_t), (uint8_t*)u32RegData, peci_fd,
-                             &cc) != PECI_CC_SUCCESS)
+    ret = peci_RdPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, PM_READ_PARAM,
+                               sizeof(uint32_t), (uint8_t*)u32RegData, peci_fd,
+                               &cc);
+    *ccData = cc;
+    *retData = ret;
+    if (ret != PECI_CC_SUCCESS)
     {
         // Reg read sequence failed, abort the sequence
         peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_ABORT_SEQ,
                              VCU_PWR_MGT_SEQ, sizeof(uint32_t), peci_fd, &cc);
-        return 1;
+        return ret;
     }
 
     // Close the register read sequence
     peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_CLOSE_SEQ,
                          VCU_PWR_MGT_SEQ, sizeof(uint32_t), peci_fd, &cc);
 
-    return 0;
+    return ret;
 }
 
 /******************************************************************************
@@ -141,16 +174,18 @@ static int powerManagementReadReg(crashdump::CPUInfo& cpuInfo,
 int logPowerManagementCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 {
     int ret = 0;
+    int retval = 0;
     int peci_fd = -1;
 
     if (pJsonChild == NULL)
     {
-        return 1;
+        return JSON_FAILURE;
     }
 
-    if (peci_Lock(&peci_fd, PECI_WAIT_FOREVER) != PECI_CC_SUCCESS)
+    ret = peci_Lock(&peci_fd, PECI_WAIT_FOREVER);
+    if (ret != PECI_CC_SUCCESS)
     {
-        return 1;
+        return ret;
     }
 
     // Get the power state for each enabled core in the CPU
@@ -165,14 +200,24 @@ int logPowerManagementCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
         SCpuPowerState sCpuPowerState = {};
 
         // First get the C-State register for this core
-        ret = powerManagementReadReg(cpuInfo, u32CoreNum, PM_CSTATE_PARAM,
-                                     &sCpuPowerState.u32CState, peci_fd);
+        ret = powerManagementReadReg(
+            cpuInfo, u32CoreNum, PM_CSTATE_PARAM, &sCpuPowerState.u32CState,
+            peci_fd, &sCpuPowerState.ccCstate, &sCpuPowerState.retCstate);
+        if (ret != PECI_CC_SUCCESS)
+        {
+            retval = ret;
+        }
         // Then get the VID Ratio register for this core
-        ret = powerManagementReadReg(cpuInfo, u32CoreNum, PM_VID_PARAM,
-                                     &sCpuPowerState.u32VidRatio, peci_fd);
+        ret = powerManagementReadReg(
+            cpuInfo, u32CoreNum, PM_VID_PARAM, &sCpuPowerState.u32VidRatio,
+            peci_fd, &sCpuPowerState.ccVratio, &sCpuPowerState.retVratio);
+        if (ret != PECI_CC_SUCCESS)
+        {
+            retval = ret;
+        }
         // If we hit a failure, assume that register reads are not allowed and
         // bail
-        if (ret != 0)
+        if (retval != 0)
         {
             break;
         }
@@ -181,7 +226,7 @@ int logPowerManagementCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
     }
 
     peci_Unlock(peci_fd);
-    return ret;
+    return retval;
 }
 
 /******************************************************************************
@@ -193,18 +238,15 @@ int logPowerManagementCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
  ******************************************************************************/
 static void powerManagementJsonICX1(const char* regName,
                                     SPmRegRawData* sRegData, cJSON* pJsonChild,
-                                    uint8_t cc)
+                                    uint8_t cc, int ret)
 {
     char jsonItemString[PM_JSON_STRING_LEN] = {0};
 
     if (sRegData->bInvalid)
     {
-        cd_snprintf_s(jsonItemString, PM_JSON_STRING_LEN, PM_NA);
-        cJSON_AddStringToObject(pJsonChild, regName, jsonItemString);
-        return;
+        cd_snprintf_s(jsonItemString, PM_JSON_STRING_LEN, PM_UA_DF, cc, ret);
     }
-
-    if (PECI_CC_UA(cc))
+    else if (PECI_CC_UA(cc))
     {
         cd_snprintf_s(jsonItemString, PM_JSON_STRING_LEN, PM_UA, cc);
     }
@@ -227,7 +269,8 @@ static void powerManagementJsonICX1(const char* regName,
 static void powerManagementJsonPerCoreICX1(const char* regName,
                                            uint32_t u32CoreNum,
                                            SPmRegRawData* sRegData,
-                                           cJSON* pJsonChild, uint8_t cc)
+                                           cJSON* pJsonChild, uint8_t cc,
+                                           int ret)
 {
     char jsonItemName[PM_JSON_STRING_LEN] = {0};
     cJSON* core = NULL;
@@ -243,7 +286,7 @@ static void powerManagementJsonPerCoreICX1(const char* regName,
                               core = cJSON_CreateObject());
     }
 
-    powerManagementJsonICX1(regName, sRegData, core, cc);
+    powerManagementJsonICX1(regName, sRegData, core, cc, ret);
 }
 
 /******************************************************************************
@@ -257,11 +300,10 @@ static void powerManagementJsonPerCoreICX1(const char* regName,
 int logPowerManagementICX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 {
     int ret = 0;
-    int peci_fd = -1;
 
-    if (peci_Lock(&peci_fd, PECI_WAIT_FOREVER) != PECI_CC_SUCCESS)
+    if (ret != PECI_CC_SUCCESS)
     {
-        return 1;
+        return ret;
     }
 
     for (uint32_t i = 0; i < (sizeof(sPmEntries) / sizeof(SPmEntry)); i++)
@@ -283,30 +325,29 @@ int logPowerManagementICX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
                 uint16_t param =
                     (u32CoreNum << 8) | (uint8_t)sPmEntries[i].param;
 
-                if (peci_RdPkgConfig(
-                        cpuInfo.clientAddr, PM_PCS_88, param, sizeof(uint32_t),
-                        (uint8_t*)&sRegData.uValue, &cc) != PECI_CC_SUCCESS)
+                ret = peci_RdPkgConfig(cpuInfo.clientAddr, PM_PCS_88, param,
+                                       sizeof(uint32_t),
+                                       (uint8_t*)&sRegData.uValue, &cc);
+                if (ret != PECI_CC_SUCCESS)
                 {
                     sRegData.bInvalid = true;
-                    ret = 1;
                 }
                 powerManagementJsonPerCoreICX1(sPmEntries[i].regName,
                                                u32CoreNum, &sRegData,
-                                               pJsonChild, cc);
+                                               pJsonChild, cc, ret);
             }
         }
         else
         {
-            if (peci_RdPkgConfig(cpuInfo.clientAddr, PM_PCS_88,
-                                 sPmEntries[i].param, sizeof(uint32_t),
-                                 (uint8_t*)&sRegData.uValue,
-                                 &cc) != PECI_CC_SUCCESS)
+            ret = peci_RdPkgConfig(cpuInfo.clientAddr, PM_PCS_88,
+                                   sPmEntries[i].param, sizeof(uint32_t),
+                                   (uint8_t*)&sRegData.uValue, &cc);
+            if (ret != PECI_CC_SUCCESS)
             {
                 sRegData.bInvalid = true;
-                ret = 1;
             }
             powerManagementJsonICX1(sPmEntries[i].regName, &sRegData,
-                                    pJsonChild, cc);
+                                    pJsonChild, cc, ret);
         }
     }
 
@@ -333,6 +374,12 @@ int logPowerManagement(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
     if (pJsonChild == NULL)
     {
         return 1;
+    }
+
+    if (!CHECK_BIT(cpuInfo.sectionMask, crashdump::PM_INFO))
+    {
+        updateRecordEnable(pJsonChild, false);
+        return 0;
     }
 
     for (uint32_t i = 0;

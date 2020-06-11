@@ -34,21 +34,24 @@ extern "C" {
  *
  ******************************************************************************/
 static void addressMapJson(const SAddrMapEntry* sAddrMapEntry,
-                           uint64_t* u64Data, cJSON* pJsonChild)
+                           uint64_t* u64Data, cJSON* pJsonChild, int ret,
+                           uint8_t cc)
 {
-    // Add the register if it's valid
-    if (u64Data != NULL)
+    char jsonItemString[AM_JSON_STRING_LEN];
+    if (u64Data == NULL)
     {
-        char jsonItemString[AM_JSON_STRING_LEN];
-        cd_snprintf_s(jsonItemString, AM_JSON_STRING_LEN, AM_UINT64_FMT,
-                      *u64Data);
-        cJSON_AddStringToObject(pJsonChild, sAddrMapEntry->regName,
-                                jsonItemString);
+        cd_snprintf_s(jsonItemString, AM_JSON_STRING_LEN, AM_UA_DF, cc, ret);
+    }
+    else if (PECI_CC_UA(cc))
+    {
+        cd_snprintf_s(jsonItemString, AM_JSON_STRING_LEN, AM_UA, cc);
     }
     else
     {
-        cJSON_AddStringToObject(pJsonChild, sAddrMapEntry->regName, AM_NA);
+        cd_snprintf_s(jsonItemString, AM_JSON_STRING_LEN, AM_UINT64_FMT,
+                      *u64Data);
     }
+    cJSON_AddStringToObject(pJsonChild, sAddrMapEntry->regName, jsonItemString);
 }
 
 /******************************************************************************
@@ -67,9 +70,10 @@ int logAddressMapEntries(crashdump::CPUInfo& cpuInfo,
     int peci_fd = -1;
     uint8_t cc = 0;
 
-    if (peci_Lock(&peci_fd, PECI_WAIT_FOREVER) != PECI_CC_SUCCESS)
+    ret = peci_Lock(&peci_fd, PECI_WAIT_FOREVER);
+    if (ret != PECI_CC_SUCCESS)
     {
-        return 1;
+        return ret;
     }
 
     // Get the Address Map register values
@@ -81,32 +85,31 @@ int logAddressMapEntries(crashdump::CPUInfo& cpuInfo,
         {
             for (uint8_t u8Dword = 0; u8Dword < 2; u8Dword++)
             {
-                if (peci_RdPCIConfigLocal_seq(
-                        cpuInfo.clientAddr, sAddrMapEntries[i].u8Bus,
-                        sAddrMapEntries[i].u8Dev, sAddrMapEntries[i].u8Func,
-                        sAddrMapEntries[i].u16Reg + (u8Dword * 4),
-                        sizeof(uint32_t), (uint8_t*)&uValue.u32[u8Dword],
-                        peci_fd, &cc) != PECI_CC_SUCCESS)
+                ret = peci_RdPCIConfigLocal_seq(
+                    cpuInfo.clientAddr, sAddrMapEntries[i].u8Bus,
+                    sAddrMapEntries[i].u8Dev, sAddrMapEntries[i].u8Func,
+                    sAddrMapEntries[i].u16Reg + (u8Dword * 4), sizeof(uint32_t),
+                    (uint8_t*)&uValue.u32[u8Dword], peci_fd, &cc);
+                if (ret != PECI_CC_SUCCESS)
                 {
                     pValue = NULL;
-                    ret = 1;
                     break;
                 }
             }
         }
         else
         {
-            if (peci_RdPCIConfigLocal_seq(
-                    cpuInfo.clientAddr, sAddrMapEntries[i].u8Bus,
-                    sAddrMapEntries[i].u8Dev, sAddrMapEntries[i].u8Func,
-                    sAddrMapEntries[i].u16Reg, sAddrMapEntries[i].u8Size,
-                    (uint8_t*)&uValue.u64, peci_fd, &cc) != PECI_CC_SUCCESS)
+            ret = peci_RdPCIConfigLocal_seq(
+                cpuInfo.clientAddr, sAddrMapEntries[i].u8Bus,
+                sAddrMapEntries[i].u8Dev, sAddrMapEntries[i].u8Func,
+                sAddrMapEntries[i].u16Reg, sAddrMapEntries[i].u8Size,
+                (uint8_t*)&uValue.u64, peci_fd, &cc);
+            if (ret != PECI_CC_SUCCESS)
             {
                 pValue = NULL;
-                ret = 1;
             }
         }
-        addressMapJson(&sAddrMapEntries[i], pValue, pJsonChild);
+        addressMapJson(&sAddrMapEntries[i], pValue, pJsonChild, ret, cc);
     }
 
     peci_Unlock(peci_fd);
@@ -115,84 +118,82 @@ int logAddressMapEntries(crashdump::CPUInfo& cpuInfo,
 
 static const SAddrMapEntry sAddrMapEntriesCPX1[] = {
     // Register, Bus, Dev, Fun, Offset, Size
-    {"DRAM_RULE_CFG_0", 1, 29, 0, 0x60, 4},
-    {"DRAM_RULE_CFG_1", 1, 29, 0, 0x68, 4},
-    {"DRAM_RULE_CFG_10", 1, 29, 0, 0xB0, 4},
-    {"DRAM_RULE_CFG_11", 1, 29, 0, 0xB8, 4},
-    {"DRAM_RULE_CFG_12", 1, 29, 0, 0xC0, 4},
-    {"DRAM_RULE_CFG_13", 1, 29, 0, 0xC8, 4},
-    {"DRAM_RULE_CFG_14", 1, 29, 0, 0xD0, 4},
-    {"DRAM_RULE_CFG_15", 1, 29, 0, 0xD8, 4},
-    {"DRAM_RULE_CFG_16", 1, 29, 0, 0xE0, 4},
-    {"DRAM_RULE_CFG_17", 1, 29, 0, 0xE8, 4},
-    {"DRAM_RULE_CFG_18", 1, 29, 0, 0xF0, 4},
-    {"DRAM_RULE_CFG_19", 1, 29, 0, 0xF8, 4},
-    {"DRAM_RULE_CFG_2", 1, 29, 0, 0x70, 4},
-    {"DRAM_RULE_CFG_20", 1, 29, 0, 0x100, 4},
-    {"DRAM_RULE_CFG_21", 1, 29, 0, 0x108, 4},
-    {"DRAM_RULE_CFG_22", 1, 29, 0, 0x110, 4},
-    {"DRAM_RULE_CFG_23", 1, 29, 0, 0x118, 4},
-    {"DRAM_RULE_CFG_3", 1, 29, 0, 0x78, 4},
-    {"DRAM_RULE_CFG_4", 1, 29, 0, 0x80, 4},
-    {"DRAM_RULE_CFG_5", 1, 29, 0, 0x88, 4},
-    {"DRAM_RULE_CFG_6", 1, 29, 0, 0x90, 4},
-    {"DRAM_RULE_CFG_7", 1, 29, 0, 0x98, 4},
-    {"DRAM_RULE_CFG_8", 1, 29, 0, 0xA0, 4},
-    {"DRAM_RULE_CFG_9", 1, 29, 0, 0xA8, 4},
-    {"INTERLEAVE_LIST_CFG_0", 1, 29, 0, 0x64, 4},
-    {"INTERLEAVE_LIST_CFG_1", 1, 29, 0, 0x6C, 4},
-    {"INTERLEAVE_LIST_CFG_10", 1, 29, 0, 0xB4, 4},
-    {"INTERLEAVE_LIST_CFG_11", 1, 29, 0, 0xBC, 4},
-    {"INTERLEAVE_LIST_CFG_12", 1, 29, 0, 0xC4, 4},
-    {"INTERLEAVE_LIST_CFG_13", 1, 29, 0, 0xCC, 4},
-    {"INTERLEAVE_LIST_CFG_14", 1, 29, 0, 0xD4, 4},
-    {"INTERLEAVE_LIST_CFG_15", 1, 29, 0, 0xDC, 4},
-    {"INTERLEAVE_LIST_CFG_16", 1, 29, 0, 0xE4, 4},
-    {"INTERLEAVE_LIST_CFG_17", 1, 29, 0, 0xEC, 4},
-    {"INTERLEAVE_LIST_CFG_18", 1, 29, 0, 0xF4, 4},
-    {"INTERLEAVE_LIST_CFG_19", 1, 29, 0, 0xFC, 4},
-    {"INTERLEAVE_LIST_CFG_2", 1, 29, 0, 0x74, 4},
-    {"INTERLEAVE_LIST_CFG_20", 1, 29, 0, 0x104, 4},
-    {"INTERLEAVE_LIST_CFG_21", 1, 29, 0, 0x10C, 4},
-    {"INTERLEAVE_LIST_CFG_22", 1, 29, 0, 0x114, 4},
-    {"INTERLEAVE_LIST_CFG_23", 1, 29, 0, 0x11C, 4},
-    {"INTERLEAVE_LIST_CFG_3", 1, 29, 0, 0x7C, 4},
-    {"INTERLEAVE_LIST_CFG_4", 1, 29, 0, 0x84, 4},
-    {"INTERLEAVE_LIST_CFG_5", 1, 29, 0, 0x8C, 4},
-    {"INTERLEAVE_LIST_CFG_6", 1, 29, 0, 0x94, 4},
-    {"INTERLEAVE_LIST_CFG_7", 1, 29, 0, 0x9C, 4},
-    {"INTERLEAVE_LIST_CFG_8", 1, 29, 0, 0xA4, 4},
-    {"INTERLEAVE_LIST_CFG_9", 1, 29, 0, 0xAC, 4},
-    {"IOAPIC_TARGET_LIST_CFG_0", 1, 29, 1, 0xD4, 4},
-    {"IOAPIC_TARGET_LIST_CFG_1", 1, 29, 1, 0xD8, 4},
-    {"IOAPIC_TARGET_LIST_CFG_2", 1, 29, 1, 0xDC, 4},
-    {"IOAPIC_TARGET_LIST_CFG_3", 1, 29, 1, 0xE0, 4},
-    {"IOPORT_TARGET_LIST_CFG_0", 1, 29, 0, 0x2B0, 4},
-    {"IOPORT_TARGET_LIST_CFG_1", 1, 29, 0, 0x2B4, 4},
-    {"IOPORT_TARGET_LIST_CFG_2", 1, 29, 0, 0x2B8, 4},
-    {"IOPORT_TARGET_LIST_CFG_3", 1, 29, 0, 0x2BC, 4},
-    {"LT_CONTROL", 1, 29, 1, 0xD0, 4},
+    {"MMCFG_BASE", 0, 5, 0, 0x90, 8},
+    {"MMCFG_LIMIT", 0, 5, 0, 0x98, 8},
+    {"TSEG", 0, 5, 0, 0xA8, 8},
+    {"TOLM", 0, 5, 0, 0xD0, 4},
+    {"TOHM_0", 0, 5, 0, 0xD4, 4},
+    {"TOHM_1", 0, 5, 0, 0xD8, 4},
+    {"NCMEM_BASE_0", 0, 5, 0, 0xE0, 4},
+    {"NCMEM_BASE_1", 0, 5, 0, 0xE4, 4},
+    {"NCMEM_LIMIT_0", 0, 5, 0, 0xE8, 4},
+    {"NCMEM_LIMIT_1", 0, 5, 0, 0xEC, 4},
     {"MENCMEM_BASE_0", 0, 5, 0, 0xF0, 4},
     {"MENCMEM_BASE_1", 0, 5, 0, 0xF4, 4},
     {"MENCMEM_LIMIT_0", 0, 5, 0, 0xF8, 4},
     {"MENCMEM_LIMIT_1", 0, 5, 0, 0xFC, 4},
+    {"PCIE0_MMIOH_NON_INTERLEAVE", 0, 5, 0, 0x340, 8},
+    {"PCIE0_MMIOH_INTERLEAVE", 0, 5, 0, 0x348, 8},
+    {"PCIE1_MMIOH_NON_INTERLEAVE", 1, 5, 0, 0x340, 8},
+    {"PCIE1_MMIOH_INTERLEAVE", 1, 5, 0, 0x348, 8},
+    {"PAM0123", 1, 29, 0, 0x40, 4},
+    {"PAM456", 1, 29, 0, 0x44, 4},
     {"MESEG_BASE", 1, 29, 0, 0x50, 8},
     {"MESEG_LIMIT", 1, 29, 0, 0x58, 8},
-    {"MMCFG_BASE", 0, 5, 0, 0x90, 8},
-    {"MMCFG_LIMIT", 0, 5, 0, 0x98, 8},
-    {"MMCFG_LOCAL_RULE", 1, 29, 1, 0xE4, 4},
-    {"MMCFG_LOCAL_RULE_ADDRESS_CFG_0", 1, 29, 1, 0xC8, 4},
-    {"MMCFG_LOCAL_RULE_ADDRESS_CFG_1", 1, 29, 1, 0xCC, 4},
-    {"MMCFG_RULE", 1, 29, 1, 0xC0, 8},
-    {"MMCFG_TARGET_LIST", 1, 29, 1, 0xEC, 4},
+    {"DRAM_RULE_CFG_0", 1, 29, 0, 0x60, 4},
+    {"INTERLEAVE_LIST_CFG_0", 1, 29, 0, 0x64, 4},
+    {"DRAM_RULE_CFG_1", 1, 29, 0, 0x68, 4},
+    {"INTERLEAVE_LIST_CFG_1", 1, 29, 0, 0x6C, 4},
+    {"DRAM_RULE_CFG_2", 1, 29, 0, 0x70, 4},
+    {"INTERLEAVE_LIST_CFG_2", 1, 29, 0, 0x74, 4},
+    {"DRAM_RULE_CFG_3", 1, 29, 0, 0x78, 4},
+    {"INTERLEAVE_LIST_CFG_3", 1, 29, 0, 0x7C, 4},
+    {"DRAM_RULE_CFG_4", 1, 29, 0, 0x80, 4},
+    {"INTERLEAVE_LIST_CFG_4", 1, 29, 0, 0x84, 4},
+    {"DRAM_RULE_CFG_5", 1, 29, 0, 0x88, 4},
+    {"INTERLEAVE_LIST_CFG_5", 1, 29, 0, 0x8C, 4},
+    {"DRAM_RULE_CFG_6", 1, 29, 0, 0x90, 4},
+    {"INTERLEAVE_LIST_CFG_6", 1, 29, 0, 0x94, 4},
+    {"DRAM_RULE_CFG_7", 1, 29, 0, 0x98, 4},
+    {"INTERLEAVE_LIST_CFG_7", 1, 29, 0, 0x9C, 4},
+    {"DRAM_RULE_CFG_8", 1, 29, 0, 0xA0, 4},
+    {"INTERLEAVE_LIST_CFG_8", 1, 29, 0, 0xA4, 4},
+    {"DRAM_RULE_CFG_9", 1, 29, 0, 0xA8, 4},
+    {"INTERLEAVE_LIST_CFG_9", 1, 29, 0, 0xAC, 4},
+    {"DRAM_RULE_CFG_10", 1, 29, 0, 0xB0, 4},
+    {"INTERLEAVE_LIST_CFG_10", 1, 29, 0, 0xB4, 4},
+    {"DRAM_RULE_CFG_11", 1, 29, 0, 0xB8, 4},
+    {"INTERLEAVE_LIST_CFG_11", 1, 29, 0, 0xBC, 4},
+    {"DRAM_RULE_CFG_12", 1, 29, 0, 0xC0, 4},
+    {"INTERLEAVE_LIST_CFG_12", 1, 29, 0, 0xC4, 4},
+    {"DRAM_RULE_CFG_13", 1, 29, 0, 0xC8, 4},
+    {"INTERLEAVE_LIST_CFG_13", 1, 29, 0, 0xCC, 4},
+    {"DRAM_RULE_CFG_14", 1, 29, 0, 0xD0, 4},
+    {"INTERLEAVE_LIST_CFG_14", 1, 29, 0, 0xD4, 4},
+    {"DRAM_RULE_CFG_15", 1, 29, 0, 0xD8, 4},
+    {"INTERLEAVE_LIST_CFG_15", 1, 29, 0, 0xDC, 4},
+    {"DRAM_RULE_CFG_16", 1, 29, 0, 0xE0, 4},
+    {"INTERLEAVE_LIST_CFG_16", 1, 29, 0, 0xE4, 4},
+    {"DRAM_RULE_CFG_17", 1, 29, 0, 0xE8, 4},
+    {"INTERLEAVE_LIST_CFG_17", 1, 29, 0, 0xEC, 4},
+    {"DRAM_RULE_CFG_18", 1, 29, 0, 0xF0, 4},
+    {"INTERLEAVE_LIST_CFG_18", 1, 29, 0, 0xF4, 4},
+    {"DRAM_RULE_CFG_19", 1, 29, 0, 0xF8, 4},
+    {"INTERLEAVE_LIST_CFG_19", 1, 29, 0, 0xFC, 4},
+    {"DRAM_RULE_CFG_20", 1, 29, 0, 0x100, 4},
+    {"INTERLEAVE_LIST_CFG_20", 1, 29, 0, 0x104, 4},
+    {"DRAM_RULE_CFG_21", 1, 29, 0, 0x108, 4},
+    {"INTERLEAVE_LIST_CFG_21", 1, 29, 0, 0x10C, 4},
+    {"DRAM_RULE_CFG_22", 1, 29, 0, 0x110, 4},
+    {"INTERLEAVE_LIST_CFG_22", 1, 29, 0, 0x114, 4},
+    {"DRAM_RULE_CFG_23", 1, 29, 0, 0x118, 4},
+    {"INTERLEAVE_LIST_CFG_23", 1, 29, 0, 0x11C, 4},
+    {"IOPORT_TARGET_LIST_CFG_0", 1, 29, 0, 0x2B0, 4},
+    {"IOPORT_TARGET_LIST_CFG_1", 1, 29, 0, 0x2B4, 4},
+    {"IOPORT_TARGET_LIST_CFG_2", 1, 29, 0, 0x2B8, 4},
+    {"IOPORT_TARGET_LIST_CFG_3", 1, 29, 0, 0x2BC, 4},
     {"MMIO_RULE_CFG_0", 1, 29, 1, 0x40, 8},
     {"MMIO_RULE_CFG_1", 1, 29, 1, 0x48, 8},
-    {"MMIO_RULE_CFG_10", 1, 29, 1, 0x90, 8},
-    {"MMIO_RULE_CFG_11", 1, 29, 1, 0x98, 8},
-    {"MMIO_RULE_CFG_12", 1, 29, 1, 0xA0, 8},
-    {"MMIO_RULE_CFG_13", 1, 29, 1, 0xA8, 8},
-    {"MMIO_RULE_CFG_14", 1, 29, 1, 0xB0, 8},
-    {"MMIO_RULE_CFG_15", 1, 29, 1, 0xB8, 8},
     {"MMIO_RULE_CFG_2", 1, 29, 1, 0x50, 8},
     {"MMIO_RULE_CFG_3", 1, 29, 1, 0x58, 8},
     {"MMIO_RULE_CFG_4", 1, 29, 1, 0x60, 8},
@@ -201,36 +202,60 @@ static const SAddrMapEntry sAddrMapEntriesCPX1[] = {
     {"MMIO_RULE_CFG_7", 1, 29, 1, 0x78, 8},
     {"MMIO_RULE_CFG_8", 1, 29, 1, 0x80, 8},
     {"MMIO_RULE_CFG_9", 1, 29, 1, 0x88, 8},
+    {"MMIO_RULE_CFG_10", 1, 29, 1, 0x90, 8},
+    {"MMIO_RULE_CFG_11", 1, 29, 1, 0x98, 8},
+    {"MMIO_RULE_CFG_12", 1, 29, 1, 0xA0, 8},
+    {"MMIO_RULE_CFG_13", 1, 29, 1, 0xA8, 8},
+    {"MMIO_RULE_CFG_14", 1, 29, 1, 0xB0, 8},
+    {"MMIO_RULE_CFG_15", 1, 29, 1, 0xB8, 8},
+    {"MMCFG_RULE", 1, 29, 1, 0xC0, 8},
+    {"MMCFG_LOCAL_RULE_ADDRESS_CFG_0", 1, 29, 1, 0xC8, 4},
+    {"MMCFG_LOCAL_RULE_ADDRESS_CFG_1", 1, 29, 1, 0xCC, 4},
+    {"LT_CONTROL", 1, 29, 1, 0xD0, 4},
+    {"IOAPIC_TARGET_LIST_CFG_0", 1, 29, 1, 0xD4, 4},
+    {"IOAPIC_TARGET_LIST_CFG_1", 1, 29, 1, 0xD8, 4},
+    {"IOAPIC_TARGET_LIST_CFG_2", 1, 29, 1, 0xDC, 4},
+    {"IOAPIC_TARGET_LIST_CFG_3", 1, 29, 1, 0xE0, 4},
+    {"MMCFG_LOCAL_RULE", 1, 29, 1, 0xE4, 4},
+    {"MMIO_TARGET_LIST_CFG_0", 1, 29, 1, 0xE8, 4},
+    {"MMCFG_TARGET_LIST", 1, 29, 1, 0xEC, 4},
+    {"SAD_TARGET", 1, 29, 1, 0xF0, 4},
+    {"SAD_CONTROL", 1, 29, 1, 0xF4, 4},
+    {"MMIO_TARGET_LIST_CFG_1", 1, 29, 1, 0xF8, 4},
+    {"MMIOH_INTERLEAVE_RULE", 1, 29, 1, 0x100, 8},
+    {"MMIOH_NONINTERLEAVE_RULE", 1, 29, 1, 0x108, 8},
     {"MMIO_TARGET_INTERLEAVE_LIST_CFG_0", 1, 29, 1, 0x204, 4},
     {"MMIO_TARGET_INTERLEAVE_LIST_CFG_1", 1, 29, 1, 0x208, 4},
     {"MMIO_TARGET_INTERLEAVE_LIST_CFG_2", 1, 29, 1, 0x20C, 4},
     {"MMIO_TARGET_INTERLEAVE_LIST_CFG_3", 1, 29, 1, 0x210, 4},
-    {"MMIO_TARGET_LIST_CFG_0", 1, 29, 1, 0xE8, 4},
-    {"MMIO_TARGET_LIST_CFG_1", 1, 29, 1, 0xF8, 4},
-    {"MMIOH_INTERLEAVE_RULE", 1, 29, 1, 0x100, 8},
-    {"MMIOH_NONINTERLEAVE_RULE", 1, 29, 1, 0x108, 8},
-    {"NCMEM_BASE_0", 0, 5, 0, 0xE0, 4},
-    {"NCMEM_BASE_1", 0, 5, 0, 0xE4, 4},
-    {"NCMEM_LIMIT_0", 0, 5, 0, 0xE8, 4},
-    {"NCMEM_LIMIT_1", 0, 5, 0, 0xEC, 4},
-    {"PAM0123", 1, 29, 0, 0x40, 4},
-    {"PAM456", 1, 29, 0, 0x44, 4},
-    {"PCIE0_MMIOH_INTERLEAVE", 0, 5, 0, 0x348, 8},
-    {"PCIE0_MMIOH_NON_INTERLEAVE", 0, 5, 0, 0x340, 8},
-    {"PCIE1_MMIOH_INTERLEAVE", 1, 5, 0, 0x348, 8},
-    {"PCIE1_MMIOH_NON_INTERLEAVE", 1, 5, 0, 0x340, 8},
-    {"PCIE2_MMIOH_INTERLEAVE", 2, 5, 0, 0x348, 8},
     {"PCIE2_MMIOH_NON_INTERLEAVE", 2, 5, 0, 0x340, 8},
-    {"SAD_CONTROL", 1, 29, 1, 0xF4, 4},
-    {"SAD_TARGET", 1, 29, 1, 0xF0, 4},
-    {"TOHM_0", 0, 5, 0, 0xD4, 4},
-    {"TOHM_1", 0, 5, 0, 0xD8, 4},
-    {"TOLM", 0, 5, 0, 0xD0, 4},
-    {"TSEG", 0, 5, 0, 0xA8, 8},
+    {"PCIE2_MMIOH_INTERLEAVE", 2, 5, 0, 0x348, 8},
+    // Process a total of 112 registers
 };
 
 static const SAddrMapEntry sAddrMapEntriesICX1[] = {
     // Register, Bus, Dev, Fun, Offset, Size
+    {"MMCFG_BASE", 0, 0, 0, 0x90, 8},
+    {"MMCFG_LIMIT", 0, 0, 0, 0x98, 8},
+    {"TSEG", 0, 0, 0, 0xA8, 8},
+    {"TOCM", 0, 0, 0, 0xC0, 1},
+    {"TOHM", 0, 0, 0, 0xC8, 8},
+    {"TOLM", 0, 0, 0, 0xD0, 4},
+    {"TOMMIOL", 0, 0, 0, 0xD8, 4},
+    {"NCMEM_BASE", 0, 0, 0, 0xE0, 8},
+    {"NCMEM_LIMIT", 0, 0, 0, 0xE8, 8},
+    {"MMIO_BASE", 30, 0, 1, 0xD0, 4},
+    {"SCF_BAR", 30, 0, 1, 0xD4, 4},
+    {"MEM0_BAR", 30, 0, 1, 0xD8, 4},
+    {"MEM1_BAR", 30, 0, 1, 0xDC, 4},
+    {"MEM2_BAR", 30, 0, 1, 0xE0, 4},
+    {"MEM3_BAR", 30, 0, 1, 0xE4, 4},
+    {"MEM4_BAR", 30, 0, 1, 0xE8, 4},
+    {"MEM5_BAR", 30, 0, 1, 0xEC, 4},
+    {"MEM6_BAR", 30, 0, 1, 0xF0, 4},
+    {"MEM7_BAR", 30, 0, 1, 0xF4, 4},
+    {"SBREG_BAR", 30, 0, 1, 0xF8, 4},
+    {"PCU_BAR", 30, 0, 1, 0xFC, 4},
     {"PAM0123_CFG", 31, 29, 0, 0x80, 4},
     {"PAM456_CFG", 31, 29, 0, 0x84, 4},
     {"MESEG_BASE_CFG", 31, 29, 0, 0x90, 8},
@@ -315,27 +340,7 @@ static const SAddrMapEntry sAddrMapEntriesICX1[] = {
     {"IOAPIC_TARGET_LIST_CFG_1", 31, 29, 1, 0xD4, 4},
     {"IOAPIC_TARGET_LIST_CFG_2", 31, 29, 1, 0xD8, 4},
     {"IOAPIC_TARGET_LIST_CFG_3", 31, 29, 1, 0xDC, 4},
-    {"MMIO_BASE", 30, 0, 1, 0xD0, 4},
-    {"SCF_BAR", 30, 0, 1, 0xD4, 4},
-    {"MEM0_BAR", 30, 0, 1, 0xD8, 4},
-    {"MEM1_BAR", 30, 0, 1, 0xDC, 4},
-    {"MEM2_BAR", 30, 0, 1, 0xE0, 4},
-    {"MEM3_BAR", 30, 0, 1, 0xE4, 4},
-    {"MEM4_BAR", 30, 0, 1, 0xE8, 4},
-    {"MEM5_BAR", 30, 0, 1, 0xEC, 4},
-    {"MEM6_BAR", 30, 0, 1, 0xF0, 4},
-    {"MEM7_BAR", 30, 0, 1, 0xF4, 4},
-    {"SBREG_BAR", 30, 0, 1, 0xF8, 4},
-    {"PCU_BAR", 30, 0, 1, 0xFC, 4},
-    {"MMCFG_BASE", 0, 0, 0, 0x90, 8},
-    {"MMCFG_LIMIT", 0, 0, 0, 0x98, 8},
-    {"TSEG", 0, 0, 0, 0xA8, 8},
-    {"TOCM", 0, 0, 0, 0xC0, 1},
-    {"TOHM", 0, 0, 0, 0xC8, 8},
-    {"TOLM", 0, 0, 0, 0xD0, 4},
-    {"TOMMIOL", 0, 0, 0, 0xD8, 4},
-    {"NCMEM_BASE", 0, 0, 0, 0xE0, 8},
-    {"NCMEM_LIMIT", 0, 0, 0, 0xE8, 8},
+    // Process a total of 105 registers
 };
 
 /******************************************************************************
@@ -361,18 +366,15 @@ int logAddressMapCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
  ******************************************************************************/
 static void addressMapJsonICX(const char* regName,
                               SAddressMapRegRawData* sRegData,
-                              cJSON* pJsonChild, uint8_t cc)
+                              cJSON* pJsonChild, uint8_t cc, int ret)
 {
     char jsonItemString[AM_JSON_STRING_LEN];
 
     if (sRegData->bInvalid)
     {
-        cd_snprintf_s(jsonItemString, AM_JSON_STRING_LEN, AM_NA);
-        cJSON_AddStringToObject(pJsonChild, regName, jsonItemString);
-        return;
+        cd_snprintf_s(jsonItemString, AM_JSON_STRING_LEN, AM_UA_DF, cc, ret);
     }
-
-    if (PECI_CC_UA(cc))
+    else if (PECI_CC_UA(cc))
     {
         cd_snprintf_s(jsonItemString, AM_JSON_STRING_LEN, AM_UA, cc);
     }
@@ -397,9 +399,10 @@ int logAddressMapEntriesICX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
     int peci_fd = -1;
     int ret = 0;
 
-    if (peci_Lock(&peci_fd, PECI_WAIT_FOREVER) != PECI_CC_SUCCESS)
+    ret = peci_Lock(&peci_fd, PECI_WAIT_FOREVER);
+    if (ret != PECI_CC_SUCCESS)
     {
-        return 1;
+        return ret;
     }
 
     for (uint32_t i = 0;
@@ -430,43 +433,40 @@ int logAddressMapEntriesICX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
             case AM_REG_BYTE:
             case AM_REG_WORD:
             case AM_REG_DWORD:
-                if (peci_RdEndPointConfigPciLocal_seq(
-                        cpuInfo.clientAddr, AM_PCI_SEG, bus,
-                        sAddrMapEntriesICX1[i].u8Dev,
-                        sAddrMapEntriesICX1[i].u8Func,
-                        sAddrMapEntriesICX1[i].u16Reg,
-                        sAddrMapEntriesICX1[i].u8Size,
-                        (uint8_t*)&sRegData.uValue.u64, peci_fd,
-                        &cc) != PECI_CC_SUCCESS)
+                ret = peci_RdEndPointConfigPciLocal_seq(
+                    cpuInfo.clientAddr, AM_PCI_SEG, bus,
+                    sAddrMapEntriesICX1[i].u8Dev, sAddrMapEntriesICX1[i].u8Func,
+                    sAddrMapEntriesICX1[i].u16Reg,
+                    sAddrMapEntriesICX1[i].u8Size,
+                    (uint8_t*)&sRegData.uValue.u64, peci_fd, &cc);
+                if (ret != PECI_CC_SUCCESS)
                 {
                     sRegData.bInvalid = true;
-                    ret = 1;
                 }
                 break;
             case AM_REG_QWORD:
                 for (uint8_t u8Dword = 0; u8Dword < 2; u8Dword++)
                 {
-                    if (peci_RdEndPointConfigPciLocal_seq(
-                            cpuInfo.clientAddr, AM_PCI_SEG, bus,
-                            sAddrMapEntriesICX1[i].u8Dev,
-                            sAddrMapEntriesICX1[i].u8Func,
-                            sAddrMapEntriesICX1[i].u16Reg + (u8Dword * 4),
-                            sizeof(uint32_t),
-                            (uint8_t*)&sRegData.uValue.u32[u8Dword], peci_fd,
-                            &cc) != PECI_CC_SUCCESS)
+                    ret = peci_RdEndPointConfigPciLocal_seq(
+                        cpuInfo.clientAddr, AM_PCI_SEG, bus,
+                        sAddrMapEntriesICX1[i].u8Dev,
+                        sAddrMapEntriesICX1[i].u8Func,
+                        sAddrMapEntriesICX1[i].u16Reg + (u8Dword * 4),
+                        sizeof(uint32_t),
+                        (uint8_t*)&sRegData.uValue.u32[u8Dword], peci_fd, &cc);
+                    if (ret != PECI_CC_SUCCESS)
                     {
                         sRegData.bInvalid = true;
-                        ret = 1;
                         break;
                     }
                 }
                 break;
             default:
                 sRegData.bInvalid = true;
-                ret = 1;
+                ret = SIZE_FAILURE;
         }
         addressMapJsonICX(sAddrMapEntriesICX1[i].regName, &sRegData, pJsonChild,
-                          cc);
+                          cc, ret);
     }
 
     peci_Unlock(peci_fd);
@@ -505,6 +505,12 @@ int logAddressMap(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
     if (pJsonChild == NULL)
     {
         return 1;
+    }
+
+    if (!CHECK_BIT(cpuInfo.sectionMask, crashdump::ADDRESS_MAP))
+    {
+        updateRecordEnable(pJsonChild, false);
+        return 0;
     }
 
     for (uint32_t i = 0; i < (sizeof(sAddrMapVx) / sizeof(SAddrMapVx)); i++)

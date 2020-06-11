@@ -19,6 +19,7 @@
 
 #include "test_utils.hpp"
 
+#include <cstdlib>
 #include <cstring>
 
 char* readTestFile(char* filename)
@@ -31,7 +32,7 @@ char* readTestFile(char* filename)
         fseek(fp, 0, SEEK_END);
         length = ftell(fp);
         fseek(fp, 0, SEEK_SET);
-        buffer = (char*)calloc(length, MAXTESTCHAR);
+        buffer = (char*)calloc(length, sizeof(char));
         if (buffer)
         {
             fread(buffer, 1, length, fp);

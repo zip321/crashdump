@@ -37,8 +37,11 @@
 
 #define PM_NA "N/A"
 #define PM_UA "UA:0x%x"
+#define PM_DF "DF:0x%x"
+#define PM_UA_DF "UA:0x%x,DF:0x%x"
 #define PM_UINT32_FMT "0x%" PRIx32 ""
 #define PM_PCS_88 88
+#define JSON_FAILURE 8
 
 /******************************************************************************
  *
@@ -49,12 +52,17 @@ typedef struct
 {
     uint32_t u32CState;
     uint32_t u32VidRatio;
+    uint8_t ccCstate;
+    int retCstate;
+    uint8_t ccVratio;
+    int retVratio;
 } SCpuPowerState;
 
 typedef struct
 {
     uint32_t uValue;
     bool bInvalid;
+
 } SPmRegRawData;
 
 typedef struct

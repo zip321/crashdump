@@ -5,13 +5,15 @@ Intel Builds CrashDump against this OpenBMC version.
 https://github.com/Intel-BMC/openbmc/tree/intel/meta-openbmc-mods
 
 Dependencies:
--Install sdbusplus  (https://github.com/openbmc/sdbusplus)
+- <peci.h> from libpeci (https://github.com/openbmc/libpeci)
+- <peci-ioctl.h> from the PECI kernel driver (https://github.com/openbmc/linux/blob/dev-5.4/include/uapi/linux/peci-ioctl.h)
+- Install sdbusplus (https://github.com/openbmc/sdbusplus)
     Tested with: 1befc49be9b32b1c04cc9485c132827c86aa891c
--Install boost (https://www.boost.org/) Tested with: version 1.66
--Install CJSON (https://github.com/DaveGamble/cJSON) Tested with verison v1.7.12
--Install safeclib (https://sourceforge.net/projects/safeclib/files/)
+- Install boost (https://www.boost.org/) Tested with: version 1.66
+- Install CJSON (https://github.com/DaveGamble/cJSON) Tested with verison v1.7.12
+- Install safeclib (https://sourceforge.net/projects/safeclib/files/)
     Tested with: f1708afcbba69f75e80920b75aa3d7baee3f611d
--(optional)Install gtest (https://github.com/google/googletest)
+- (optional)Install gtest (https://github.com/google/googletest)
     Tested with: 2134e3fd857d952e03ce76064fad5ac6e9036104
 
 ## BUILD

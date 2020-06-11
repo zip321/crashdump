@@ -35,6 +35,10 @@ extern "C" {
 #define CD_JSON_STRING_LEN 256
 #define CD_JSON_THREAD_NAME "thread%d"
 #define CD_JSON_THREAD_1 "thread1"
+#define CD_JSON_UA "UA:0x%x"
+#define CD_JSON_DF "DF:0x%x"
+#define CD_JSON_UA_DF "UA:0x%x,DF:0x%x"
+#define SIZE_FAILURE 7
 
 /******************************************************************************
  *
@@ -150,7 +154,6 @@ typedef struct
 #define CD_JSON_LBR_NAME_INFO "LBR%d_INFO"
 
 #define CD_JSON_SQ_ENTRY_NAME "entry%d"
-#define CD_JSON_UA "UA:0x%x"
 
 /******************************************************************************
  *

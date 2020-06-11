@@ -19,6 +19,8 @@
 
 #include "utils.hpp"
 
+#include "crashdump.hpp"
+
 #include <boost/container/flat_map.hpp>
 #include <sdbusplus/bus.hpp>
 #include <sdbusplus/message.hpp>
@@ -138,4 +140,140 @@ uint32_t bitField(uint32_t offset, uint32_t size, uint32_t val)
 {
     uint32_t mask = (1u << size) - 1;
     return (val & mask) << offset;
+}
+
+cJSON* readInputFile(const char* filename)
+{
+    char* buffer = NULL;
+    cJSON* jsonBuf = NULL;
+    uint64_t length = 0;
+    FILE* fp = fopen(filename, "r");
+
+    if (fp == NULL)
+    {
+        return NULL;
+    }
+
+    fseek(fp, 0, SEEK_END);
+    length = ftell(fp);
+    if (length == -1L)
+    {
+        fclose(fp);
+        return NULL;
+    }
+    fseek(fp, 0, SEEK_SET);
+    buffer = (char*)calloc(length, sizeof(char));
+    if (buffer)
+    {
+        fread(buffer, 1, length, fp);
+    }
+    fclose(fp);
+
+    // Convert and return cJSON object from buffer
+    jsonBuf = cJSON_Parse(buffer);
+    FREE(buffer);
+    return jsonBuf;
+}
+
+cJSON* getCrashDataSection(cJSON* root, char* section, bool* enable)
+{
+    *enable = false;
+    cJSON* child = cJSON_GetObjectItemCaseSensitive(
+        cJSON_GetObjectItemCaseSensitive(root, "crash_data"), section);
+
+    if (child != NULL)
+    {
+        *enable = cJSON_IsTrue(cJSON_GetObjectItem(child, RECORD_ENABLE));
+    }
+
+    return child;
+}
+
+cJSON* getCrashDataSectionRegList(cJSON* root, char* section, char* regType,
+                                  bool* enable)
+{
+    cJSON* child = getCrashDataSection(root, section, enable);
+
+    if (child != NULL)
+    {
+        return cJSON_GetObjectItemCaseSensitive(
+            cJSON_GetObjectItemCaseSensitive(child, regType), "reg_list");
+    }
+
+    return child;
+}
+
+int getCrashDataSectionVersion(cJSON* root, char* section)
+{
+    uint64_t version = 0;
+    bool enable = false;
+    cJSON* child = getCrashDataSection(root, section, &enable);
+
+    if (child != NULL)
+    {
+        cJSON* jsonVer = cJSON_GetObjectItem(child, "_version");
+        if ((jsonVer != NULL) && cJSON_IsString(jsonVer))
+        {
+            version = strtoull(jsonVer->valuestring, NULL, 16);
+        }
+    }
+
+    return version;
+}
+
+cJSON* selectAndReadInputFile(crashdump::cpu::Model cpuModel, char** filename)
+{
+    char cpuStr[CPU_STR_LEN] = {0};
+    char nameStr[NAME_STR_LEN] = {0};
+
+    switch (cpuModel)
+    {
+        case crashdump::cpu::skx:
+            strcpy_s(cpuStr, sizeof("skx"), "skx");
+            break;
+        case crashdump::cpu::cpx:
+            strcpy_s(cpuStr, sizeof("cpx"), "cpx");
+            break;
+        case crashdump::cpu::clx:
+            strcpy_s(cpuStr, sizeof("clx"), "clx");
+            break;
+        case crashdump::cpu::icx:
+        case crashdump::cpu::icx2:
+            strcpy_s(cpuStr, sizeof("icx"), "icx");
+            break;
+        default:
+            fprintf(stderr, "Error selecting input file (CPUID 0x%x).\n",
+                    cpuModel);
+            return NULL;
+    }
+
+    cd_snprintf_s(nameStr, NAME_STR_LEN, OVERRIDE_INPUT_FILE, cpuStr);
+
+    if (access(nameStr, F_OK) != -1)
+    {
+        fprintf(stderr, "Using override file - %s\n", nameStr);
+    }
+    else
+    {
+        cd_snprintf_s(nameStr, NAME_STR_LEN, DEFAULT_INPUT_FILE, cpuStr);
+    }
+
+    *filename = (char*)malloc(sizeof(nameStr));
+    if (*filename == NULL)
+    {
+        return NULL;
+    }
+    strcpy_s(*filename, sizeof(nameStr), nameStr);
+
+    return readInputFile(nameStr);
+}
+
+void updateRecordEnable(cJSON* root, bool enable)
+{
+    cJSON* logSection = NULL;
+    logSection = cJSON_GetObjectItemCaseSensitive(root, RECORD_ENABLE);
+    if (logSection == NULL)
+    {
+        cJSON_AddBoolToObject(root, RECORD_ENABLE, enable);
+    }
 }

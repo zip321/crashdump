@@ -207,7 +207,7 @@ static uint8_t u8CrashdumpCoreGroupSizes[] = {
  *
  ******************************************************************************/
 static void crashdumpJsonCPX1(uint32_t u32NumReads, SCrashdump* sCrashdump,
-                              cJSON* pJsonChild)
+                              cJSON* pJsonChild, int ret, uint8_t cc)
 {
     char jsonItemName[CD_JSON_STRING_LEN] = {0};
     char jsonItemString[CD_JSON_STRING_LEN] = {0};
@@ -264,6 +264,17 @@ static void crashdumpJsonCPX1(uint32_t u32NumReads, SCrashdump* sCrashdump,
             cJSON* rawData = cJSON_CreateIntArray(
                 reinterpret_cast<const int*>(sCrashdump->data), u32NumReads);
             cJSON_AddItemToObject(core, "raw_data", rawData);
+            if (ret != PECI_CC_SUCCESS)
+            {
+                cd_snprintf_s(jsonItemString, CD_JSON_STRING_LEN, CD_JSON_UA_DF,
+                              cc, ret);
+            }
+            else if (PECI_CC_UA(cc))
+            {
+                cd_snprintf_s(jsonItemString, CD_JSON_STRING_LEN, CD_JSON_UA,
+                              cc);
+            }
+            cJSON_AddStringToObject(core, "Driver_Status", jsonItemString);
         }
         return;
     }
@@ -536,69 +547,72 @@ static void crashdumpJsonCPX1(uint32_t u32NumReads, SCrashdump* sCrashdump,
  ******************************************************************************/
 int logCrashdumpCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 {
-    EPECIStatus ePECIStatus = PECI_CC_SUCCESS;
     int ret = 0;
     int peci_fd = -1;
     uint8_t cc = 0;
+    uint8_t ccVal = 0;
 
-    if (peci_Lock(&peci_fd, PECI_WAIT_FOREVER) != PECI_CC_SUCCESS)
+    ret = peci_Lock(&peci_fd, PECI_WAIT_FOREVER);
+    if (ret != PECI_CC_SUCCESS)
     {
-        return 1;
+        return ret;
     }
 
     // Start the crashdump log
     SCrashdump sCrashdump = {};
 
     // Open the Crashdump sequence
-    ePECIStatus =
+    ret =
         peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_OPEN_SEQ,
                              VCU_CRASHDUMP_SEQ, sizeof(uint32_t), peci_fd, &cc);
-    if (ePECIStatus != PECI_CC_SUCCESS)
+    if (ret != PECI_CC_SUCCESS)
     {
         // Crashdump sequence failed, abort the sequence
         peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_ABORT_SEQ,
                              VCU_CRASHDUMP_SEQ, sizeof(uint32_t), peci_fd, &cc);
-        return 1;
+        return ret;
     }
 
     // Get the Header Data
-    ePECIStatus = peci_RdPkgConfig_seq(
-        cpuInfo.clientAddr, MBX_INDEX_VCU, CD_HEADER_PARAM, sizeof(uint32_t),
-        (uint8_t*)&sCrashdump.header.size, peci_fd, &cc);
-    if (ePECIStatus != PECI_CC_SUCCESS)
+    ret = peci_RdPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU,
+                               CD_HEADER_PARAM, sizeof(uint32_t),
+                               (uint8_t*)&sCrashdump.header.size, peci_fd, &cc);
+    if (ret != PECI_CC_SUCCESS)
     {
         // Crashdump sequence failed, abort the sequence
         peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_ABORT_SEQ,
                              VCU_CRASHDUMP_SEQ, sizeof(uint32_t), peci_fd, &cc);
-        return 1;
+        return ret;
     }
     for (uint32_t i = 0; i < CD_DWORDS_HEADER; i++)
     {
-        ePECIStatus = peci_RdPkgConfig_seq(
+        ret = peci_RdPkgConfig_seq(
             cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_READ, sizeof(uint32_t),
             (uint8_t*)&sCrashdump.header.data[i], peci_fd, &cc);
-        if (ePECIStatus != PECI_CC_SUCCESS)
+        if (ret != PECI_CC_SUCCESS)
         {
             // Crashdump sequence failed, abort the sequence and break out
             // of the header loop to go to the next CPU
             peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU,
                                  VCU_ABORT_SEQ, VCU_CRASHDUMP_SEQ,
                                  sizeof(uint32_t), peci_fd, &cc);
-            return 1;
+            return ret;
         }
     }
-
+    // save the crashcoreMask for Metadata information
+    cpuInfo.crashedCoreMask = ((sCrashdump.header.data[3] & 0xFFFF) << 16) |
+                              (sCrashdump.header.data[2] & 0xFFFF);
     // Get the number of remaining dword reads
     uint32_t u32NumReads = 0;
-    ePECIStatus = peci_RdPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU,
-                                       VCU_READ, sizeof(uint32_t),
-                                       (uint8_t*)&u32NumReads, peci_fd, &cc);
-    if (ePECIStatus != PECI_CC_SUCCESS)
+    ret = peci_RdPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_READ,
+                               sizeof(uint32_t), (uint8_t*)&u32NumReads,
+                               peci_fd, &cc);
+    if (ret != PECI_CC_SUCCESS)
     {
         // Crashdump sequence failed, abort the sequence and go to the next CPU
         peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_ABORT_SEQ,
                              VCU_CRASHDUMP_SEQ, sizeof(uint32_t), peci_fd, &cc);
-        return 1;
+        return ret;
     }
 
     // Get the raw data
@@ -606,16 +620,18 @@ int logCrashdumpCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
     if (sCrashdump.data == NULL)
     {
         // calloc failed, abort the sequence
+        fprintf(stderr, "Error allocating memory (size:%d)\n", u32NumReads);
         peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_ABORT_SEQ,
                              VCU_CRASHDUMP_SEQ, sizeof(uint32_t), peci_fd, &cc);
-        return 1;
+        return SIZE_FAILURE;
     }
     for (uint32_t i = 0; i < u32NumReads; i++)
     {
-        ePECIStatus = peci_RdPkgConfig_seq(
-            cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_READ, sizeof(uint32_t),
-            (uint8_t*)&sCrashdump.data[i], peci_fd, &cc);
-        if (ePECIStatus != PECI_CC_SUCCESS)
+        ret = peci_RdPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_READ,
+                                   sizeof(uint32_t),
+                                   (uint8_t*)&sCrashdump.data[i], peci_fd, &cc);
+        ccVal = cc;
+        if (ret != PECI_CC_SUCCESS)
         {
             // Crashdump sequence failed, note the number of dwords read and
             // abort the sequence
@@ -623,7 +639,6 @@ int logCrashdumpCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
             peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU,
                                  VCU_ABORT_SEQ, VCU_CRASHDUMP_SEQ,
                                  sizeof(uint32_t), peci_fd, &cc);
-            ret = 1;
             break;
         }
     }
@@ -633,7 +648,7 @@ int logCrashdumpCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
                          VCU_CRASHDUMP_SEQ, sizeof(uint32_t), peci_fd, &cc);
 
     // Log the Crashdump for this CPU
-    crashdumpJsonCPX1(u32NumReads, &sCrashdump, pJsonChild);
+    crashdumpJsonCPX1(u32NumReads, &sCrashdump, pJsonChild, ret, ccVal);
 
     free(sCrashdump.data);
 
@@ -805,12 +820,15 @@ static int getJsonDataString(uint8_t* u8Data, uint32_t u32DataSize,
  *
  ******************************************************************************/
 static void crashdumpJsonICX1(uint32_t u32CoreNum, uint32_t u32ThreadNum,
-                              uint32_t u32CrashSize, uint8_t* pu8Crashdump,
-                              cJSON* pJsonChild, uint8_t cc)
+                              uint32_t u32CrashSize, uint32_t u32NumReads,
+                              uint8_t* pu8Crashdump, cJSON* pJsonChild,
+                              uint8_t cc, int retval)
 {
     char jsonItemName[CD_JSON_STRING_LEN] = {0};
     char jsonItemString[CD_JSON_STRING_LEN] = {0};
-
+    // Convert from number of qwords to number of bytes
+    // and add uCrashdumpVerSize.raw.
+    u32NumReads = (u32NumReads * 8) + 8;
     // Add the core number item to the Crashdump JSON structure only if it
     // doesn't already exist
     cJSON* core = NULL;
@@ -844,12 +862,24 @@ static void crashdumpJsonICX1(uint32_t u32CoreNum, uint32_t u32ThreadNum,
             return;
         }
         u32DataIndex += ret;
-        if (PECI_CC_UA(cc))
+        if (u32NumReads < u32DataIndex)
         {
-            cd_snprintf_s(jsonItemString, CD_JSON_STRING_LEN, CD_JSON_UA, cc);
-            cJSON_AddStringToObject(thread, sCrashdumpCoreHeaderICX1[i].name,
-                                    jsonItemString);
-            return;
+            if (retval != PECI_CC_SUCCESS)
+            {
+                cd_snprintf_s(jsonItemString, CD_JSON_STRING_LEN, CD_JSON_UA_DF,
+                              cc, retval);
+                cJSON_AddStringToObject(
+                    thread, sCrashdumpCoreHeaderICX1[i].name, jsonItemString);
+                return;
+            }
+            else if (PECI_CC_UA(cc))
+            {
+                cd_snprintf_s(jsonItemString, CD_JSON_STRING_LEN, CD_JSON_UA,
+                              cc);
+                cJSON_AddStringToObject(
+                    thread, sCrashdumpCoreHeaderICX1[i].name, jsonItemString);
+                return;
+            }
         }
         cJSON_AddStringToObject(thread, sCrashdumpCoreHeaderICX1[i].name,
                                 jsonItemString);
@@ -867,13 +897,24 @@ static void crashdumpJsonICX1(uint32_t u32CoreNum, uint32_t u32ThreadNum,
             return;
         }
         u32DataIndex += ret;
-
-        if (PECI_CC_UA(cc))
+        if (u32NumReads < u32DataIndex)
         {
-            cd_snprintf_s(jsonItemString, CD_JSON_STRING_LEN, CD_JSON_UA, cc);
-            cJSON_AddStringToObject(thread, sCrashdumpCoreRegsICX1[i].name,
-                                    jsonItemString);
-            return;
+            if (retval != PECI_CC_SUCCESS)
+            {
+                cd_snprintf_s(jsonItemString, CD_JSON_STRING_LEN, CD_JSON_UA_DF,
+                              cc, retval);
+                cJSON_AddStringToObject(thread, sCrashdumpCoreRegsICX1[i].name,
+                                        jsonItemString);
+                return;
+            }
+            else if (PECI_CC_UA(cc))
+            {
+                cd_snprintf_s(jsonItemString, CD_JSON_STRING_LEN, CD_JSON_UA,
+                              cc);
+                cJSON_AddStringToObject(thread, sCrashdumpCoreRegsICX1[i].name,
+                                        jsonItemString);
+                return;
+            }
         }
         cJSON_AddStringToObject(thread, sCrashdumpCoreRegsICX1[i].name,
                                 jsonItemString);
@@ -898,12 +939,24 @@ static void crashdumpJsonICX1(uint32_t u32CoreNum, uint32_t u32ThreadNum,
             }
             u32DataIndex += ret;
             cd_snprintf_s(jsonItemName, CD_JSON_STRING_LEN, cLbrName[j], i);
-            if (PECI_CC_UA(cc))
+            if (u32NumReads < u32DataIndex)
             {
-                cd_snprintf_s(jsonItemString, CD_JSON_STRING_LEN, CD_JSON_UA,
-                              cc);
-                cJSON_AddStringToObject(thread, jsonItemName, jsonItemString);
-                return;
+                if (retval != PECI_CC_SUCCESS)
+                {
+                    cd_snprintf_s(jsonItemString, CD_JSON_STRING_LEN,
+                                  CD_JSON_UA_DF, cc, retval);
+                    cJSON_AddStringToObject(thread, jsonItemName,
+                                            jsonItemString);
+                    return;
+                }
+                else if (PECI_CC_UA(cc))
+                {
+                    cd_snprintf_s(jsonItemString, CD_JSON_STRING_LEN,
+                                  CD_JSON_UA_DF, cc);
+                    cJSON_AddStringToObject(thread, jsonItemName,
+                                            jsonItemString);
+                    return;
+                }
             }
             cJSON_AddStringToObject(thread, jsonItemName, jsonItemString);
         }
@@ -931,17 +984,25 @@ static void crashdumpJsonICX1(uint32_t u32CoreNum, uint32_t u32ThreadNum,
             return;
         }
         u32DataIndex += ret;
-
-        if (PECI_CC_UA(cc))
-        {
-            cd_snprintf_s(jsonItemName, CD_JSON_STRING_LEN,
-                          CD_JSON_SQ_ENTRY_NAME, i);
-            cd_snprintf_s(jsonItemString, CD_JSON_STRING_LEN, CD_JSON_UA, cc);
-            cJSON_AddStringToObject(sqDump, jsonItemName, jsonItemString);
-            return;
-        }
         cd_snprintf_s(jsonItemName, CD_JSON_STRING_LEN, CD_JSON_SQ_ENTRY_NAME,
                       i);
+        if (u32NumReads < u32DataIndex)
+        {
+            if (retval != PECI_CC_SUCCESS)
+            {
+                cd_snprintf_s(jsonItemString, CD_JSON_STRING_LEN, CD_JSON_UA_DF,
+                              cc, retval);
+                cJSON_AddStringToObject(thread, jsonItemName, jsonItemString);
+                return;
+            }
+            else if (PECI_CC_UA(cc))
+            {
+                cd_snprintf_s(jsonItemString, CD_JSON_STRING_LEN, CD_JSON_UA,
+                              cc);
+                cJSON_AddStringToObject(thread, jsonItemName, jsonItemString);
+                return;
+            }
+        }
         cJSON_AddStringToObject(sqDump, jsonItemName, jsonItemString);
     }
 }
@@ -961,62 +1022,62 @@ static void crashdumpJsonICX1(uint32_t u32CoreNum, uint32_t u32ThreadNum,
 int logCrashdumpICX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 {
     int ret = 0;
-    EPECIStatus ePeciStatus;
     uint8_t cc = 0;
+    bool gotoNextCore = false;
+    uint32_t u32NumReads = 0;
 
     // Crashdump Discovery
     uint8_t u8CrashdumpDisabled = ICX_A0_CRASHDUMP_DISABLED;
-    ePeciStatus = peci_CrashDump_Discovery(
-        cpuInfo.clientAddr, PECI_CRASHDUMP_ENABLED, 0, 0, 0, sizeof(uint8_t),
-        &u8CrashdumpDisabled, &cc);
-    if (ePeciStatus != PECI_CC_SUCCESS ||
+    ret = peci_CrashDump_Discovery(cpuInfo.clientAddr, PECI_CRASHDUMP_ENABLED,
+                                   0, 0, 0, sizeof(uint8_t),
+                                   &u8CrashdumpDisabled, &cc);
+    if (ret != PECI_CC_SUCCESS ||
         u8CrashdumpDisabled == ICX_A0_CRASHDUMP_DISABLED)
     {
         fprintf(stderr,
                 "Crashdump is disabled (%d) during discovery "
                 "(disabled:%d)\n",
-                ePeciStatus, u8CrashdumpDisabled);
-        return 1;
+                ret, u8CrashdumpDisabled);
+        return ret;
     }
 
     // Crashdump Number of Agents
     uint16_t u16CrashdumpNumAgents;
-    ePeciStatus = peci_CrashDump_Discovery(
+    ret = peci_CrashDump_Discovery(
         cpuInfo.clientAddr, PECI_CRASHDUMP_NUM_AGENTS, 0, 0, 0,
         sizeof(uint16_t), (uint8_t*)&u16CrashdumpNumAgents, &cc);
-    if (ePeciStatus != PECI_CC_SUCCESS ||
-        u16CrashdumpNumAgents <= PECI_CRASHDUMP_CORE)
+    if (ret != PECI_CC_SUCCESS || u16CrashdumpNumAgents <= PECI_CRASHDUMP_CORE)
     {
-        fprintf(stderr, "Error (%d) during discovery (num of agents:%d)\n",
-                ePeciStatus, u16CrashdumpNumAgents);
-        return 1;
+        fprintf(stderr, "Error (%d) during discovery (num of agents:%d)\n", ret,
+                u16CrashdumpNumAgents);
+        return ret;
     }
 
     // Crashdump Agent Data
     // Agent Unique ID
     uint64_t u64UniqueId;
-    ePeciStatus = peci_CrashDump_Discovery(
+    ret = peci_CrashDump_Discovery(
         cpuInfo.clientAddr, PECI_CRASHDUMP_AGENT_DATA, PECI_CRASHDUMP_AGENT_ID,
         PECI_CRASHDUMP_CORE, 0, sizeof(uint64_t), (uint8_t*)&u64UniqueId, &cc);
-    if (ePeciStatus != PECI_CC_SUCCESS)
+    if (ret != PECI_CC_SUCCESS)
     {
-        fprintf(stderr, "Error (%d) during discovery (id:0x%" PRIx64 ")\n",
-                ePeciStatus, u64UniqueId);
-        return 1;
+        fprintf(stderr, "Error (%d) during discovery (id:0x%" PRIx64 ")\n", ret,
+                u64UniqueId);
+        return ret;
     }
 
     // Agent Payload Size
     uint64_t u64PayloadExp;
-    ePeciStatus = peci_CrashDump_Discovery(
+    ret = peci_CrashDump_Discovery(
         cpuInfo.clientAddr, PECI_CRASHDUMP_AGENT_DATA,
         PECI_CRASHDUMP_AGENT_PARAM, PECI_CRASHDUMP_CORE,
         PECI_CRASHDUMP_PAYLOAD_SIZE, sizeof(uint64_t), (uint8_t*)&u64PayloadExp,
         &cc);
-    if (ePeciStatus != PECI_CC_SUCCESS)
+    if (ret != PECI_CC_SUCCESS)
     {
         fprintf(stderr, "Error (%d) during discovery (payload:0x%" PRIx64 ")\n",
-                ePeciStatus, u64PayloadExp);
-        return 1;
+                ret, u64PayloadExp);
+        return ret;
     }
 
     // Crashdump Get Frames
@@ -1034,16 +1095,15 @@ int logCrashdumpICX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
         {
             // Get the crashdump size for this thread from the first read
             UCrashdumpVerSize uCrashdumpVerSize;
-            ePeciStatus = peci_CrashDump_GetFrame(
+            ret = peci_CrashDump_GetFrame(
                 cpuInfo.clientAddr, PECI_CRASHDUMP_CORE, u32CoreNum, 0,
                 sizeof(uint64_t), (uint8_t*)&uCrashdumpVerSize.raw, &cc);
 
-            if (ePeciStatus != PECI_CC_SUCCESS)
+            if (ret != PECI_CC_SUCCESS)
             {
-                ret = 1;
                 fprintf(stderr,
-                        "Error (%d) during GetFrame 0 (0x%" PRIx64 ")\n",
-                        ePeciStatus, uCrashdumpVerSize.raw);
+                        "Error (%d) during GetFrame 0 (0x%" PRIx64 ")\n", ret,
+                        uCrashdumpVerSize.raw);
                 continue;
             }
 
@@ -1053,7 +1113,7 @@ int logCrashdumpICX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
             }
             if (PECI_CC_SKIP_SOCKET(cc))
             {
-                return 0;
+                return ret;
             }
 
             uint32_t u32CrashdumpSize = 0;
@@ -1075,9 +1135,9 @@ int logCrashdumpICX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
             if (pu64Crashdump == NULL)
             {
                 // calloc failed, exit
-                fprintf(stderr, "Error (%d) allocating memory (size:%d)\n",
-                        ePeciStatus, u32CrashdumpSize);
-                return 1;
+                fprintf(stderr, "Error allocating memory (size:%d)\n",
+                        u32CrashdumpSize);
+                return SIZE_FAILURE;
             }
             pu64Crashdump[0] = uCrashdumpVerSize.raw;
 
@@ -1087,32 +1147,32 @@ int logCrashdumpICX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
             // Get the rest of the crashdump data
             for (uint32_t i = 1; i < (u32CrashdumpSize / sizeof(uint64_t)); i++)
             {
-                ePeciStatus = peci_CrashDump_GetFrame(
+                ret = peci_CrashDump_GetFrame(
                     cpuInfo.clientAddr, PECI_CRASHDUMP_CORE, u32CoreNum, 0,
                     sizeof(uint64_t), (uint8_t*)&pu64Crashdump[i], &cc);
-
+                u32NumReads = i;
                 if (PECI_CC_SKIP_CORE(cc))
                 {
                     fprintf(stderr, "Error (%d) during GetFrame (num:%d)\n",
-                            ePeciStatus, i);
-                    FREE(pu64Crashdump);
-                    goto nextCore;
+                            ret, i);
+                    gotoNextCore = true;
+                    break;
                 }
 
                 if (PECI_CC_SKIP_SOCKET(cc))
                 {
                     fprintf(stderr, "Error (%d) during GetFrame (num:%d)\n",
-                            ePeciStatus, i);
+                            ret, i);
                     FREE(pu64Crashdump);
-                    return 0;
+                    return ret;
                 }
 
-                if (ePeciStatus != PECI_CC_SUCCESS)
+                if (ret != PECI_CC_SUCCESS)
                 {
                     fprintf(stderr, "Error (%d) during GetFrame (num:%d)\n",
-                            ePeciStatus, i);
-                    FREE(pu64Crashdump);
-                    goto nextCore;
+                            ret, i);
+                    gotoNextCore = true;
+                    break;
                 }
             }
             // Check if this core is multi-threaded, if available
@@ -1133,8 +1193,11 @@ int logCrashdumpICX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
             }
             // Log this Crashdump
             crashdumpJsonICX1(u32CoreNum, threadId, u32CrashdumpSize,
-                              (uint8_t*)pu64Crashdump, pJsonChild, cc);
+                              u32NumReads, (uint8_t*)pu64Crashdump, pJsonChild,
+                              cc, ret);
             FREE(pu64Crashdump);
+            if (gotoNextCore == true)
+                break;
         }
     nextCore:;
     }
@@ -1166,6 +1229,12 @@ int logCrashdump(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
     if (pJsonChild == NULL)
     {
         return 1;
+    }
+
+    if (!CHECK_BIT(cpuInfo.sectionMask, crashdump::BIG_CORE))
+    {
+        updateRecordEnable(pJsonChild, false);
+        return 0;
     }
 
     for (uint32_t i = 0; i < (sizeof(sCrashdumpVx) / sizeof(SCrashdumpVx)); i++)
