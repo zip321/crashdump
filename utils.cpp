@@ -21,10 +21,8 @@
 
 #include "crashdump.hpp"
 
-#include <boost/container/flat_map.hpp>
-#include <sdbusplus/bus.hpp>
-#include <sdbusplus/message.hpp>
-#include <variant>
+#include <stdlib.h>
+#include <unistd.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -36,73 +34,6 @@ extern "C" {
 #ifdef __cplusplus
 }
 #endif
-
-namespace crashdump
-{
-int getBMCVersionDBus(char* bmcVerStr, size_t bmcVerStrSize)
-{
-    using ManagedObjectType = boost::container::flat_map<
-        sdbusplus::message::object_path,
-        boost::container::flat_map<
-            std::string, boost::container::flat_map<
-                             std::string, std::variant<std::string>>>>;
-
-    if (bmcVerStr == nullptr)
-    {
-        return 1;
-    }
-
-    sdbusplus::bus::bus dbus = sdbusplus::bus::new_default_system();
-    sdbusplus::message::message getObjects = dbus.new_method_call(
-        "xyz.openbmc_project.Software.BMC.Updater",
-        "/xyz/openbmc_project/software", "org.freedesktop.DBus.ObjectManager",
-        "GetManagedObjects");
-    ManagedObjectType bmcUpdaterIntfs;
-    try
-    {
-        sdbusplus::message::message resp = dbus.call(getObjects);
-        resp.read(bmcUpdaterIntfs);
-    }
-    catch (sdbusplus::exception_t& e)
-    {
-        return 1;
-    }
-
-    for (const std::pair<
-             sdbusplus::message::object_path,
-             boost::container::flat_map<
-                 std::string, boost::container::flat_map<
-                                  std::string, std::variant<std::string>>>>&
-             pathPair : bmcUpdaterIntfs)
-    {
-        boost::container::flat_map<
-            std::string,
-            boost::container::flat_map<
-                std::string, std::variant<std::string>>>::const_iterator
-            softwareVerIt =
-                pathPair.second.find("xyz.openbmc_project.Software.Version");
-        if (softwareVerIt != pathPair.second.end())
-        {
-            boost::container::flat_map<std::string, std::variant<std::string>>::
-                const_iterator versionIt =
-                    softwareVerIt->second.find("Version");
-            if (versionIt != softwareVerIt->second.end())
-            {
-                const std::string* bmcVersion =
-                    std::get_if<std::string>(&versionIt->second);
-                if (bmcVersion != nullptr)
-                {
-                    size_t copySize =
-                        std::min(bmcVersion->size(), bmcVerStrSize - 1);
-                    bmcVersion->copy(bmcVerStr, copySize);
-                    return 0;
-                }
-            }
-        }
-    }
-    return 1;
-}
-} // namespace crashdump
 
 int cd_snprintf_s(char* str, size_t len, const char* format, ...)
 {
@@ -146,8 +77,9 @@ cJSON* readInputFile(const char* filename)
 {
     char* buffer = NULL;
     cJSON* jsonBuf = NULL;
-    uint64_t length = 0;
+    long int length = 0;
     FILE* fp = fopen(filename, "r");
+    size_t result = 0;
 
     if (fp == NULL)
     {
@@ -165,10 +97,18 @@ cJSON* readInputFile(const char* filename)
     buffer = (char*)calloc(length, sizeof(char));
     if (buffer)
     {
-        fread(buffer, 1, length, fp);
+        result = fread(buffer, 1, length, fp);
+        if ((int)result != length)
+        {
+            fprintf(stderr, "fread read %d bytes, but length is %ld", result,
+                    length);
+            fclose(fp);
+            FREE(buffer);
+            return NULL;
+        }
     }
-    fclose(fp);
 
+    fclose(fp);
     // Convert and return cJSON object from buffer
     jsonBuf = cJSON_Parse(buffer);
     FREE(buffer);
@@ -183,7 +123,15 @@ cJSON* getCrashDataSection(cJSON* root, char* section, bool* enable)
 
     if (child != NULL)
     {
-        *enable = cJSON_IsTrue(cJSON_GetObjectItem(child, RECORD_ENABLE));
+        cJSON* recordEnable = cJSON_GetObjectItem(child, RECORD_ENABLE);
+        if (recordEnable == NULL)
+        {
+            *enable = true;
+        }
+        else
+        {
+            *enable = cJSON_IsTrue(recordEnable);
+        }
     }
 
     return child;
@@ -221,7 +169,8 @@ int getCrashDataSectionVersion(cJSON* root, char* section)
     return version;
 }
 
-cJSON* selectAndReadInputFile(crashdump::cpu::Model cpuModel, char** filename)
+cJSON* selectAndReadInputFile(crashdump::cpu::Model cpuModel, char** filename,
+                              bool isTelemetry)
 {
     char cpuStr[CPU_STR_LEN] = {0};
     char nameStr[NAME_STR_LEN] = {0};
@@ -242,22 +191,29 @@ cJSON* selectAndReadInputFile(crashdump::cpu::Model cpuModel, char** filename)
             strcpy_s(cpuStr, sizeof("icx"), "icx");
             break;
         default:
-            fprintf(stderr, "Error selecting input file (CPUID 0x%x).\n",
-                    cpuModel);
+            CRASHDUMP_PRINT(ERR, stderr,
+                            "Error selecting input file (CPUID 0x%x).\n",
+                            cpuModel);
             return NULL;
     }
 
-    cd_snprintf_s(nameStr, NAME_STR_LEN, OVERRIDE_INPUT_FILE, cpuStr);
+    char* override_file;
+
+    isTelemetry ? override_file = OVERRIDE_TELEMETRY_FILE
+                : override_file = OVERRIDE_INPUT_FILE;
+    cd_snprintf_s(nameStr, NAME_STR_LEN, override_file, cpuStr);
 
     if (access(nameStr, F_OK) != -1)
     {
-        fprintf(stderr, "Using override file - %s\n", nameStr);
+        CRASHDUMP_PRINT(INFO, stderr, "Using override file - %s\n", nameStr);
     }
     else
     {
-        cd_snprintf_s(nameStr, NAME_STR_LEN, DEFAULT_INPUT_FILE, cpuStr);
+        const char* default_file;
+        isTelemetry ? default_file = DEFAULT_TELEMETRY_FILE
+                    : default_file = DEFAULT_INPUT_FILE;
+        cd_snprintf_s(nameStr, NAME_STR_LEN, default_file, cpuStr);
     }
-
     *filename = (char*)malloc(sizeof(nameStr));
     if (*filename == NULL)
     {

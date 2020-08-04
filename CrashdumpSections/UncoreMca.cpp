@@ -320,7 +320,7 @@ static int uncoreMcaCboCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
     }
 
     // Go through each CBO in this CPU
-    for (uint32_t i = 0; i < cpuInfo.chaCount; i++)
+    for (size_t i = 0; i < cpuInfo.chaCount; i++)
     {
         SUncoreMcaRawData sMcaData = {};
         // Build the MCA parameter for this CBO
@@ -691,7 +691,7 @@ static int logUnCoreMcaCboICX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
     int ret = 0;
 
     // Go through each CBO in this CPU
-    for (uint32_t i = 0; i < cpuInfo.chaCount; i++)
+    for (size_t i = 0; i < cpuInfo.chaCount; i++)
     {
         SUncoreMcaRawData sMcaData = {};
         sMcaData.bInvalid = false;
@@ -803,12 +803,6 @@ int logUncoreMca(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
         return 1;
     }
 
-    if (!CHECK_BIT(cpuInfo.sectionMask, crashdump::MCA))
-    {
-        updateRecordEnable(pJsonChild, false);
-        return 0;
-    }
-
     for (uint32_t i = 0;
          i < (sizeof(sUncoreMcaLogVx) / sizeof(SUncoreMcaLogVx)); i++)
     {
@@ -818,6 +812,6 @@ int logUncoreMca(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
         }
     }
 
-    fprintf(stderr, "Cannot find version for %s\n", __FUNCTION__);
+    CRASHDUMP_PRINT(ERR, stderr, "Cannot find version for %s\n", __FUNCTION__);
     return 1;
 }

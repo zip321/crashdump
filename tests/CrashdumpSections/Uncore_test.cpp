@@ -33,7 +33,8 @@ int uncoreStatusPciMmioICX(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);
 int uncoreStatusPciCPX(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);
 int uncoreStatusPciMmioCPX(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);
 cJSON* readInputFile(const char* filename);
-cJSON* selectAndReadInputFile(crashdump::cpu::Model cpuModel, char** filename);
+cJSON* selectAndReadInputFile(crashdump::cpu::Model cpuModel, char** filename,
+                              bool isTelemetry);
 
 // change to ifdef or adjust CMakeList.txt to test against hardware
 #ifndef MOCK
@@ -71,13 +72,14 @@ class UncoreTestFixture : public Test
     char* jsonStr = NULL;
     char* defaultFile = NULL;
     char* overrideFile = NULL;
+    bool isTelemetry = false;
 };
 
 TEST_F(UncoreTestFixture, getCrashDataSection)
 {
     bool enable = false;
-    inputFileInfo.buffers[0] =
-        selectAndReadInputFile(cpus[0].model, inputFileInfo.filenames);
+    inputFileInfo.buffers[0] = selectAndReadInputFile(
+        cpus[0].model, inputFileInfo.filenames, isTelemetry);
     cJSON* section =
         getCrashDataSection(inputFileInfo.buffers[0], "uncore", &enable);
     EXPECT_TRUE(enable);
@@ -85,8 +87,8 @@ TEST_F(UncoreTestFixture, getCrashDataSection)
 
 TEST_F(UncoreTestFixture, getCrashDataSectionVersion)
 {
-    inputFileInfo.buffers[0] =
-        selectAndReadInputFile(cpus[0].model, inputFileInfo.filenames);
+    inputFileInfo.buffers[0] = selectAndReadInputFile(
+        cpus[0].model, inputFileInfo.filenames, isTelemetry);
     int version =
         getCrashDataSectionVersion(inputFileInfo.buffers[0], "uncore");
     EXPECT_EQ(version, 0x21);
@@ -94,9 +96,9 @@ TEST_F(UncoreTestFixture, getCrashDataSectionVersion)
 
 TEST_F(UncoreTestFixture, uncoreStatusPciICX)
 {
-    ut = readInputFile("/tmp/crashdump_input/ut_uncore_sample_icx.json");
-    inputFileInfo.buffers[0] =
-        selectAndReadInputFile(cpus[0].model, inputFileInfo.filenames);
+    ut = readInputFile("/tmp/crashdump/input/ut_uncore_sample_icx.json");
+    inputFileInfo.buffers[0] = selectAndReadInputFile(
+        cpus[0].model, inputFileInfo.filenames, isTelemetry);
 
     uncoreStatusPciICX(cpus[0], root);
 
@@ -117,9 +119,9 @@ TEST_F(UncoreTestFixture, uncoreStatusPciICX)
 
 TEST_F(UncoreTestFixture, uncoreStatusPciMmioICX)
 {
-    ut = readInputFile("/tmp/crashdump_input/ut_uncore_sample_icx.json");
-    inputFileInfo.buffers[0] =
-        selectAndReadInputFile(cpus[0].model, inputFileInfo.filenames);
+    ut = readInputFile("/tmp/crashdump/input/ut_uncore_sample_icx.json");
+    inputFileInfo.buffers[0] = selectAndReadInputFile(
+        cpus[0].model, inputFileInfo.filenames, isTelemetry);
 
     uncoreStatusPciMmioICX(cpus[0], root);
 
@@ -140,9 +142,9 @@ TEST_F(UncoreTestFixture, uncoreStatusPciMmioICX)
 
 TEST_F(UncoreTestFixture, uncoreStatusPciCPX)
 {
-    ut = readInputFile("/tmp/crashdump_input/ut_uncore_sample_cpx.json");
-    inputFileInfo.buffers[0] =
-        selectAndReadInputFile(cpus[0].model, inputFileInfo.filenames);
+    ut = readInputFile("/tmp/crashdump/input/ut_uncore_sample_cpx.json");
+    inputFileInfo.buffers[0] = selectAndReadInputFile(
+        cpus[0].model, inputFileInfo.filenames, isTelemetry);
 
     uncoreStatusPciCPX(cpus[0], root);
 
@@ -163,9 +165,9 @@ TEST_F(UncoreTestFixture, uncoreStatusPciCPX)
 
 TEST_F(UncoreTestFixture, uncoreStatusPciMmioCPX)
 {
-    ut = readInputFile("/tmp/crashdump_input/ut_uncore_sample_cpx.json");
-    inputFileInfo.buffers[0] =
-        selectAndReadInputFile(cpus[0].model, inputFileInfo.filenames);
+    ut = readInputFile("/tmp/crashdump/input/ut_uncore_sample_cpx.json");
+    inputFileInfo.buffers[0] = selectAndReadInputFile(
+        cpus[0].model, inputFileInfo.filenames, isTelemetry);
 
     uncoreStatusPciMmioCPX(cpus[0], root);
 

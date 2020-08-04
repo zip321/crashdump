@@ -66,12 +66,15 @@ class SqDumpTestFixture : public Test
         // Initialize json object
         root = cJSON_CreateObject();
         psSqDump = (SSqDump*)malloc(sizeof(SSqDump));
-        psSqDump->pu32SqCtrlArray = (uint32_t*)malloc(8 * sizeof(uint32_t));
-        psSqDump->pu32SqAddrArray = (uint32_t*)malloc(8 * sizeof(uint32_t));
-        psSqDump->puSqAddrRet = (int*)malloc(8 * sizeof(int));
-        psSqDump->pu8SqAddrCc = (uint8_t*)malloc(8 * sizeof(uint8_t));
-        psSqDump->puSqCtrlRet = (int*)malloc(8 * sizeof(int));
-        psSqDump->pu8SqCtrlCc = (uint8_t*)malloc(8 * sizeof(uint8_t));
+        if (psSqDump != NULL)
+        {
+            psSqDump->pu32SqCtrlArray = (uint32_t*)malloc(8 * sizeof(uint32_t));
+            psSqDump->pu32SqAddrArray = (uint32_t*)malloc(8 * sizeof(uint32_t));
+            psSqDump->puSqAddrRet = (int*)malloc(8 * sizeof(int));
+            psSqDump->pu8SqAddrCc = (uint8_t*)malloc(8 * sizeof(uint8_t));
+            psSqDump->puSqCtrlRet = (int*)malloc(8 * sizeof(int));
+            psSqDump->pu8SqCtrlCc = (uint8_t*)malloc(8 * sizeof(uint8_t));
+        }
     }
 
     cJSON* root = NULL;

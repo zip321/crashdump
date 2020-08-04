@@ -200,12 +200,24 @@ int logTorDumpCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
     puTorRet = (int*)calloc(u32NumReads, sizeof(int));
     if (pu32TorDump == NULL || pu8TorCc == NULL || puTorRet == NULL)
     {
+        if (pu32TorDump != NULL)
+        {
+            FREE(pu32TorDump);
+        }
+        if (pu8TorCc != NULL)
+        {
+            FREE(pu8TorCc);
+        }
+        if (puTorRet != NULL)
+        {
+            FREE(puTorRet);
+        }
         // calloc failed, abort the sequence
         peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_ABORT_SEQ,
                              VCU_TOR_DUMP_SEQ, sizeof(uint32_t), peci_fd, &cc);
         return SIZE_FAILURE;
     }
-    for (int i = 0; i < u32NumReads; i++)
+    for (uint32_t i = 0; i < u32NumReads; i++)
     {
         ret = peci_RdPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_READ,
                                    sizeof(uint32_t), (uint8_t*)&pu32TorDump[i],
@@ -231,15 +243,15 @@ int logTorDumpCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 
     if (pu32TorDump != NULL)
     {
-        free(pu32TorDump);
+        FREE(pu32TorDump);
     }
     if (pu8TorCc != NULL)
     {
-        free(pu8TorCc);
+        FREE(pu8TorCc);
     }
     if (puTorRet != NULL)
     {
-        free(puTorRet);
+        FREE(puTorRet);
     }
 
     peci_Unlock(peci_fd);
@@ -330,6 +342,8 @@ static void torDumpJsonICX2(uint32_t u32Cha, uint32_t u32TorIndex,
  ******************************************************************************/
 int logTorDumpICX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 {
+    (void)cpuInfo;
+    (void)pJsonChild;
     // Not supported in A0
     return 0;
 }
@@ -358,10 +372,10 @@ int logTorDumpICX2(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
                                    &u8CrashdumpEnabled, &cc);
     if ((ret != PECI_CC_SUCCESS) || (u8CrashdumpEnabled != 0))
     {
-        fprintf(stderr,
-                "Tor Crashdump is disabled (%d) during discovery "
-                "(disabled:%d)\n",
-                ret, u8CrashdumpEnabled);
+        CRASHDUMP_PRINT(ERR, stderr,
+                        "Tor Crashdump is disabled (%d) during discovery "
+                        "(disabled:%d)\n",
+                        ret, u8CrashdumpEnabled);
         return ret;
     }
 
@@ -371,8 +385,9 @@ int logTorDumpICX2(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
         sizeof(uint16_t), (uint8_t*)&u16CrashdumpNumAgents, &cc);
     if (ret != PECI_CC_SUCCESS || u16CrashdumpNumAgents <= PECI_CRASHDUMP_TOR)
     {
-        fprintf(stderr, "Error (%d) during discovery (num of agents:%d)\n", ret,
-                u16CrashdumpNumAgents);
+        CRASHDUMP_PRINT(ERR, stderr,
+                        "Error (%d) during discovery (num of agents:%d)\n", ret,
+                        u16CrashdumpNumAgents);
         return ret;
     }
 
@@ -383,8 +398,9 @@ int logTorDumpICX2(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
         PECI_CRASHDUMP_TOR, 0, sizeof(uint64_t), (uint8_t*)&u64UniqueId, &cc);
     if (ret != PECI_CC_SUCCESS)
     {
-        fprintf(stderr, "Error (%d) during discovery (id:0x%" PRIx64 ")\n", ret,
-                u64UniqueId);
+        CRASHDUMP_PRINT(ERR, stderr,
+                        "Error (%d) during discovery (id:0x%" PRIx64 ")\n", ret,
+                        u64UniqueId);
         return ret;
     }
 
@@ -396,15 +412,16 @@ int logTorDumpICX2(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
                                  (uint8_t*)&u64PayloadExp, &cc);
     if (ret != PECI_CC_SUCCESS)
     {
-        fprintf(stderr, "Error (%d) during discovery (payload:0x%" PRIx64 ")\n",
-                ret, u64PayloadExp);
+        CRASHDUMP_PRINT(ERR, stderr,
+                        "Error (%d) during discovery (payload:0x%" PRIx64 ")\n",
+                        ret, u64PayloadExp);
         return ret;
     }
 
     uint32_t u32PayloadBytes = 1 << u64PayloadExp;
 
     // Crashdump Get Frames
-    for (uint32_t u32Cha = 0; u32Cha < cpuInfo.chaCount; u32Cha++)
+    for (size_t cha = 0; cha < cpuInfo.chaCount; cha++)
     {
         for (uint32_t u32TorIndex = 0; u32TorIndex < TD_TORS_PER_CHA_ICX1;
              u32TorIndex++)
@@ -417,24 +434,26 @@ int logTorDumpICX2(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
                 bool bInvalid = false;
                 if (pu8TorCrashdumpData == NULL)
                 {
-                    fprintf(stderr, "Error allocating memory (size:%d)\n",
-                            u32PayloadBytes);
+                    CRASHDUMP_PRINT(ERR, stderr,
+                                    "Error allocating memory (size:%d)\n",
+                                    u32PayloadBytes);
                     return 1;
                 }
                 ret = peci_CrashDump_GetFrame(
-                    cpuInfo.clientAddr, PECI_CRASHDUMP_TOR, u32Cha,
+                    cpuInfo.clientAddr, PECI_CRASHDUMP_TOR, cha,
                     (u32TorIndex | (u32TorSubIndex << 8)), u32PayloadBytes,
                     pu8TorCrashdumpData, &cc);
 
                 if (ret != PECI_CC_SUCCESS)
                 {
                     bInvalid = true;
-                    fprintf(stderr,
-                            "Error (%d) during GetFrame"
-                            "(cha:%d index:%d sub-index:%d)\n",
-                            ret, u32Cha, u32TorIndex, u32TorSubIndex);
+                    CRASHDUMP_PRINT(ERR, stderr,
+                                    "Error (%d) during GetFrame"
+                                    "(cha:%d index:%d sub-index:%d)\n",
+                                    ret, static_cast<int>(cha), u32TorIndex,
+                                    u32TorSubIndex);
                 }
-                torDumpJsonICX2(u32Cha, u32TorIndex, u32TorSubIndex,
+                torDumpJsonICX2(cha, u32TorIndex, u32TorSubIndex,
                                 u32PayloadBytes, pu8TorCrashdumpData,
                                 pJsonChild, bInvalid, cc, ret);
 
@@ -469,12 +488,6 @@ int logTorDump(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
         return 1;
     }
 
-    if (!CHECK_BIT(cpuInfo.sectionMask, crashdump::TOR))
-    {
-        updateRecordEnable(pJsonChild, false);
-        return 0;
-    }
-
     for (uint32_t i = 0; i < (sizeof(sTorDumpVx) / sizeof(STorDumpVx)); i++)
     {
         if (cpuInfo.model == sTorDumpVx[i].cpuModel)
@@ -483,6 +496,6 @@ int logTorDump(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
         }
     }
 
-    fprintf(stderr, "Cannot find version for %s\n", __FUNCTION__);
+    CRASHDUMP_PRINT(ERR, stderr, "Cannot find version for %s\n", __FUNCTION__);
     return 1;
 }

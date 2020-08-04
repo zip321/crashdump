@@ -154,6 +154,8 @@ typedef struct
 #define CD_JSON_LBR_NAME_INFO "LBR%d_INFO"
 
 #define CD_JSON_SQ_ENTRY_NAME "entry%d"
+#define CRASHDUMP_KNOWN_VESION 0x401e002
+#define CRASHDUMP_MAX_SIZE 0x7f8
 
 /******************************************************************************
  *

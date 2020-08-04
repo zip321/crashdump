@@ -27,13 +27,11 @@ extern "C" {
 #include <cjson/cJSON.h>
 }
 
-namespace crashdump
-{
-int getBMCVersionDBus(char* bmcVerStr, size_t bmcVerStrSize);
-} // namespace crashdump
-
-#define DEFAULT_INPUT_FILE "/usr/share/crashdump/crashdump_input_%s.json"
-#define OVERRIDE_INPUT_FILE "/tmp/crashdump_input/crashdump_input_%s.json"
+#define DEFAULT_INPUT_FILE "/usr/share/crashdump/input/crashdump_input_%s.json"
+#define OVERRIDE_INPUT_FILE "/tmp/crashdump/input/crashdump_input_%s.json"
+#define DEFAULT_TELEMETRY_FILE                                                 \
+    "/usr/share/crashdump/input/telemetry_input_%s.json"
+#define OVERRIDE_TELEMETRY_FILE "/tmp/crashdump/input/telemetry_input_%s.json"
 
 #define PECI_CC_SKIP_CORE(cc)                                                  \
     (((cc) == PECI_DEV_CC_CATASTROPHIC_MCA_ERROR ||                            \

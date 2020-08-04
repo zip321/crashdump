@@ -55,8 +55,7 @@ enum US_PCI
     US_PCI_DEVICE,
     US_PCI_FUNCTION,
     US_PCI_OFFSET,
-    US_PCI_SIZE,
-    US_PCI_TELEMETRY
+    US_PCI_SIZE
 };
 
 enum US_MMIO
@@ -67,8 +66,8 @@ enum US_MMIO
     US_MMIO_DEVICE,
     US_MMIO_FUNCTION,
     US_MMIO_OFFSET,
-    US_MMIO_SIZE,
-    US_MMIO_TELEMETRY
+    US_MMIO_ADDRTYPE,
+    US_MMIO_SIZE
 };
 
 enum US_RDIAMSR
@@ -76,8 +75,7 @@ enum US_RDIAMSR
     US_RDIAMSR_REG_NAME,
     US_RDIAMSR_ADDR,
     US_RDIAMSR_THREAD_ID,
-    US_RDIAMSR_SIZE,
-    US_RDIAMSR_TELEMETRY
+    US_RDIAMSR_SIZE
 };
 
 #define US_REG_NAME_LEN 64
@@ -158,25 +156,6 @@ typedef struct
 
 typedef struct
 {
-    char regName[US_REG_NAME_LEN];
-    union
-    {
-        struct
-        {
-            uint32_t lenCode : 2;
-            uint32_t bar : 2;
-            uint32_t bus : 3;
-            uint32_t rsvd : 1;
-            uint32_t func : 3;
-            uint32_t dev : 5;
-            uint32_t reg : 16;
-        } fields;
-        uint32_t raw;
-    } uMmioReg;
-} SUncoreStatusRegPciMmio;
-
-typedef struct
-{
     char* regName;
     union
     {
@@ -241,6 +220,7 @@ typedef struct
     uint8_t u8Dev;
     uint8_t u8Func;
     uint64_t u64Offset;
+    uint8_t u8AddrType;
     uint8_t u8Size;
     bool bTelemetry;
 } SUncoreStatusRegPciMmioICX;
@@ -263,7 +243,12 @@ typedef struct
 {
     crashdump::cpu::Model cpuModel;
     int (*logUncoreStatusVx)(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);
-    int ssVersion;
 } SUncoreStatusLogVx;
+
+static const SUncoreStatusRegIio sUncoreStatusIio[] = {
+    {"iio_cstack_mc_%s", 0},  {"iio_pstack0_mc_%s", 1},
+    {"iio_pstack1_mc_%s", 2}, {"iio_pstack2_mc_%s", 3},
+    {"iio_pstack3_mc_%s", 4},
+};
 
 int logUncoreStatus(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);

@@ -44,13 +44,10 @@ static void sqDumpJson(uint32_t u32CoreNum, SSqDump* psSqDump,
 {
     cJSON* core;
     cJSON* sq;
-    cJSON* entry;
-    cJSON* sqData;
     char jsonItemName[SQ_JSON_STRING_LEN];
     char jsonItemString[SQ_JSON_STRING_LEN];
     uint32_t i;
     uint32_t index = 0;
-    uint8_t u8DwordNum;
 
     // Only add the section if there is data to include
     if (psSqDump->u32SqAddrSize == 0 && psSqDump->u32SqCtrlSize == 0)
@@ -214,7 +211,7 @@ static int sqDump(crashdump::CPUInfo& cpuInfo, uint32_t u32CoreNum,
                              VCU_SQ_DUMP_SEQ, sizeof(uint32_t), peci_fd, &cc);
         return SIZE_FAILURE;
     }
-    for (int i = 0; i < u32NumReads; i++)
+    for (uint32_t i = 0; i < u32NumReads; i++)
     {
         ret = peci_RdPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_READ,
                                    sizeof(uint32_t), (uint8_t*)&pu32SqDump[i],
@@ -241,7 +238,6 @@ static int sqDump(crashdump::CPUInfo& cpuInfo, uint32_t u32CoreNum,
     *pu32SqDumpSize = u32NumReads;
     *ppu8Cc = pu8Cc;
     *ppuRet = puRet;
-
     return ret;
 }
 
@@ -275,7 +271,6 @@ static int sqDump(crashdump::CPUInfo& cpuInfo, uint32_t u32CoreNum,
  ******************************************************************************/
 int logSqDumpCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 {
-    bool bSqDataLogged = false;
     int peci_fd = -1;
     int ret = 0;
     int retval = 0;
@@ -301,28 +296,25 @@ int logSqDumpCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
         ret = sqDump(cpuInfo, u32CoreNum, SQ_ADDR_ARRAY,
                      &sSqDump.pu32SqAddrArray, &sSqDump.u32SqAddrSize, peci_fd,
                      &sSqDump.pu8SqAddrCc, &sSqDump.puSqAddrRet);
-        if (ret == 0)
+        if (ret != 0)
         {
-            // Set the flag indicating that we found SQ data in one of the
-            // cores, so we should return success
-            bSqDataLogged = true;
             retval = ret;
         }
+
         // Get the SQ Dump Control Array data
         ret = sqDump(cpuInfo, u32CoreNum, SQ_CTRL_ARRAY,
                      &sSqDump.pu32SqCtrlArray, &sSqDump.u32SqCtrlSize, peci_fd,
                      &sSqDump.pu8SqCtrlCc, &sSqDump.puSqCtrlRet);
-        if (ret == 0)
+        if (ret != 0)
         {
-            // Set the flag indicating that we found SQ data in one of the
-            // cores, so we should return success
-            bSqDataLogged = true;
             retval = ret;
         }
 
         // Log the SQ dump for this Core
-        sqDumpJson(u32CoreNum, &sSqDump, pJsonChild);
-
+        if (retval == 0)
+        {
+            sqDumpJson(u32CoreNum, &sSqDump, pJsonChild);
+        }
         // Free any allocated memory
         if (sSqDump.pu32SqAddrArray)
         {
@@ -370,6 +362,8 @@ int logSqDumpCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
  ******************************************************************************/
 int logSqDumpICX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 {
+    (void)cpuInfo;
+    (void)pJsonChild;
     return 0;
 }
 
@@ -394,13 +388,7 @@ int logSqDump(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
         return 1;
     }
 
-    if (!CHECK_BIT(cpuInfo.sectionMask, crashdump::BIG_CORE))
-    {
-        updateRecordEnable(pJsonChild, false);
-        return 0;
-    }
-
-    for (int i = 0; i < (sizeof(sSqDumpVx) / sizeof(SSqDumpVx)); i++)
+    for (size_t i = 0; i < (sizeof(sSqDumpVx) / sizeof(SSqDumpVx)); i++)
     {
         if (cpuInfo.model == sSqDumpVx[i].cpuModel)
         {
@@ -408,6 +396,6 @@ int logSqDump(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
         }
     }
 
-    fprintf(stderr, "Cannot find version for %s\n", __FUNCTION__);
+    CRASHDUMP_PRINT(ERR, stderr, "Cannot find version for %s\n", __FUNCTION__);
     return 1;
 }

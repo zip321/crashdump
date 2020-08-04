@@ -64,7 +64,7 @@ static void addressMapJson(const SAddrMapEntry* sAddrMapEntry,
  ******************************************************************************/
 int logAddressMapEntries(crashdump::CPUInfo& cpuInfo,
                          const SAddrMapEntry* sAddrMapEntries,
-                         int numAddrMapEntries, cJSON* pJsonChild)
+                         size_t numAddrMapEntries, cJSON* pJsonChild)
 {
     int ret = 0;
     int peci_fd = -1;
@@ -77,7 +77,7 @@ int logAddressMapEntries(crashdump::CPUInfo& cpuInfo,
     }
 
     // Get the Address Map register values
-    for (uint32_t i = 0; i < numAddrMapEntries; i++)
+    for (size_t i = 0; i < numAddrMapEntries; i++)
     {
         UAddrMapRegValue uValue = {};
         uint64_t* pValue = &uValue.u64;
@@ -507,12 +507,6 @@ int logAddressMap(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
         return 1;
     }
 
-    if (!CHECK_BIT(cpuInfo.sectionMask, crashdump::ADDRESS_MAP))
-    {
-        updateRecordEnable(pJsonChild, false);
-        return 0;
-    }
-
     for (uint32_t i = 0; i < (sizeof(sAddrMapVx) / sizeof(SAddrMapVx)); i++)
     {
         if (cpuInfo.model == sAddrMapVx[i].cpuModel)
@@ -521,6 +515,6 @@ int logAddressMap(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
         }
     }
 
-    fprintf(stderr, "Cannot find version for %s\n", __FUNCTION__);
+    CRASHDUMP_PRINT(ERR, stderr, "Cannot find version for %s\n", __FUNCTION__);
     return 1;
 }

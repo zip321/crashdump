@@ -19,6 +19,7 @@
 
 #pragma once
 #include "utils.hpp"
+#include "utils_dbusplus.hpp"
 
 #include <linux/peci-ioctl.h>
 #include <peci.h>
@@ -31,6 +32,19 @@ extern "C" {
 
 #include "safe_str_lib.h"
 }
+#define CRASHDUMP_PRINT(level, fmt, ...) fprintf(fmt, __VA_ARGS__)
+#define CRASHDUMP_VALUE_LEN 6
+typedef enum
+{
+    EMERG,
+    ALERT,
+    CRIT,
+    ERR,
+    WARNING,
+    NOTICE,
+    INFO,
+    DEBUG,
+} severity;
 
 namespace cpuid
 {
@@ -42,6 +56,19 @@ typedef enum
     OVERWRITTEN = 3,
 } cpuidState;
 }
+
+namespace record_type
+{
+constexpr const int offset = 24;
+constexpr const int coreCrashLog = 0x04;
+constexpr const int uncoreStatusLog = 0x08;
+constexpr const int torDump = 0x09;
+constexpr const int metadata = 0x0b;
+constexpr const int pmInfo = 0x0c;
+constexpr const int addressMap = 0x0d;
+constexpr const int bmcAutonomous = 0x23;
+constexpr const int mcaLog = 0x3e;
+} // namespace record_type
 
 namespace crashdump
 {
@@ -79,9 +106,9 @@ typedef enum
 typedef enum
 {
     BIG_CORE,
-    TOR,
     MCA,
     UNCORE,
+    TOR,
     PM_INFO,
     ADDRESS_MAP,
     METADATA,
@@ -92,14 +119,18 @@ typedef struct
 {
     char* name;
     Section section;
+    int record_type;
 } CrashdumpSection;
 
 const CrashdumpSection sectionNames[NUMBER_OF_SECTIONS] = {
-    {"big_core", BIG_CORE}, {"TOR", TOR},         {"MCA", MCA},
-    {"uncore", UNCORE},     {"PM_info", PM_INFO}, {"address_map", ADDRESS_MAP},
-    {"METADATA", METADATA}};
-
-#define NUMBER_OF_CPU_MODELS crashdump::cpu::Model::numberOfModels
+    {"big_core", BIG_CORE, record_type::coreCrashLog},
+    {"MCA", MCA, record_type::mcaLog},
+    {"uncore", UNCORE, record_type::uncoreStatusLog},
+    {"TOR", TOR, record_type::torDump},
+    {"PM_info", PM_INFO, record_type::pmInfo},
+    {"address_map", ADDRESS_MAP, record_type::addressMap},
+    {"METADATA", METADATA, record_type::metadata}};
+const int NUMBER_OF_CPU_MODELS = crashdump::cpu::Model::numberOfModels;
 
 typedef struct _InputFileInfo
 {
@@ -143,7 +174,7 @@ struct CPUInfo
     uint64_t coreMask;
     uint64_t crashedCoreMask;
     uint8_t sectionMask = 0xff;
-    int chaCount;
+    size_t chaCount;
     pwState initialPeciWake;
     JSONInfo inputFile;
     CPUIDRead cpuidRead;
@@ -168,19 +199,6 @@ constexpr const int skxSP = 0x2A;
 constexpr const int icxSP = 0x1A;
 constexpr const int bmcAutonomous = 0x23;
 } // namespace product_type
-
-namespace record_type
-{
-constexpr const int offset = 24;
-constexpr const int coreCrashLog = 0x04;
-constexpr const int uncoreStatusLog = 0x08;
-constexpr const int torDump = 0x09;
-constexpr const int metadata = 0x0b;
-constexpr const int pmInfo = 0x0c;
-constexpr const int addressMap = 0x0d;
-constexpr const int bmcAutonomous = 0x23;
-constexpr const int mcaLog = 0x3e;
-} // namespace record_type
 
 inline static void logCrashdumpVersion(cJSON* parent,
                                        crashdump::CPUInfo& cpuInfo,

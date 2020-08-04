@@ -219,7 +219,7 @@ int logCoreMcaCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
         {
             continue;
         }
-        SCoreMcaRawData sCoreMcaRawData[LAST_CORE_MCA + 1] = {{0}};
+        SCoreMcaRawData sCoreMcaRawData[LAST_CORE_MCA + 1]{};
 
         // Read the Core MCA registers from the CPU
         for (uint32_t j = FIRST_CORE_MCA; j <= LAST_CORE_MCA; j++)
@@ -509,12 +509,6 @@ int logCoreMca(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
         return 1;
     }
 
-    if (!CHECK_BIT(cpuInfo.sectionMask, crashdump::MCA))
-    {
-        updateRecordEnable(pJsonChild, false);
-        return 0;
-    }
-
     for (uint32_t i = 0; i < (sizeof(sCoreMcaLogVx) / sizeof(SCoreMcaLogVx));
          i++)
     {
@@ -524,6 +518,6 @@ int logCoreMca(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
         }
     }
 
-    fprintf(stderr, "Cannot find version for %s\n", __FUNCTION__);
+    CRASHDUMP_PRINT(ERR, stderr, "Cannot find version for %s\n", __FUNCTION__);
     return 1;
 }

@@ -295,7 +295,7 @@ int fillCoresPerCpu(crashdump::CPUInfo& cpuInfo, char* cSectionName,
     }
 
     cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN, "0x%x",
-                  __builtin_popcount(cpuInfo.coreMask));
+                  __builtin_popcountll(cpuInfo.coreMask));
     cJSON_AddStringToObject(cpu, cSectionName, jsonItemString);
     return 0;
 }
@@ -457,14 +457,11 @@ int fillMeVersion(char* cSectionName, cJSON* pJsonChild)
  ******************************************************************************/
 int fillBiosId(char* cSectionName, cJSON* pJsonChild)
 {
-    // Fill in as N/A for now
-    cJSON_AddStringToObject(pJsonChild, cSectionName, MD_NA);
+    char biosVersion[SI_BIOS_ID_LEN] = {0};
+    crashdump::getBIOSVersionDBus(biosVersion, sizeof(biosVersion));
+    // Fill in BIOS Version string
+    cJSON_AddStringToObject(pJsonChild, cSectionName, biosVersion);
     return 0;
-    // char jsonItemString[SI_JSON_STRING_LEN];
-
-    // cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN, "%s",
-    // sSysInfoRawData->u8BiosId); cJSON_AddStringToObject(pJsonChild,
-    // cSectionName, jsonItemString);
 }
 
 /******************************************************************************
@@ -612,7 +609,6 @@ int getPpinDataCPX1(crashdump::CPUInfo& cpuInfo, char* cSectionName,
 {
     cJSON* cpu = NULL;
     char jsonItemName[SI_JSON_STRING_LEN] = {0};
-    char jsonItemString[SI_JSON_STRING_LEN] = {0};
     // For now, the CPU number is just the bottom nibble of the PECI client ID
     int cpuNum = cpuInfo.clientAddr & 0xF;
 
@@ -695,7 +691,7 @@ int fillPpin(crashdump::CPUInfo& cpuInfo, char* cSectionName, cJSON* pJsonChild)
 {
     int r = 0;
     int ret = 0;
-    for (int i = 0; i < (sizeof(sSPpinVx) / sizeof(SPpinVx)); i++)
+    for (size_t i = 0; i < (sizeof(sSPpinVx) / sizeof(SPpinVx)); i++)
     {
         if (cpuInfo.model == sSPpinVx[i].cpuModel)
         {
@@ -709,29 +705,6 @@ int fillPpin(crashdump::CPUInfo& cpuInfo, char* cSectionName, cJSON* pJsonChild)
     return ret;
 }
 
-/******************************************************************************
- *
- *   getBIOSID
- *
- *   This function gets the BIOS ID
- *
- ******************************************************************************/
-static int getBIOSID(uint8_t* biosID)
-{
-    return 0;
-}
-
-/******************************************************************************
- *
- *   getMeDeviceId
- *
- *   This function gets the Device ID from the Intel ME
- *
- ******************************************************************************/
-static int getMeDeviceId(void)
-{
-    return 0;
-}
 /******************************************************************************
  *
  *   fillCrashCoreCount
@@ -758,7 +731,7 @@ static int fillCrashCoreCount(crashdump::CPUInfo& cpuInfo, char* cSectionName,
     }
     // Get the crashCore data obtain during BigCore
     cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN, "0x%x",
-                  __builtin_popcount(cpuInfo.crashedCoreMask));
+                  __builtin_popcountll(cpuInfo.crashedCoreMask));
     cJSON_AddStringToObject(cpu, cSectionName, jsonItemString);
     return 0;
 }
@@ -799,14 +772,14 @@ static SSysInfoSection sSysInfoTable[] = {
     {"cpuid", fillCPUID},
     {"_cpuid_source", fillCPUIdSource},
     {"core_mask", fillCoreMask},
-    {"chaCount", fillChaCount},
+    {"cha_count", fillChaCount},
     {"package_id", fillPackageId},
-    {"cores_per_cpu", fillCoresPerCpu},
+    {"core_count", fillCoresPerCpu},
     {"ucode_patch_ver", fillUCodeVersion},
     {"vcode_ver", fillVCodeVersion},
     {"mca_err_src_log", fillMcaErrSrcLog},
     {"ppin", fillPpin},
-    {"crashcoreCount", fillCrashCoreCount},
+    {"crashcore_count", fillCrashCoreCount},
     {"crashcore_mask", fillCrashCoreMask},
 };
 
