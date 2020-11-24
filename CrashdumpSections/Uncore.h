@@ -17,13 +17,10 @@
  *
  ******************************************************************************/
 
-#pragma once
-#include "crashdump.hpp"
+#ifndef UNCORE_H
+#define UNCORE_H
 
-extern "C" {
-#include <cjson/cJSON.h>
-#include <stdint.h>
-}
+#include "crashdump.h"
 
 /******************************************************************************
  *
@@ -88,21 +85,8 @@ enum US_RDIAMSR
 #define US_FAILED "N/A"
 #define UNCORE_MCA_UA "UA:0x%x"
 #define UNCORE_UA_DF "UA:0x%x,DF:0x%x"
-
-/******************************************************************************
- *
- *   CPX1 Defines
- *
- ******************************************************************************/
-// PECI sequence
-#define US_MCA_PARAM 0x1000
-#define US_MMIO_PARAM 0x0012
-#define US_UCRASH_START 0x3003
-#define US_UCRASH_PARAM 0
-
-#define US_BASE_IIO_BANK 6
-
-#define US_MCA_UNMERGE (1 << 22)
+#define UNCORE_FIXED_DATA_CC_RC "0x0,CC:0x%x,RC:0x%x"
+#define UNCORE_DATA_CC_RC "0x%" PRIx64 ",CC:0x%x,RC:0x%x"
 
 /******************************************************************************
  *
@@ -154,25 +138,6 @@ typedef struct
     bool bInvalid;
 } SUncoreStatusRegRawData;
 
-typedef struct
-{
-    char* regName;
-    union
-    {
-        struct
-        {
-            uint32_t lenCode : 2;
-            uint32_t bar : 2;
-            uint32_t bus : 3;
-            uint32_t rsvd : 1;
-            uint32_t func : 3;
-            uint32_t dev : 5;
-            uint32_t reg : 16;
-        } fields;
-        uint32_t raw;
-    } uMmioReg;
-} SUncoreStatusRegPciMmioCPX;
-
 typedef union
 {
     uint64_t u64Raw[US_NUM_MCA_QWORDS];
@@ -210,7 +175,7 @@ typedef struct
     uint16_t u16Reg;
     uint8_t u8Size;
     bool bTelemetry;
-} SUncoreStatusRegPciIcxCpx;
+} SUncoreStatusRegPciIcx;
 
 typedef struct
 {
@@ -223,7 +188,7 @@ typedef struct
     uint8_t u8AddrType;
     uint8_t u8Size;
     bool bTelemetry;
-} SUncoreStatusRegPciMmioICX;
+} SUncoreStatusRegPciMmioICXSPR;
 
 typedef struct
 {
@@ -232,17 +197,17 @@ typedef struct
     uint8_t threadID;
     uint8_t u8Size;
     bool bTelemetry;
-} SUncoreStatusMsrRegICX;
+} SUncoreStatusMsrRegICXSPR;
 
 static const char uncoreStatusMcaRegNames[][US_MCA_NAME_LEN] = {
     "ctl", "status", "addr", "misc", "ctl2"};
 
-typedef int (*UncoreStatusRead)(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);
+typedef int (*UncoreStatusRead)(CPUInfo* cpuInfo, cJSON* pJsonChild);
 
 typedef struct
 {
-    crashdump::cpu::Model cpuModel;
-    int (*logUncoreStatusVx)(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);
+    Model cpuModel;
+    int (*logUncoreStatusVx)(CPUInfo* cpuInfo, cJSON* pJsonChild);
 } SUncoreStatusLogVx;
 
 static const SUncoreStatusRegIio sUncoreStatusIio[] = {
@@ -251,4 +216,6 @@ static const SUncoreStatusRegIio sUncoreStatusIio[] = {
     {"iio_pstack3_mc_%s", 4},
 };
 
-int logUncoreStatus(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);
+int logUncoreStatus(CPUInfo* cpuInfo, cJSON* pJsonChild);
+
+#endif // UNCORE_H

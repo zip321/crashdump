@@ -17,13 +17,10 @@
  *
  ******************************************************************************/
 
-#pragma once
+#ifndef METADATA_H
+#define METADATA_H
 
-#include "crashdump.hpp"
-
-#include <cjson/cJSON.h>
-#include <stdbool.h>
-#include <stdint.h>
+#include "crashdump.h"
 
 #define SI_THREADS_PER_CORE 2
 
@@ -39,7 +36,7 @@
 
 #define SI_CPU_NAME_LEN 8
 #define SI_CRASHDUMP_VER_LEN 8
-#define SI_CRASHDUMP_VER "BMC_0.9"
+#define SI_CRASHDUMP_VER "BMC_EGS_0.3"
 
 #define SI_PECI_PPIN_IDX 19
 #define SI_PECI_PPIN_LOWER 0x01
@@ -48,11 +45,16 @@
 #define MD_UA "UA:0x%x"
 #define MD_DF "DF:0x%x"
 #define MD_UA_DF "UA:0x%x,DF:0x%x"
+#define MD_INT_DATA_CC_RC "0x%x,CC:0x%x,RC:0x%x"
+#define MD_64_DATA_CC_RC "0x%llx,CC:0x%x,RC:0x%x"
+#define MD_FIXED_DATA_CC_RC "0x0,CC:0x%x,RC:0x%x"
 #define MD_NA "N/A"
 #define MD_STARTUP "STARTUP"
 #define MD_EVENT "EVENT"
 #define MD_OVERWRITTEN "OVERWRITTEN"
 #define MD_INVALID "INVALID"
+
+#define RESET_DETECTED_DEFAULT "NONE"
 
 /******************************************************************************
  *
@@ -62,7 +64,7 @@
 typedef struct
 {
     char sectionName[SI_JSON_STRING_LEN];
-    int (*FillSysInfoJson)(crashdump::CPUInfo& cpuInfo, char* cSectionName,
+    int (*FillSysInfoJson)(CPUInfo* cpuInfo, char* cSectionName,
                            cJSON* pJsonChild);
 } SSysInfoSection;
 
@@ -75,19 +77,22 @@ typedef struct
 typedef struct
 {
     char sectionName[SI_JSON_STRING_LEN];
-    int (*FillSysInfoJson)(crashdump::CPUInfo& cpuInfo, char* cSectionName,
-                           cJSON* pJsonChild,
-                           crashdump::InputFileInfo* inputFileInfo);
+    int (*FillSysInfoJson)(CPUInfo* cpuInfo, char* cSectionName,
+                           cJSON* pJsonChild, InputFileInfo* inputFileInfo);
 } SSysInfoInputFileSection;
 
 typedef struct
 {
-    crashdump::cpu::Model cpuModel;
-    int (*getPpinVx)(crashdump::CPUInfo& cpuInfo, char* cSectionName,
-                     cJSON* pJsonChild);
+    Model cpuModel;
+    int (*getPpinVx)(CPUInfo* cpuInfo, char* cSectionName, cJSON* pJsonChild);
 } SPpinVx;
 
-int logSysInfo(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);
-int logSysInfoCommon(cJSON* pJsonChild);
-int logSysInfoInputfile(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild,
-                        crashdump::InputFileInfo* inputFileInfo);
+int logSysInfo(CPUInfo* cpuInfo, cJSON* pJsonChild);
+int logSysInfoInputfile(CPUInfo* cpuInfo, cJSON* pJsonChild,
+                        InputFileInfo* inputFileInfo);
+int logResetDetected(cJSON* metadata, int cpuNum, int sectionName);
+
+int fillMeVersion(char* cSectionName, cJSON* pJsonChild);
+int fillCrashdumpVersion(char* cSectionName, cJSON* pJsonChild);
+
+#endif // METADATA_H

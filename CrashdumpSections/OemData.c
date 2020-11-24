@@ -17,36 +17,22 @@
  *
  ******************************************************************************/
 
-#include "OemData.hpp"
+#include "OemData.h"
 
-extern "C" {
-#include <cjson/cJSON.h>
-#include <stdio.h>
-}
-#include "crashdump.hpp"
-#include "utils.hpp"
+#include "utils.h"
 
 #ifdef OEMDATA_SECTION
-int logOemDataCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
+int logOemDataICX1(CPUInfo* cpuInfo, cJSON* pJsonChild)
 {
     (void)cpuInfo;
     cJSON_AddStringToObject(pJsonChild, "Test", "1");
-    return 0;
-}
-
-int logOemDataICX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
-{
-    (void)cpuInfo;
-    cJSON_AddStringToObject(pJsonChild, "Test", "1");
-    return 0;
+    return ACD_SUCCESS;
 }
 
 static const SOemDataVx sOemDataVx[] = {
-    {crashdump::cpu::clx, logOemDataCPX1},
-    {crashdump::cpu::cpx, logOemDataCPX1},
-    {crashdump::cpu::skx, logOemDataCPX1},
-    {crashdump::cpu::icx, logOemDataICX1},
-    {crashdump::cpu::icx2, logOemDataICX1},
+    {cd_icx, logOemDataICX1},
+    {cd_icx2, logOemDataICX1},
+    {cd_icxd, logOemDataICX1},
 };
 
 /******************************************************************************
@@ -56,19 +42,19 @@ static const SOemDataVx sOemDataVx[] = {
  *
  *
  ******************************************************************************/
-int logOemData(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
+int logOemData(CPUInfo* cpuInfo, cJSON* pJsonChild)
 {
     if (pJsonChild == NULL)
     {
-        return 1;
+        return ACD_INVALID_OBJECT;
     }
     for (uint32_t i = 0; i < (sizeof(sOemDataVx) / sizeof(SOemDataVx)); i++)
     {
-        if (cpuInfo.model == sOemDataVx[i].cpuModel)
+        if (cpuInfo->model == sOemDataVx[i].cpuModel)
         {
             return sOemDataVx[i].logOemDataVx(cpuInfo, pJsonChild);
         }
     }
-    return 1;
+    return ACD_FAILURE;
 }
 #endif

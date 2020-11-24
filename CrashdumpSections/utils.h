@@ -17,15 +17,14 @@
  *
  ******************************************************************************/
 
-#pragma once
+#ifndef UTILS_H
+#define UTILS_H
 
+#include <cjson/cJSON.h>
+#include <stdbool.h>
 #include <stdint.h>
 
-#include <cstddef>
-
-extern "C" {
-#include <cjson/cJSON.h>
-}
+#include "crashdump.h"
 
 #define DEFAULT_INPUT_FILE "/usr/share/crashdump/input/crashdump_input_%s.json"
 #define OVERRIDE_INPUT_FILE "/tmp/crashdump/input/crashdump_input_%s.json"
@@ -65,8 +64,7 @@ extern "C" {
 #define CHECK_BIT(val, pos) ((val) & ((uint64_t)1 << ((uint64_t)pos)))
 #define CPU_STR_LEN 5
 #define NAME_STR_LEN 255
-
-int cd_snprintf_s(char* str, size_t len, const char* format, ...);
+#define DEFAULT_VALUE -1
 
 void setFields(uint32_t* value, uint32_t msb, uint32_t lsb, uint32_t inputVal);
 uint32_t getFields(uint32_t value, uint32_t msb, uint32_t lsb);
@@ -81,3 +79,22 @@ cJSON* getCrashDataSection(cJSON* root, char* section, bool* enable);
 cJSON* getCrashDataSectionRegList(cJSON* root, char* section, char* regType,
                                   bool* enable);
 int getCrashDataSectionVersion(cJSON* root, char* section);
+cJSON* readInputFile(const char* filename);
+int cd_snprintf_s(char* str, size_t len, const char* format, ...);
+cJSON* getCrashDataSectionBigCoreRegList(cJSON* root, char* version);
+bool isBigCoreRegVersionMatch(cJSON* root, uint32_t version);
+uint32_t getCrashDataSectionBigCoreSize(cJSON* root, char* version);
+void storeCrashDataSectionBigCoreSize(cJSON* root, char* version,
+                                      uint32_t totalSize);
+cJSON* getCrashDataSectionObject(cJSON* root, char* section, char* firstLevel,
+                                 char* secondLevel, bool* enable);
+
+cJSON* selectAndReadInputFile(Model cpuModel, char** filename,
+                              bool isTelemetry);
+cJSON* getCrashDataSectionAddressMapRegList(cJSON* root);
+cJSON* getCrashDataSectionObjectOneLevel(cJSON* root, char* section,
+                                         const char* firstLevel, bool* enable);
+void addDelayToSection(cJSON* cpu, CPUInfo* cpuInfo, char* sectionName,
+                       struct timespec* crashdumpStart);
+uint64_t tsToNanosecond(struct timespec* ts);
+#endif // UTILS_H

@@ -50,8 +50,6 @@ class CrashdumpTestFixture : public Test
         cpus.push_back(info);
         info.model = cpu::icx;
         cpus.push_back(info);
-        info.model = cpu::cpx;
-        cpus.push_back(info);
     }
 
     CPUInfo info = {};

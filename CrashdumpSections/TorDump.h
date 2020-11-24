@@ -17,66 +17,42 @@
  *
  ******************************************************************************/
 
-#pragma once
+#ifndef TORDUMP_H
+#define TORDUMP_H
 
-#include "crashdump.hpp"
-
-#include <cjson/cJSON.h>
-#include <stdint.h>
-#include <string.h>
-
-#define AM_REG_NAME_LEN 34
-
-#define AM_JSON_STRING_LEN 32
-
-#define AM_NA "N/A"
-#define AM_UA "UA:0x%x"
-#define AM_DF "DF:0x%x"
-#define AM_UA_DF "UA:0x%x,DF:0x%x"
-#define AM_UINT64_FMT "0x%" PRIx64 ""
-#define SIZE_FAILURE 7
-#define AM_PCI_SEG 0
+#include "crashdump.h"
 
 /******************************************************************************
  *
- *   Structures
+ *   Common Defines
  *
  ******************************************************************************/
-enum AM_REG_SIZE
-{
-    AM_REG_BYTE = 1,
-    AM_REG_WORD = 2,
-    AM_REG_DWORD = 4,
-    AM_REG_QWORD = 8
-};
+#define TD_JSON_STRING_LEN 66
+#define TD_JSON_CHA_NAME "cha%d"
+#define TD_JSON_TOR_NAME "index%d"
+#define TD_JSON_SUBINDEX_NAME "subindex%d"
+#define TD_NA "N/A"
+#define TD_UA "UA:0x%x"
+#define TD_DF "DF:0x%x"
+#define TD_UA_DF "UA:0x%x,DF:0x%x"
+#define TD_DATA_CC_RC ",CC:0x%x,RC:0x%x"
+#define TD_FIXED_DATA_CC_RC "0x0,CC:0x%x,RC:0x%x"
+#define SIZE_FAILURE 7
 
-typedef union
-{
-    uint64_t u64;
-    uint32_t u32[2];
-} UAddrMapRegValue;
-
-typedef struct
-{
-    UAddrMapRegValue uValue;
-    uint8_t cc;
-    bool bInvalid;
-} SAddressMapRegRawData;
-
-typedef struct
-{
-    char regName[AM_REG_NAME_LEN];
-    uint8_t u8Bus;
-    uint8_t u8Dev;
-    uint8_t u8Func;
-    uint16_t u16Reg;
-    uint8_t u8Size;
-} SAddrMapEntry;
+/******************************************************************************
+ *
+ *   ICX1 Defines
+ *
+ ******************************************************************************/
+#define TD_TORS_PER_CHA_ICX1 32
+#define TD_SUBINDEX_PER_TOR_ICX1 8
 
 typedef struct
 {
-    crashdump::cpu::Model cpuModel;
-    int (*logAddrMapVx)(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);
-} SAddrMapVx;
+    Model cpuModel;
+    int (*logTorDumpVx)(CPUInfo* cpuInfo, cJSON* pJsonChild);
+} STorDumpVx;
 
-int logAddressMap(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);
+int logTorDump(CPUInfo* cpuInfo, cJSON* pJsonChild);
+
+#endif // TORDUMP_H

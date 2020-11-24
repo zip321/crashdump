@@ -17,12 +17,10 @@
  *
  ******************************************************************************/
 
-#pragma once
+#ifndef POWERMANAGEMENT_H
+#define POWERMANAGEMENT_H
 
-#include "crashdump.hpp"
-
-#include <cjson/cJSON.h>
-#include <stdint.h>
+#include "crashdump.h"
 
 // PECI sequence
 #define PM_CSTATE_PARAM 0x4660B4
@@ -30,7 +28,7 @@
 #define PM_READ_PARAM 0x1019
 #define PM_CORE_OFFSET 24
 
-#define PM_JSON_STRING_LEN 32
+#define PM_JSON_STRING_LEN 64
 #define PM_JSON_CORE_NAME "core%d"
 #define PM_JSON_CSTATE_REG_NAME "c_state_reg"
 #define PM_JSON_VID_REG_NAME "vid_ratio_reg"
@@ -39,6 +37,8 @@
 #define PM_UA "UA:0x%x"
 #define PM_DF "DF:0x%x"
 #define PM_UA_DF "UA:0x%x,DF:0x%x"
+#define PM_DATA_CC_RC "0x%" PRIx32 ",CC:0x%x,RC:0x%x"
+#define PM_FIXED_DATA_CC_RC "0x0,CC:0x%x,RC:0x%x"
 #define PM_UINT32_FMT "0x%" PRIx32 ""
 #define PM_PCS_88 88
 #define JSON_FAILURE 8
@@ -58,16 +58,6 @@
  ******************************************************************************/
 typedef struct
 {
-    uint32_t u32CState;
-    uint32_t u32VidRatio;
-    uint8_t ccCstate;
-    int retCstate;
-    uint8_t ccVratio;
-    int retVratio;
-} SCpuPowerState;
-
-typedef struct
-{
     uint32_t uValue;
     bool bInvalid;
 
@@ -81,8 +71,7 @@ typedef struct
     uint16_t param;
 } SPmEntry;
 
-typedef int (*PowerManagementStatusRead)(crashdump::CPUInfo& cpuInfo,
-                                         cJSON* pJsonChild);
+typedef int (*PowerManagementStatusRead)(CPUInfo* cpuInfo, cJSON* pJsonChild);
 
 enum PM_REG
 {
@@ -100,8 +89,10 @@ enum PLL_REG
 
 typedef struct
 {
-    crashdump::cpu::Model cpuModel;
-    int (*logPowerManagementVx)(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);
+    Model cpuModel;
+    int (*logPowerManagementVx)(CPUInfo* cpuInfo, cJSON* pJsonChild);
 } SPowerManagementVx;
 
-int logPowerManagement(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);
+int logPowerManagement(CPUInfo* cpuInfo, cJSON* pJsonChild);
+
+#endif // POWERMANAGEMENT_H

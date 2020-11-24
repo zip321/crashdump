@@ -57,7 +57,7 @@ if (NOT ${YOCTO_DEPENDENCIES})
         sdbusplus-project
         PREFIX ${CMAKE_BINARY_DIR}/sdbusplus-project
         GIT_REPOSITORY https://github.com/openbmc/sdbusplus.git
-        GIT_TAG 1b7a58871cba4b97025f493f72cbb26ca6b21254
+        GIT_TAG 0f19c87276e46b56edbae70a71749353d401ed39
         SOURCE_DIR ${CMAKE_BINARY_DIR}/sdbusplus-src
         BINARY_DIR ${CMAKE_BINARY_DIR}/sdbusplus-build
         CONFIGURE_COMMAND ""
@@ -178,18 +178,18 @@ endif ()
 
 set (
     SRC_FILES
-    utils.cpp
     utils_dbusplus.cpp
-    CrashdumpSections/AddressMap.cpp
-    CrashdumpSections/TorDump.cpp
-    CrashdumpSections/BigCore.cpp
-    CrashdumpSections/MetaData.cpp
-    CrashdumpSections/CoreMca.cpp
-    CrashdumpSections/SqDump.cpp
-    CrashdumpSections/Uncore.cpp
-    CrashdumpSections/PowerManagement.cpp
-    CrashdumpSections/UncoreMca.cpp
-    CrashdumpSections/OemData.cpp
+    CrashdumpSections/AddressMap.c
+    CrashdumpSections/TorDump.c
+    CrashdumpSections/BigCore.c
+    CrashdumpSections/MetaData.c
+    CrashdumpSections/CoreMca.c
+    CrashdumpSections/UncoreMca.c
+    CrashdumpSections/Uncore.c
+    CrashdumpSections/PowerManagement.c
+    CrashdumpSections/OemData.c
+    CrashdumpSections/utils.c
+    CrashdumpSections/crashdump.c
 )
 
 add_executable (crashdump crashdump.cpp ${SRC_FILES})
@@ -237,9 +237,8 @@ install (
 
 install (
     FILES ${CMAKE_CURRENT_SOURCE_DIR}/crashdump_input_icx.json
-          ${CMAKE_CURRENT_SOURCE_DIR}/crashdump_input_cpx.json
           ${CMAKE_CURRENT_SOURCE_DIR}/telemetry_input_icx.json
-          ${CMAKE_CURRENT_SOURCE_DIR}/telemetry_input_cpx.json
+          ${CMAKE_CURRENT_SOURCE_DIR}/crashdump_input_spr.json
     PERMISSIONS OWNER_READ
     DESTINATION /usr/share/crashdump/input/
 )

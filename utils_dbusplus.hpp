@@ -21,6 +21,7 @@
 #include "crashdump.hpp"
 
 #include <boost/container/flat_map.hpp>
+#include <sdbusplus/asio/object_server.hpp>
 #include <sdbusplus/bus.hpp>
 #include <sdbusplus/message.hpp>
 #include <variant>
@@ -29,4 +30,8 @@ namespace crashdump
 {
 int getBMCVersionDBus(char* bmcVerStr, size_t bmcVerStrSize);
 int getBIOSVersionDBus(char* biosVerStr, size_t biosVerStrSize);
+std::shared_ptr<sdbusplus::bus::match::match>
+    startHostStateMonitor(std::shared_ptr<sdbusplus::asio::connection> conn);
 } // namespace crashdump
+
+int logSysInfoCommon(cJSON* pJsonChild);

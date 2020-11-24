@@ -17,22 +17,17 @@
  *
  ******************************************************************************/
 
-#pragma once
-#include "crashdump.hpp"
+#ifndef COREMCA_H
+#define COREMCA_H
 
-extern "C" {
-#include <cjson/cJSON.h>
-#include <stdint.h>
-}
+#include "crashdump.h"
 
 /******************************************************************************
  *
  *   Common Defines
  *
  ******************************************************************************/
-#define CORE_MCA_NAME_LEN 16
-
-#define CORE_MCA_JSON_STRING_LEN 32
+#define CORE_MCA_JSON_STRING_LEN 64
 #define CORE_MCA_JSON_CORE_NAME "core%d"
 #define CORE_MCA_JSON_THREAD_NAME "thread%d"
 
@@ -40,87 +35,46 @@ extern "C" {
 #define CORE_MCA_UA "UA:0x%x"
 #define CORE_MCA_DF "DF:0x%x"
 #define CORE_MCA_UA_DF "UA:0x%x,DF:0x%x"
+#define CORE_MCA_DATA_CC_RC "0x%" PRIx64 ",CC:0x%x,RC:0x%x"
+#define CORE_MCA_FIXED_DATA_CC_RC "0x0,CC:0x%x,RC:0x%x"
 #define CORE_MCA_UINT64_FMT "0x%" PRIx64 ""
 #define CORE_MCA_VALID true
 
-/******************************************************************************
- *
- *   CPX1 Defines
- *
- ******************************************************************************/
-// PECI sequence
-#define CM_BANK_PARAM 0x1000
-
-#define FIRST_CORE_MCA 0
-#define LAST_CORE_MCA 3
-
-#define CM_NUM_MCA_DWORDS 10
-
-#define CORE_MCA_REG_NAME "mc%d_%s"
-
-#define CORE_MCA_JSON_MCA_NAME "MC%d"
+#define FILE_MCA_KEY "_input_file_mca"
+#define FILE_MCA_ERR "Error parsing MCA core section"
 
 /******************************************************************************
  *
- *   CPX1 Structures
- *
- ******************************************************************************/
-typedef union
-{
-    struct
-    {
-        uint64_t u64CoreMcaCtl;
-        uint64_t u64CoreMcaStatus;
-        uint64_t u64CoreMcaAddr;
-        uint64_t u64CoreMcaMisc;
-        uint64_t u64CoreMcaCtl2;
-    } sReg;
-    uint32_t u32Raw[CM_NUM_MCA_DWORDS];
-} UCoreMcaRegs;
-
-typedef struct
-{
-    UCoreMcaRegs uRegData;
-    bool bInvalid;
-    int ret;
-    uint8_t cc;
-} SCoreMcaRawData;
-
-static const char coreMcaRegNames[][CORE_MCA_NAME_LEN] = {
-    "ctl", "ctl2", "status", "addr", "misc"};
-
-typedef enum
-{
-    CORE_CTL,
-    CORE_CTL2,
-    CORE_STATUS,
-    CORE_ADDR,
-    CORE_MISC
-} ECoreRegNames;
-
-/******************************************************************************
- *
- *   ICX1 Defines
+ *   ICX/SPR Defines
  *
  ******************************************************************************/
 #define CORE_MCA_THREADS_PER_CORE 2
 
 /******************************************************************************
  *
- *   ICX1 Structures
+ *   ICX/SPR Structures
  *
  ******************************************************************************/
+enum MCA_CORE
+{
+    MCA_CORE_BANK_NAME,
+    MCA_CORE_REG_NAME,
+    MCA_CORE_ADDR,
+};
+
 typedef struct
 {
-    char bankName[CORE_MCA_NAME_LEN];
-    char regName[CORE_MCA_NAME_LEN];
+    char* bankName;
+    char* regName;
     uint16_t addr;
 } SCoreMcaReg;
 
 typedef struct
 {
-    crashdump::cpu::Model cpuModel;
-    int (*logCoreMcaVx)(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);
+    Model cpuModel;
+    int (*logCoreMcaVx)(CPUInfo* cpuInfo, cJSON* pJsonChild);
 } SCoreMcaLogVx;
 
-int logCoreMca(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);
+int logCoreMca(CPUInfo* cpuInfo, cJSON* pJsonChild);
+
+#endif // COREMCA_H

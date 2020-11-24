@@ -30,11 +30,11 @@ using namespace ::testing;
 using ::testing::Return;
 using namespace crashdump;
 
-int logCrashdumpICX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);
-void crashdumpJsonICX1(uint32_t u32CoreNum, uint32_t u32ThreadNum,
-                       uint32_t u32CrashSize, uint32_t u32NumReads,
-                       uint8_t* pu8Crashdump, cJSON* pJsonChild, uint8_t cc,
-                       int retval);
+int logCrashdumpICXSPR(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);
+void crashdumpJsonICXSPR(uint32_t u32CoreNum, uint32_t u32ThreadNum,
+                         uint32_t u32CrashSize, uint32_t u32NumReads,
+                         uint8_t* pu8Crashdump, cJSON* pJsonChild, uint8_t cc,
+                         int retval);
 
 class BigCoreMOCK
 {
@@ -115,7 +115,7 @@ TEST_F(BigCoreTestFixture, logCrashdumpICX1_1st_return)
 
     NTIME(2)
     {
-        ret = logCrashdumpICX1(cpuInfo, root);
+        ret = logCrashdumpICXSPR(cpuInfo, root);
         EXPECT_EQ(ret, expected);
     }
 }
@@ -137,14 +137,14 @@ TEST_F(BigCoreTestFixture, logCrashdumpICX1_2nd_return)
                         SetArgPointee<7>(cc), Return(PECI_CC_DRIVER_ERR)));
 #endif // MOCK
 
-    ret = logCrashdumpICX1(cpuInfo, root);
+    ret = logCrashdumpICXSPR(cpuInfo, root);
     EXPECT_EQ(ret, expected);
 }
 
 TEST_F(BigCoreTestFixture, crashdumpJsonICX1_print_json)
 {
     uint64_t* pu64Crashdump = (uint64_t*)(calloc(5, 1));
-    crashdumpJsonICX1(1, 1, 1, 5, (uint8_t*)pu64Crashdump, root, 0x40, 0);
+    crashdumpJsonICXSPR(1, 1, 1, 5, (uint8_t*)pu64Crashdump, root, 0x40, 0);
     jsonStr = cJSON_Print(root);
     printf("%s\n", jsonStr);
     FREE(pu64Crashdump);

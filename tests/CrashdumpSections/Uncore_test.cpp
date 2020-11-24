@@ -30,8 +30,6 @@ using namespace crashdump;
 
 int uncoreStatusPciICX(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);
 int uncoreStatusPciMmioICX(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);
-int uncoreStatusPciCPX(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);
-int uncoreStatusPciMmioCPX(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);
 cJSON* readInputFile(const char* filename);
 cJSON* selectAndReadInputFile(crashdump::cpu::Model cpuModel, char** filename,
                               bool isTelemetry);
@@ -48,8 +46,6 @@ class UncoreTestFixture : public Test
         info.model = crashdump::cpu::icx;
         cpus.push_back(info);
         info.model = crashdump::cpu::icx;
-        cpus.push_back(info);
-        info.model = crashdump::cpu::cpx;
         cpus.push_back(info);
 
         // Initialize json object
@@ -124,52 +120,6 @@ TEST_F(UncoreTestFixture, uncoreStatusPciMmioICX)
         cpus[0].model, inputFileInfo.filenames, isTelemetry);
 
     uncoreStatusPciMmioICX(cpus[0], root);
-
-    cJSON* mmio = cJSON_GetObjectItemCaseSensitive(ut, "mmio");
-    cJSON* expected = NULL;
-    cJSON* actual = NULL;
-
-    cJSON_ArrayForEach(expected, mmio)
-    {
-        actual = cJSON_GetObjectItemCaseSensitive(root, expected->string);
-        EXPECT_TRUE(cJSON_Compare(actual, expected, true))
-            << "Not match!\n"
-            << "expected - " << expected->string << ":" << expected->valuestring
-            << "\n"
-            << "actual - " << actual->string << ":" << actual->valuestring;
-    }
-}
-
-TEST_F(UncoreTestFixture, uncoreStatusPciCPX)
-{
-    ut = readInputFile("/tmp/crashdump/input/ut_uncore_sample_cpx.json");
-    inputFileInfo.buffers[0] = selectAndReadInputFile(
-        cpus[0].model, inputFileInfo.filenames, isTelemetry);
-
-    uncoreStatusPciCPX(cpus[0], root);
-
-    cJSON* pci = cJSON_GetObjectItemCaseSensitive(ut, "pci");
-    cJSON* expected = NULL;
-    cJSON* actual = NULL;
-
-    cJSON_ArrayForEach(expected, pci)
-    {
-        actual = cJSON_GetObjectItemCaseSensitive(root, expected->string);
-        EXPECT_TRUE(cJSON_Compare(actual, expected, true))
-            << "Not match!\n"
-            << "expected - " << expected->string << ":" << expected->valuestring
-            << "\n"
-            << "actual - " << actual->string << ":" << actual->valuestring;
-    }
-}
-
-TEST_F(UncoreTestFixture, uncoreStatusPciMmioCPX)
-{
-    ut = readInputFile("/tmp/crashdump/input/ut_uncore_sample_cpx.json");
-    inputFileInfo.buffers[0] = selectAndReadInputFile(
-        cpus[0].model, inputFileInfo.filenames, isTelemetry);
-
-    uncoreStatusPciMmioCPX(cpus[0], root);
 
     cJSON* mmio = cJSON_GetObjectItemCaseSensitive(ut, "mmio");
     cJSON* expected = NULL;

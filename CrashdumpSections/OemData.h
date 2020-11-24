@@ -17,17 +17,17 @@
  *
  ******************************************************************************/
 
-#pragma once
+#ifndef OEMDATA_H
+#define OEMDATA_H
 
-#include "crashdump.hpp"
-
-#include <cjson/cJSON.h>
-#include <stdint.h>
+#include "crashdump.h"
 
 typedef struct
 {
-    crashdump::cpu::Model cpuModel;
-    int (*logOemDataVx)(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);
+    Model cpuModel;
+    int (*logOemDataVx)(CPUInfo* cpuInfo, cJSON* pJsonChild);
 } SOemDataVx;
 
-int logOemData(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);
+int logOemData(CPUInfo* cpuInfo, cJSON* pJsonChild);
+
+#endif // OEMDATA_H
