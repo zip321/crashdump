@@ -65,6 +65,14 @@
 #define CD_JSON_SQ_ENTRY_NAME "entry%d"
 #define CRASHDUMP_MAX_SIZE 0x7f8
 
+#define ICX_A0_FRAME_BYTE_OFFSET 32
+#define ICX_A0_CRASHDUMP_DISABLED 1
+#define ICX_A0_CRASHDUMP_ENABLED 0
+#define SIZE_OF_0x0 3
+
+#define IERR_INTERNAL_BIT 27
+#define MSMI_IERR_INTERNAL 19
+
 enum BigCoreParams
 {
     bigCoreRegName,
@@ -113,10 +121,6 @@ typedef struct
 } SCrashdumpVx;
 
 int logCrashdump(CPUInfo* cpuInfo, cJSON* pJsonChild);
-
-#define ICX_A0_FRAME_BYTE_OFFSET 32
-#define ICX_A0_CRASHDUMP_DISABLED 1
-#define ICX_A0_CRASHDUMP_ENABLED 0
-#define SIZE_OF_0x0 3
+uint32_t getTotalInputRegsSize(CPUInfo* cpuInfo, uint32_t version);
 
 #endif // BIGCORE_H

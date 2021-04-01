@@ -96,12 +96,13 @@ typedef enum
 
 typedef enum
 {
-    BIG_CORE,
-    MCA,
+    MCA_UNCORE,
     UNCORE,
     TOR,
     PM_INFO,
     ADDRESS_MAP,
+    BIG_CORE,
+    MCA_CORE,
     METADATA,
     NUMBER_OF_SECTIONS,
 } Section;
@@ -114,13 +115,6 @@ typedef enum
     cd_icxd,
     cd_numberOfModels,
 } Model;
-
-typedef struct
-{
-    char* name;
-    Section section;
-    int record_type;
-} CrashdumpSection;
 
 typedef struct
 {
@@ -178,6 +172,14 @@ typedef struct
     COREMaskRead coreMaskRead;
     struct timespec launchDelay;
 } CPUInfo;
+
+typedef struct
+{
+    char* name;
+    Section section;
+    int record_type;
+    int (*fptr)(CPUInfo* cpuInfo, cJSON* pJsonChild);
+} CrashdumpSection;
 
 typedef struct
 {

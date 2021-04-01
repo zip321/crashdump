@@ -206,20 +206,65 @@ bool isBigCoreRegVersionMatch(cJSON* root, uint32_t version)
         char jsonItemName[NAME_STR_LEN] = {0};
         cd_snprintf_s(jsonItemName, NAME_STR_LEN, "0x%x", version);
 
-        cJSON* decodeObject = cJSON_GetObjectItemCaseSensitive(child, "decode");
+        cJSON* decodeArray = cJSON_GetObjectItemCaseSensitive(child, "decode");
 
-        if (decodeObject != NULL)
+        if (decodeArray != NULL)
         {
-            cJSON* versionObject =
-                cJSON_GetObjectItem(decodeObject, jsonItemName);
-            if ((versionObject != NULL) && cJSON_IsObject(versionObject))
+            cJSON* mapItem = NULL;
+            cJSON_ArrayForEach(mapItem, decodeArray)
             {
-                return true;
+                cJSON* versionArray =
+                    cJSON_GetObjectItemCaseSensitive(mapItem, "version");
+                if (NULL != versionArray)
+                {
+                    cJSON* versionItem = NULL;
+                    cJSON_ArrayForEach(versionItem, versionArray)
+                    {
+                        int mismatch = 1;
+                        strcmp_s(versionItem->valuestring, strlen(jsonItemName),
+                                 jsonItemName, &mismatch);
+                        if (0 == mismatch)
+                        {
+                            return true;
+                        }
+                    }
+                }
             }
         }
     }
 
     return false;
+}
+
+cJSON* getValidBigCoreMap(cJSON* decodeArray, char* version)
+{
+    if (NULL == decodeArray)
+    {
+        return NULL;
+    }
+
+    cJSON* mapItem = NULL;
+    cJSON_ArrayForEach(mapItem, decodeArray)
+    {
+        cJSON* versionArray =
+            cJSON_GetObjectItemCaseSensitive(mapItem, "version");
+        if (NULL != versionArray)
+        {
+            cJSON* versionItem = NULL;
+            cJSON_ArrayForEach(versionItem, versionArray)
+            {
+                int mismatch = 1;
+                strcmp_s(versionItem->valuestring, strlen(version), version,
+                         &mismatch);
+                if (0 == mismatch)
+                {
+                    return mapItem;
+                }
+            }
+        }
+    }
+
+    return NULL;
 }
 
 cJSON* getCrashDataSectionBigCoreRegList(cJSON* root, char* version)
@@ -233,14 +278,12 @@ cJSON* getCrashDataSectionBigCoreRegList(cJSON* root, char* version)
 
         if (decodeObject != NULL)
         {
-            cJSON* versionObject =
-                cJSON_GetObjectItemCaseSensitive(decodeObject, version);
-            if (versionObject != NULL)
+            cJSON* mapObject = getValidBigCoreMap(decodeObject, version);
+            if (mapObject != NULL)
             {
-                return cJSON_GetObjectItemCaseSensitive(versionObject,
-                                                        "reg_list");
+                return cJSON_GetObjectItemCaseSensitive(mapObject, "reg_list");
             }
-            return versionObject;
+            return mapObject;
         }
         return decodeObject;
     }
@@ -259,13 +302,12 @@ uint32_t getCrashDataSectionBigCoreSize(cJSON* root, char* version)
 
         if (decodeObject != NULL)
         {
-            cJSON* versionObject =
-                cJSON_GetObjectItemCaseSensitive(decodeObject, version);
+            cJSON* mapObject = getValidBigCoreMap(decodeObject, version);
 
-            if (versionObject != NULL)
+            if (mapObject != NULL)
             {
                 cJSON* jsonSize =
-                    cJSON_GetObjectItemCaseSensitive(versionObject, "_size");
+                    cJSON_GetObjectItemCaseSensitive(mapObject, "_size");
 
                 if ((jsonSize != NULL) && cJSON_IsString(jsonSize))
                 {
@@ -289,7 +331,7 @@ void storeCrashDataSectionBigCoreSize(cJSON* root, char* version,
         char jsonItemName[NAME_STR_LEN] = {0};
         cd_snprintf_s(jsonItemName, NAME_STR_LEN, "0x%x", totalSize);
         cJSON_AddStringToObject(
-            cJSON_GetObjectItemCaseSensitive(
+            getValidBigCoreMap(
                 cJSON_GetObjectItemCaseSensitive(child, "decode"), version),
             "_size", jsonItemName);
     }
@@ -362,19 +404,36 @@ cJSON* getCrashDataSectionAddressMapRegList(cJSON* root)
     return child;
 }
 
+cJSON* getPeciAccessType(cJSON* root)
+{
+    if (root != NULL)
+    {
+        cJSON* child = cJSON_GetObjectItem(root, "crash_data");
+        if (child != NULL)
+        {
+            cJSON* accessType = cJSON_GetObjectItem(child, "AccessMethod");
+            if (accessType != NULL)
+            {
+                return accessType;
+            }
+        }
+    }
+    return NULL;
+}
+
 uint64_t tsToNanosecond(struct timespec* ts)
 {
     return (ts->tv_sec * (uint64_t)1e9 + ts->tv_nsec);
 }
 
-static inline void logDelayTime(cJSON* parent, const char* sectionName,
-                                struct timespec delay)
+inline void logDelayTime(cJSON* parent, const char* sectionName,
+                         struct timespec delay)
 {
     // Create an empty JSON object for this section if it doesn't already
     // exist
     cJSON* logSectionJson;
-    if ((logSectionJson =
-             cJSON_GetObjectItemCaseSensitive(parent, sectionName) == NULL))
+    logSectionJson = cJSON_GetObjectItemCaseSensitive(parent, sectionName);
+    if (logSectionJson == NULL)
     {
         cJSON_AddItemToObject(parent, sectionName,
                               logSectionJson = cJSON_CreateObject());
@@ -385,14 +444,14 @@ static inline void logDelayTime(cJSON* parent, const char* sectionName,
     cd_snprintf_s(timeString, sizeof(timeString), "%.2fs",
                   (double)tsToNanosecond(&delay) / 1e9);
 
-    CRASHDUMP_PRINT(INFO, stderr, "Inserted delay of %s in %s section!\n",
+    CRASHDUMP_PRINT(INFO, stderr, "Inserted max delay of %s in %s section!\n",
                     timeString, sectionName);
-    cJSON_AddStringToObject(logSectionJson, "_inserted_delay_sec", timeString);
+    cJSON_AddStringToObject(logSectionJson, "_inserted_max_delay_sec",
+                            timeString);
 }
 
-static inline struct timespec
-    calculateDelay(struct timespec* crashdumpStart,
-                   uint32_t delayTimeFromInputFileInSec)
+inline struct timespec calculateDelay(struct timespec* crashdumpStart,
+                                      uint32_t delayTimeFromInputFileInSec)
 {
     struct timespec current = {0, 0};
     clock_gettime(CLOCK_MONOTONIC, &current);
@@ -416,8 +475,7 @@ static inline struct timespec
     return delay;
 }
 
-static inline uint32_t getDelayFromInputFile(CPUInfo* cpuInfo,
-                                             char* sectionName)
+inline uint32_t getDelayFromInputFile(CPUInfo* cpuInfo, char* sectionName)
 {
     bool enable = false;
     cJSON* inputDelayField = getCrashDataSectionObjectOneLevel(
@@ -461,4 +519,91 @@ void addDelayToSection(cJSON* cpu, CPUInfo* cpuInfo, char* sectionName,
 
         nanosleep(&cpuInfo->launchDelay, NULL);
     }
+}
+
+void updateMcaRunTime(cJSON* root, struct timespec* start)
+{
+    char* key = "_time";
+    cJSON* mcaUncoreTime = cJSON_GetObjectItemCaseSensitive(root, key);
+
+    if (mcaUncoreTime != NULL)
+    {
+        char timeString[64];
+        struct timespec finish = {};
+
+        clock_gettime(CLOCK_MONOTONIC, &finish);
+        uint64_t mcaCoreRunTimeInNs =
+            tsToNanosecond(&finish) - tsToNanosecond(start);
+
+        // Remove unit "s" from logged "_time"
+        char* str = mcaUncoreTime->valuestring;
+        str[strnlen_s(str, sizeof(str)) - 1] = '\0';
+
+        // Calculate, replace "_time" from uncore MCA,
+        // and log total MCA run time
+        double macUncoreTimeInSec = atof(mcaUncoreTime->valuestring);
+        double totalMcaRunTimeInSec =
+            (double)mcaCoreRunTimeInNs / 1e9 + macUncoreTimeInSec;
+        cd_snprintf_s(timeString, sizeof(timeString), "%.2fs",
+                      totalMcaRunTimeInSec);
+        cJSON_DeleteItemFromObjectCaseSensitive(root, key);
+        cJSON_AddStringToObject(root, key, timeString);
+    }
+
+    clock_gettime(CLOCK_MONOTONIC, start);
+}
+
+int getPciRegister(CPUInfo* cpuInfo, SRegRawData* sRegData, uint8_t u8index)
+{
+    int peci_fd = -1;
+    int ret = 0;
+    uint16_t u16Offset = 0;
+    uint8_t u8Size = 0;
+    ret = peci_Lock(&peci_fd, PECI_WAIT_FOREVER);
+    if (ret != PECI_CC_SUCCESS)
+    {
+        sRegData->ret = ret;
+        return ACD_FAILURE;
+    }
+    switch (sPciReg[u8index].u8Size)
+    {
+        case UT_REG_DWORD:
+            ret = peci_RdEndPointConfigPciLocal_seq(
+                cpuInfo->clientAddr, sPciReg[u8index].u8Seg,
+                sPciReg[u8index].u8Bus, sPciReg[u8index].u8Dev,
+                sPciReg[u8index].u8Func, sPciReg[u8index].u16Reg,
+                sPciReg[u8index].u8Size, (uint8_t*)&sRegData->uValue.u64,
+                peci_fd, &sRegData->cc);
+            sRegData->ret = ret;
+            if (ret != PECI_CC_SUCCESS)
+            {
+                peci_Unlock(peci_fd);
+                return ACD_FAILURE;
+            }
+            sRegData->uValue.u64 &= 0xFFFFFFFF;
+            break;
+        case UT_REG_QWORD:
+            for (uint8_t u8Dword = 0; u8Dword < 2; u8Dword++)
+            {
+                u16Offset = ((sPciReg[u8index].u16Reg) >> (u8Dword * 8)) & 0xFF;
+                u8Size = sPciReg[u8index].u8Size / 2;
+                ret = peci_RdEndPointConfigPciLocal_seq(
+                    cpuInfo->clientAddr, sPciReg[u8index].u8Seg,
+                    sPciReg[u8index].u8Bus, sPciReg[u8index].u8Dev,
+                    sPciReg[u8index].u8Func, u16Offset, u8Size,
+                    (uint8_t*)&sRegData->uValue.u32[u8Dword], peci_fd,
+                    &sRegData->cc);
+                sRegData->ret = ret;
+                if (ret != PECI_CC_SUCCESS)
+                {
+                    peci_Unlock(peci_fd);
+                    return ACD_FAILURE;
+                }
+            }
+            break;
+        default:
+            ret = ACD_FAILURE;
+    }
+    peci_Unlock(peci_fd);
+    return ACD_SUCCESS;
 }

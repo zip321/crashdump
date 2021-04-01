@@ -398,55 +398,6 @@ int fillUCodeVersion(CPUInfo* cpuInfo, char* cSectionName, cJSON* pJsonChild)
 
 /******************************************************************************
  *
- *   fillVCodeVersion
- *
- *   This function reads and fills in the vcode_patch_ver JSON info
- *
- ******************************************************************************/
-int fillVCodeVersion(CPUInfo* cpuInfo, char* cSectionName, cJSON* pJsonChild)
-{
-    cJSON* cpu = NULL;
-    uint32_t u32PeciData = 0;
-    uint8_t cc = 0;
-    char jsonItemName[SI_JSON_STRING_LEN] = {0};
-    char jsonItemString[SI_JSON_STRING_LEN] = {0};
-    int ret = 0;
-
-    // For now, the CPU number is just the bottom nibble of the PECI client ID
-    int cpuNum = cpuInfo->clientAddr & 0xF;
-
-    // Add the CPU number object if it doesn't already exist
-    cd_snprintf_s(jsonItemName, SI_JSON_STRING_LEN, SI_JSON_SOCKET_NAME,
-                  cpuNum);
-    if ((cpu = cJSON_GetObjectItemCaseSensitive(pJsonChild, jsonItemName)) ==
-        NULL)
-    {
-        cJSON_AddItemToObject(pJsonChild, jsonItemName,
-                              cpu = cJSON_CreateObject());
-    }
-    // Get the VCode Version if available
-    ret = peci_RdPkgConfig(cpuInfo->clientAddr, MBX_INDEX_VCU, VCU_VERSION,
-                           sizeof(uint32_t), (uint8_t*)&u32PeciData, &cc);
-    if (ret != PECI_CC_SUCCESS)
-    {
-        cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN, MD_FIXED_DATA_CC_RC,
-                      cc, ret);
-    }
-    else if (PECI_CC_UA(cc))
-    {
-        cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN, MD_INT_DATA_CC_RC,
-                      u32PeciData, cc, ret);
-    }
-    else
-    {
-        cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN, "0x%x", u32PeciData);
-    }
-    cJSON_AddStringToObject(cpu, cSectionName, jsonItemString);
-    return ret;
-}
-
-/******************************************************************************
- *
  *   fillMeVersionJson
  *
  *   This function fills in the me_fw_ver JSON info
@@ -471,51 +422,54 @@ int fillMeVersion(char* cSectionName, cJSON* pJsonChild)
 
 /******************************************************************************
  *
- *   fillMcaErrSrcLog
+ *   fillPciRegisters
  *
- *   This function fills in the mca_err_src_log JSON info
+ *   This function fills in the FirstMcerrTsc JSON info
  *
  ******************************************************************************/
-int fillMcaErrSrcLog(CPUInfo* cpuInfo, char* cSectionName, cJSON* pJsonChild)
+int fillPciRegisters(CPUInfo* cpuInfo, char* cSectionName, cJSON* pJsonChild)
 {
     cJSON* cpu = NULL;
-    uint32_t u32PeciData = 0;
-    uint8_t cc = 0;
     char jsonItemName[SI_JSON_STRING_LEN] = {0};
     char jsonItemString[SI_JSON_STRING_LEN] = {0};
     int ret;
+    SRegRawData sPciRegData = {0};
+    for (uint8_t u8index = 0; u8index < (sizeof(sPciReg) / sizeof(SRegPci));
+         u8index++)
+    {
+        // For now, the CPU number is just the bottom nibble of the PECI client
+        // ID
+        uint8_t cpuNum = (uint8_t)cpuInfo->clientAddr & 0xF;
 
-    // For now, the CPU number is just the bottom nibble of the PECI client ID
-    int cpuNum = cpuInfo->clientAddr & 0xF;
-
-    // Add the CPU number object if it doesn't already exist
-    cd_snprintf_s(jsonItemName, SI_JSON_STRING_LEN, SI_JSON_SOCKET_NAME,
-                  cpuNum);
-    if ((cpu = cJSON_GetObjectItemCaseSensitive(pJsonChild, jsonItemName)) ==
-        NULL)
-    {
-        cJSON_AddItemToObject(pJsonChild, jsonItemName,
-                              cpu = cJSON_CreateObject());
+        // Add the CPU number object if it doesn't already exist
+        cd_snprintf_s(jsonItemName, SI_JSON_STRING_LEN, SI_JSON_SOCKET_NAME,
+                      cpuNum);
+        if ((cpu = cJSON_GetObjectItemCaseSensitive(pJsonChild,
+                                                    jsonItemName)) == NULL)
+        {
+            cJSON_AddItemToObject(pJsonChild, jsonItemName,
+                                  cpu = cJSON_CreateObject());
+        }
+        ret = getPciRegister(cpuInfo, &sPciRegData, u8index);
+        if (sPciRegData.ret != ACD_SUCCESS)
+        {
+            cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN,
+                          MD_FIXED_DATA_CC_RC, sPciRegData.cc, sPciRegData.ret);
+        }
+        else if (PECI_CC_UA(sPciRegData.cc))
+        {
+            cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN, MD_64_DATA_CC_RC,
+                          sPciRegData.uValue.u64, sPciRegData.cc,
+                          sPciRegData.ret);
+        }
+        else
+        {
+            cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN, "0x%llx",
+                          sPciRegData.uValue.u64);
+        }
+        cJSON_AddStringToObject(cpu, sPciReg[u8index].regName, jsonItemString);
     }
-    ret = peci_RdPkgConfig(cpuInfo->clientAddr, PECI_MBX_INDEX_CPU_ID,
-                           PECI_PKG_ID_MACHINE_CHECK_STATUS, sizeof(uint32_t),
-                           (uint8_t*)&u32PeciData, &cc);
-    if (ret != PECI_CC_SUCCESS)
-    {
-        cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN, MD_FIXED_DATA_CC_RC,
-                      cc, ret);
-    }
-    else if (PECI_CC_UA(cc))
-    {
-        cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN, MD_INT_DATA_CC_RC,
-                      u32PeciData, cc, ret);
-    }
-    else
-    {
-        cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN, "0x%x", u32PeciData);
-    }
-    cJSON_AddStringToObject(cpu, cSectionName, jsonItemString);
-    return ret;
+    return ACD_SUCCESS;
 }
 
 /******************************************************************************
@@ -758,11 +712,10 @@ static SSysInfoSection sSysInfoTable[] = {
     {"package_id", fillPackageId},
     {"core_count", fillCoresPerCpu},
     {"ucode_patch_ver", fillUCodeVersion},
-    {"vcode_ver", fillVCodeVersion},
-    {"mca_err_src_log", fillMcaErrSrcLog},
     {"ppin", fillPpin},
     {"crashcore_count", fillCrashCoreCount},
     {"crashcore_mask", fillCrashCoreMask},
+    {"pci_registers", fillPciRegisters},
 };
 
 static SSysInfoInputFileSection sSysInfoInputFileTable[] = {
@@ -815,9 +768,12 @@ int logSysInfo(CPUInfo* cpuInfo, cJSON* pJsonChild)
         updateRecordEnable(pJsonChild, false);
         return ACD_SUCCESS;
     }
-
+    if (sysInfoJson(cpuInfo, pJsonChild))
+    {
+        return ACD_FAILURE;
+    }
     // Log the System Info
-    return sysInfoJson(cpuInfo, pJsonChild);
+    return ACD_SUCCESS;
 }
 
 /******************************************************************************

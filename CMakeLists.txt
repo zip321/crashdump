@@ -26,6 +26,11 @@ if (${YOCTO_DEPENDENCIES})
     link_directories (${SAFEC_LIBRARY_DIRS})
 endif ()
 
+# Set the searching location for cmake 'include' locations
+set (CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}")
+# Include the sanitizer module
+include (code-coverage)
+
 set (CMAKE_CXX_STANDARD 17)
 set (CMAKE_CXX_STANDARD_REQUIRED ON)
 set (EXTERNAL_PACKAGES Boost cjson-project sdbusplus-project safeclib-project
@@ -72,10 +77,11 @@ if (NOT ${YOCTO_DEPENDENCIES})
     externalproject_add (
         safeclib-project
         GIT_REPOSITORY https://github.com/rurban/safeclib.git
-        GIT_TAG 60786283fd61cd621a5d1df00e083a1c1e3cf52a
+        GIT_TAG 5da8464c092b2f234442824d3dbb49343e58bb16
         SOURCE_DIR "${CMAKE_BINARY_DIR}/safeclib-src"
         BINARY_DIR "${CMAKE_BINARY_DIR}/safeclib-build"
         INSTALL_DIR "${CMAKE_BINARY_DIR}/safeclib-install"
+        UPDATE_COMMAND ""
         CONFIGURE_COMMAND
             cd ${CMAKE_BINARY_DIR}/safeclib-src/ && ./build-aux/autogen.sh &&
             ./configure --prefix=${CMAKE_BINARY_DIR}/safeclib-install
@@ -89,14 +95,14 @@ if (NOT ${YOCTO_DEPENDENCIES})
     externalproject_get_property (safeclib-project INSTALL_DIR)
     add_library (safec SHARED IMPORTED)
     set_target_properties (
-        safec PROPERTIES IMPORTED_LOCATION ${INSTALL_DIR}/lib/libsafec-3.5.1.so
+        safec PROPERTIES IMPORTED_LOCATION ${INSTALL_DIR}/lib/libsafec-3.6.0.so
     )
 
     externalproject_add (
         libpeci-project
         PREFIX ${CMAKE_BINARY_DIR}/libpeci-project
         GIT_REPOSITORY https://github.com/openbmc/libpeci.git
-        GIT_TAG a2ceec2aa139277cebb62e1eda449ef60fa4c962
+        GIT_TAG bc641112abc99b4a972665aa984023a6713a21ac
         INSTALL_COMMAND ""
         LOG_DOWNLOAD ON
     )
@@ -178,7 +184,6 @@ endif ()
 
 set (
     SRC_FILES
-    utils_dbusplus.cpp
     CrashdumpSections/AddressMap.c
     CrashdumpSections/TorDump.c
     CrashdumpSections/BigCore.c
@@ -192,48 +197,53 @@ set (
     CrashdumpSections/crashdump.c
 )
 
-add_executable (crashdump crashdump.cpp ${SRC_FILES})
+if (NOT ${CRASHDUMP_BUILD_UT})
+    add_definitions (-DBUILD_MAIN)
+    add_executable (crashdump crashdump.cpp utils_dbusplus.cpp ${SRC_FILES})
 
-if (NOT ${YOCTO_DEPENDENCIES})
-    add_dependencies (crashdump ${EXTERNAL_PACKAGES})
-    target_link_libraries (crashdump safec sdbusplus peci cjson)
-endif ()
+    if (NOT ${YOCTO_DEPENDENCIES})
+        add_dependencies (crashdump ${EXTERNAL_PACKAGES})
+        target_link_libraries (crashdump safec sdbusplus peci cjson)
+    endif ()
 
-option (CRASHDUMP_PRINT_UNFORMATTED
+    option (
+        CRASHDUMP_PRINT_UNFORMATTED
         "Use cJSON_PrintUnformatted() to print the crashdump contents without
-         whitespace to reduce the file size." OFF
-)
+            whitespace to reduce the file size." OFF
+    )
 
-option (OEMDATA_SECTION
-        "Adds oemdata Section to the crashdump contents, for OEM usage." OFF
-)
+    option (OEMDATA_SECTION
+            "Adds oemdata Section to the crashdump contents, for OEM usage."
+            OFF
+    )
 
-target_compile_definitions (
-    crashdump
-    PRIVATE $<$<BOOL:${CRASHDUMP_PRINT_UNFORMATTED}>:
-            -DCRASHDUMP_PRINT_UNFORMATTED> $<$<BOOL:${OEMDATA_SECTION}>:
-            -DOEMDATA_SECTION>
-)
+    target_compile_definitions (
+        crashdump
+        PRIVATE $<$<BOOL:${CRASHDUMP_PRINT_UNFORMATTED}>:
+                -DCRASHDUMP_PRINT_UNFORMATTED> $<$<BOOL:${OEMDATA_SECTION}>:
+                -DOEMDATA_SECTION>
+    )
 
-target_include_directories (crashdump PRIVATE ${CMAKE_SOURCE_DIR})
-set_property (TARGET crashdump PROPERTY C_STANDARD 99)
-target_link_libraries (
-    crashdump
-    cjson
-    peci
-    -lsystemd
-    pthread
-    -lstdc++fs
-    sdbusplus
-    ${SAFEC_LIBRARIES}
-)
+    target_include_directories (crashdump PRIVATE ${CMAKE_SOURCE_DIR})
+    set_property (TARGET crashdump PROPERTY C_STANDARD 99)
+    target_link_libraries (
+        crashdump
+        cjson
+        peci
+        -lsystemd
+        pthread
+        -lstdc++fs
+        sdbusplus
+        ${SAFEC_LIBRARIES}
+    )
 
-install (
-    TARGETS crashdump
-    RUNTIME DESTINATION bin
-    LIBRARY DESTINATION lib
-    ARCHIVE DESTINATION lib/static
-)
+    install (
+        TARGETS crashdump
+        RUNTIME DESTINATION bin
+        LIBRARY DESTINATION lib
+        ARCHIVE DESTINATION lib/static
+    )
+endif ()
 
 install (
     FILES ${CMAKE_CURRENT_SOURCE_DIR}/crashdump_input_icx.json
@@ -289,24 +299,42 @@ if (NOT ${YOCTO_DEPENDENCIES})
 
         set (
             UT_FILES
-            tests/CrashdumpSections/SqDump_test.cpp
+            tests/mock/test_crashdump.cpp
             tests/CrashdumpSections/BigCore_test.cpp tests/test_utils.cpp
             tests/test_main.cpp tests/CrashdumpSections/Uncore_test.cpp
         )
 
         add_definitions (-DCOMPILE_UNIT_TESTS)
 
-        add_executable (crashdump_ut ${SRC_FILES} ${UT_FILES})
+        add_executable (
+            crashdump_ut crashdump.cpp utils_dbusplus.cpp ${SRC_FILES}
+                         ${UT_FILES}
+        )
         add_dependencies (crashdump_ut ${EXTERNAL_PACKAGES} googletest-project)
 
-        target_link_libraries (crashdump_ut cjson peci -lsystemd pthread)
-        target_link_libraries (crashdump_ut -lstdc++fs sdbusplus)
-        target_link_libraries (crashdump_ut safec ${SAFEC_LIBRARIES})
-        target_link_libraries (crashdump_ut gmock gtest)
+        target_link_libraries (
+            crashdump_ut
+            PRIVATE cjson
+                    peci
+                    -lsystemd
+                    pthread
+                    -lstdc++fs
+                    safec
+                    sdbusplus
+                    gmock
+                    gtest
+        )
 
         add_test (test_crashdump_ut crashdump_ut
                   "--gtest_output=xml:crashdump_test.xml"
         )
 
+        crashdump_code_coverage (crashdump_ut)
     endif ()
 endif ()
+
+set (SERVICE_FILES
+     ${PROJECT_SOURCE_DIR}/service_files/com.intel.crashdump.service
+)
+
+install (FILES ${SERVICE_FILES} DESTINATION /lib/systemd/system/)

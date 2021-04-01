@@ -23,14 +23,14 @@
 
 /******************************************************************************
  *
- *   powerManagementJsonICX1
+ *   powerManagementJsonSPRICX1
  *
  *   This function formats the Power Management log into a JSON object
  *
  ******************************************************************************/
-static void powerManagementJsonICX1(const char* regName,
-                                    SPmRegRawData* sRegData, cJSON* pJsonChild,
-                                    uint8_t cc, int ret)
+static void powerManagementJsonSPRICX1(const char* regName,
+                                       SPmRegRawData* sRegData,
+                                       cJSON* pJsonChild, uint8_t cc, int ret)
 {
     char jsonItemString[PM_JSON_STRING_LEN] = {0};
 
@@ -55,15 +55,17 @@ static void powerManagementJsonICX1(const char* regName,
 
 /******************************************************************************
  *
- *   powerManagementPllJsonICX1
+ *   powerManagementPllJsonSPRICX1
  *
  *   This function formats the Pll log into a JSON object
  *   It uses section name and regName and generates 2 levels.
  *
  ******************************************************************************/
-static void powerManagementPllJsonICX1(const char* secName, const char* regName,
-                                       SPmRegRawData* sRegData,
-                                       cJSON* pJsonChild, uint8_t cc, int ret)
+static void powerManagementPllJsonSPRICX1(const char* secName,
+                                          const char* regName,
+                                          SPmRegRawData* sRegData,
+                                          cJSON* pJsonChild, uint8_t cc,
+                                          int ret)
 {
     char jsonItemString[PM_JSON_STRING_LEN] = {0};
     cJSON* section = NULL;
@@ -95,16 +97,16 @@ static void powerManagementPllJsonICX1(const char* secName, const char* regName,
 
 /******************************************************************************
  *
- *   powerManagementJsonPerCoreICX1
+ *   powerManagementJsonPerCoreSPRICX1
  *
  *   This function formats Power Management Per Core log into a JSON object
  *
  ******************************************************************************/
-static void powerManagementJsonPerCoreICX1(const char* regName,
-                                           uint32_t u32CoreNum,
-                                           SPmRegRawData* sRegData,
-                                           cJSON* pJsonChild, uint8_t cc,
-                                           int ret)
+static void powerManagementJsonPerCoreSPRICX1(const char* regName,
+                                              uint32_t u32CoreNum,
+                                              SPmRegRawData* sRegData,
+                                              cJSON* pJsonChild, uint8_t cc,
+                                              int ret)
 {
     char jsonItemName[PM_JSON_STRING_LEN] = {0};
     cJSON* core = NULL;
@@ -120,19 +122,19 @@ static void powerManagementJsonPerCoreICX1(const char* regName,
                               core = cJSON_CreateObject());
     }
 
-    powerManagementJsonICX1(regName, sRegData, core, cc, ret);
+    powerManagementJsonSPRICX1(regName, sRegData, core, cc, ret);
 }
 
 /******************************************************************************
  *
- *   logPowerManagementICX1
+ *   logPowerManagementSPRICX1
  *
  *   This function reads the input file and gathers the Power Management log
  *   and adds it to the debug log.
  *   The PECI flow is listed below to dump the core state registers
  *
  ******************************************************************************/
-int logPowerManagementICX1(CPUInfo* cpuInfo, cJSON* pJsonChild)
+int logPowerManagementSPRICX1(CPUInfo* cpuInfo, cJSON* pJsonChild)
 {
     int ret = 0;
     uint8_t cc = 0;
@@ -202,8 +204,8 @@ int logPowerManagementICX1(CPUInfo* cpuInfo, cJSON* pJsonChild)
                     sRegData.bInvalid = true;
                 }
                 cd_snprintf_s(jsonNameString, PM_JSON_STRING_LEN, reg.regName);
-                powerManagementJsonPerCoreICX1(jsonNameString, u32CoreNum,
-                                               &sRegData, pJsonChild, cc, ret);
+                powerManagementJsonPerCoreSPRICX1(
+                    jsonNameString, u32CoreNum, &sRegData, pJsonChild, cc, ret);
             }
         }
         else
@@ -216,8 +218,8 @@ int logPowerManagementICX1(CPUInfo* cpuInfo, cJSON* pJsonChild)
                 sRegData.bInvalid = true;
             }
             cd_snprintf_s(jsonNameString, PM_JSON_STRING_LEN, reg.regName);
-            powerManagementJsonICX1(jsonNameString, &sRegData, pJsonChild, cc,
-                                    ret);
+            powerManagementJsonSPRICX1(jsonNameString, &sRegData, pJsonChild,
+                                       cc, ret);
         }
     }
     return ACD_SUCCESS;
@@ -225,14 +227,14 @@ int logPowerManagementICX1(CPUInfo* cpuInfo, cJSON* pJsonChild)
 
 /******************************************************************************
  *
- *   logPllCX1
+ *   logPllSPRCX1
  *
  *   This function reads the input file and gathers the Phase Lock Loop log
  *   and adds it to the debug log.
  *   The PECI flow is listed below to dump the core state registers
  *
  ******************************************************************************/
-int logPllICX1(CPUInfo* cpuInfo, cJSON* pJsonChild)
+int logPllSPRICX1(CPUInfo* cpuInfo, cJSON* pJsonChild)
 {
     int ret = 0;
     uint8_t cc = 0;
@@ -290,25 +292,25 @@ int logPllICX1(CPUInfo* cpuInfo, cJSON* pJsonChild)
         }
         cd_snprintf_s(jsonNameString1, PM_JSON_STRING_LEN, reg.regName);
         cd_snprintf_s(jsonNameString2, PM_JSON_STRING_LEN, reg.secName);
-        powerManagementPllJsonICX1(jsonNameString2, jsonNameString1, &sRegData,
-                                   pJsonChild, cc, ret);
+        powerManagementPllJsonSPRICX1(jsonNameString2, jsonNameString1,
+                                      &sRegData, pJsonChild, cc, ret);
     }
     return ACD_SUCCESS;
 }
 
-static PowerManagementStatusRead PowerManagementStatusTypesICX[] = {
-    logPowerManagementICX1,
-    logPllICX1,
+static PowerManagementStatusRead PowerManagementStatusTypesSPRICX[] = {
+    logPowerManagementSPRICX1,
+    logPllSPRICX1,
 };
 
-int logPowerManagementICX(CPUInfo* cpuInfo, cJSON* pJsonChild)
+int logPowerManagementSPRICX(CPUInfo* cpuInfo, cJSON* pJsonChild)
 {
     int ret = 0;
-    for (uint32_t i = 0; i < (sizeof(PowerManagementStatusTypesICX) /
-                              sizeof(PowerManagementStatusTypesICX[0]));
+    for (uint32_t i = 0; i < (sizeof(PowerManagementStatusTypesSPRICX) /
+                              sizeof(PowerManagementStatusTypesSPRICX[0]));
          i++)
     {
-        if (PowerManagementStatusTypesICX[i](cpuInfo, pJsonChild) != 0)
+        if (PowerManagementStatusTypesSPRICX[i](cpuInfo, pJsonChild) != 0)
         {
             ret = 1;
         }
@@ -318,9 +320,10 @@ int logPowerManagementICX(CPUInfo* cpuInfo, cJSON* pJsonChild)
 }
 
 static const SPowerManagementVx sPowerManagementVx[] = {
-    {cd_icx, logPowerManagementICX},
-    {cd_icx2, logPowerManagementICX},
-    {cd_icxd, logPowerManagementICX},
+    {cd_icx, logPowerManagementSPRICX},
+    {cd_icx2, logPowerManagementSPRICX},
+    {cd_icxd, logPowerManagementSPRICX},
+    {cd_spr, logPowerManagementSPRICX},
 };
 
 /******************************************************************************

@@ -105,7 +105,14 @@ enum US_RDIAMSR
 #define US_UA "UA:0x%x"
 #define US_DF "DF:0x%x"
 #define US_UINT64_FMT "0x%" PRIx64 ""
+#define US_UINTVAL "0x%x"
 #define SIZE_FAILURE 7
+
+#define POST_ENUM_QUERY_BUS 8
+#define POST_ENUM_QUERY_DEVICE 3
+#define POST_ENUM_QUERY_FUNCTION 0
+#define POST_ENUM_QUERY_VALID_BIT_OFFSET 0x1a0
+#define POST_ENUM_QUERY_BUS_NUMBER_OFFSET 0x1cc
 
 /******************************************************************************
  *
@@ -118,6 +125,9 @@ enum US_RDIAMSR
 #define FILE_MMIO_ERR "Error parsing mmio section"
 #define FILE_RDIAMSR_KEY "_input_file_rdiamsr"
 #define FILE_RDIAMSR_ERR "Error parsing rdiamsr section"
+#define PCI_COUNT_KEY "_reg_count_pci"
+#define RDIAMSR_COUNT_KEY "_reg_count_rdiamsr"
+#define MMIO_COUNT_KEY "_reg_count_mmio"
 
 /******************************************************************************
  *

@@ -16,8 +16,12 @@
  * License.
  *
  ******************************************************************************/
-
 #pragma once
+
+extern "C" {
+#include <cjson/cJSON.h>
+}
+
 #include "crashdump.hpp"
 
 #include <boost/container/flat_map.hpp>

@@ -59,13 +59,14 @@ static void uncoreStatusJsonICXSPR(const char* regName,
 
 /******************************************************************************
  *
- *   bus30ToPostEnumeratedBus()
+ *   bus30ToPostEnumeratedBusICX()
  *
  *   This function is dedicated to converting bus 30 to post enumerated
  *   bus number for MMIO read.
  *
  ******************************************************************************/
-static int bus30ToPostEnumeratedBus(uint32_t addr, uint8_t* postEnumBus)
+static int bus30ToPostEnumeratedBusICX(uint32_t addr,
+                                       uint8_t* const postEnumBus)
 {
     uint32_t cpubusno_valid = 0;
     uint32_t cpubusno2 = 0;
@@ -114,6 +115,65 @@ static int bus30ToPostEnumeratedBus(uint32_t addr, uint8_t* postEnumBus)
 
 /******************************************************************************
  *
+ *   bus30ToPostEnumeratedBusSPR()
+ *
+ *   This function is dedicated to converting bus 30 to post enumerated
+ *   bus number for MMIO read.
+ *
+ ******************************************************************************/
+static int bus30ToPostEnumeratedBusSPR(uint32_t addr,
+                                       uint8_t* const postEnumBus)
+{
+    uint32_t cpubusno_valid = 0;
+    uint32_t cpubusno7 = 0;
+    uint8_t cc = 0;
+    int ret = ACD_SUCCESS;
+
+    ret = peci_RdEndPointConfigPciLocal(
+        addr, 0, POST_ENUM_QUERY_BUS, POST_ENUM_QUERY_DEVICE,
+        POST_ENUM_QUERY_FUNCTION, POST_ENUM_QUERY_VALID_BIT_OFFSET,
+        sizeof(cpubusno_valid), (uint8_t*)&cpubusno_valid, &cc);
+
+    if ((ret != PECI_CC_SUCCESS) || (PECI_CC_UA(cc)))
+    {
+        CRASHDUMP_PRINT(ERR, stderr,
+                        "Unable to read cpubusno_valid - cc: 0x%x ret: 0x%x\n",
+                        cc, ret);
+        // Need to return 1 for all failures
+        return ACD_FAILURE;
+    }
+
+    // Bit 30 is for checking bus 30 contains valid post enumerated bus#
+    if (0 == CHECK_BIT(cpubusno_valid, 30))
+    {
+        CRASHDUMP_PRINT(ERR, stderr,
+                        "Bus 30 does not contain valid post enumerated bus"
+                        "number! (0x%x)\n",
+                        cpubusno_valid);
+        return ACD_FAILURE;
+    }
+
+    ret = peci_RdEndPointConfigPciLocal(
+        addr, 0, POST_ENUM_QUERY_BUS, POST_ENUM_QUERY_DEVICE,
+        POST_ENUM_QUERY_FUNCTION, POST_ENUM_QUERY_BUS_NUMBER_OFFSET,
+        sizeof(cpubusno7), (uint8_t*)&cpubusno7, &cc);
+
+    if ((ret != PECI_CC_SUCCESS) || (PECI_CC_UA(cc)))
+    {
+        CRASHDUMP_PRINT(ERR, stderr,
+                        "Unable to read cpubusno7 - cc: 0x%x\n ret: 0x%x\n", cc,
+                        ret);
+        // Need to return 1 for all failures
+        return ACD_FAILURE;
+    }
+
+    // CPUBUSNO7[23:16] for Bus 30
+    *postEnumBus = ((cpubusno7 >> 16) & 0xff);
+    return ACD_SUCCESS;
+}
+
+/******************************************************************************
+ *
  *   uncoreStatusRdIAMSRICXSPR
  *
  *   This function gathers the Uncore Status MSR using input file
@@ -145,11 +205,13 @@ int uncoreStatusRdIAMSRICXSPR(CPUInfo* cpuInfo, cJSON* pJsonChild)
         return ACD_SUCCESS;
     }
 
+    uint16_t count = 0;
     SUncoreStatusMsrRegICXSPR reg = {0};
 
     cJSON_ArrayForEach(itRegs, regList)
     {
         int position = 0;
+        count++;
         cJSON_ArrayForEach(itParams, itRegs)
         {
             switch (position)
@@ -181,53 +243,64 @@ int uncoreStatusRdIAMSRICXSPR(CPUInfo* cpuInfo, cJSON* pJsonChild)
         }
         uncoreStatusJsonICXSPR(jsonNameString, &sRegData, pJsonChild, cc, ret);
     }
+    cd_snprintf_s(jsonNameString, US_JSON_STRING_LEN, US_UINTVAL, count);
+    cJSON_AddStringToObject(pJsonChild, RDIAMSR_COUNT_KEY, jsonNameString);
     return ACD_SUCCESS;
 }
 
-/******************************************************************************
- *
- *   uncoreStatusPciICXSPR
- *
- *   This function gathers the ICX/SPR Uncore Status PCI registers by using
- *   crashdump_input_icx.json
- *
- ******************************************************************************/
-int uncoreStatusPciICXSPR(CPUInfo* cpuInfo, cJSON* pJsonChild)
+uint8_t getBusNumber(SUncoreStatusRegPciIcx pciReg)
 {
-    int peci_fd = -1;
-    int ret = 0;
+    return pciReg.u8Bus;
+}
 
-    cJSON* regList = NULL;
-    cJSON* itRegs = NULL;
-    cJSON* itParams = NULL;
-    bool enable = false;
+uint8_t getBusNumberICX(SUncoreStatusRegPciIcx pciReg)
+{
+    // ICX EDS Reference Section: PCI Configuration Space Registers
+    // Note that registers located in Bus 30 and 31
+    // have been translated to Bus 13 and 14 respectively for PECI access.
+    if (pciReg.u8Bus == 30)
+    {
+        return 13;
+    }
+    else if (pciReg.u8Bus == 31)
+    {
+        return 14;
+    }
+    else
+    {
+        return pciReg.u8Bus;
+    }
+}
 
-    regList = getCrashDataSectionRegList(cpuInfo->inputFile.bufferPtr, "uncore",
-                                         "pci", &enable);
+acdStatus getRegisterList(cJSON** regList, CPUInfo* cpuInfo, cJSON* pJsonChild,
+                          bool* enable)
+{
+    *regList = getCrashDataSectionRegList(cpuInfo->inputFile.bufferPtr,
+                                          "uncore", "pci", enable);
 
-    if (regList == NULL)
+    if (*regList == NULL)
     {
         cJSON_AddStringToObject(pJsonChild, FILE_PCI_KEY, FILE_PCI_ERR);
         return ACD_INVALID_OBJECT;
     }
 
-    if (!enable)
-    {
-        cJSON_AddFalseToObject(pJsonChild, RECORD_ENABLE);
-        return ACD_SUCCESS;
-    }
+    return ACD_SUCCESS;
+}
 
-    ret = peci_Lock(&peci_fd, PECI_WAIT_FOREVER);
-    if (ret != PECI_CC_SUCCESS)
-    {
-        return ret;
-    }
-
+int queryAndStoreUncoreRegisters(
+    CPUInfo* cpuInfo, cJSON* pJsonChild, cJSON* regList, int peci_fd,
+    uint8_t (*getBusNumberForPlatform)(SUncoreStatusRegPciIcx))
+{
     SUncoreStatusRegPciIcx pciReg = {0};
+    cJSON* itRegs = NULL;
+    cJSON* itParams = NULL;
+    int ret = 0;
 
+    uint16_t count = 0;
     cJSON_ArrayForEach(itRegs, regList)
     {
         int position = 0;
+        count++;
         cJSON_ArrayForEach(itParams, itRegs)
         {
             switch (position)
@@ -258,23 +331,7 @@ int uncoreStatusPciICXSPR(CPUInfo* cpuInfo, cJSON* pJsonChild)
 
         SUncoreStatusRegRawData sRegData = {0};
         uint8_t cc = 0;
-        uint8_t bus = 0;
-
-        // ICX EDS Reference Section: PCI Configuration Space Registers
-        // Note that registers located in Bus 30 and 31
-        // have been translated to Bus 13 and 14 respectively for PECI access.
-        if (pciReg.u8Bus == 30)
-        {
-            bus = 13;
-        }
-        else if (pciReg.u8Bus == 31)
-        {
-            bus = 14;
-        }
-        else
-        {
-            bus = pciReg.u8Bus;
-        }
+        uint8_t bus = getBusNumberForPlatform(pciReg);
 
         switch (pciReg.u8Size)
         {
@@ -313,8 +370,102 @@ int uncoreStatusPciICXSPR(CPUInfo* cpuInfo, cJSON* pJsonChild)
         uncoreStatusJsonICXSPR(pciReg.regName, &sRegData, pJsonChild, cc, ret);
     }
 
+    char jsonNameString[US_REG_NAME_LEN];
+    cd_snprintf_s(jsonNameString, US_JSON_STRING_LEN, US_UINTVAL, count);
+    cJSON_AddStringToObject(pJsonChild, PCI_COUNT_KEY, jsonNameString);
+    return ACD_SUCCESS;
+}
+
+/******************************************************************************
+ *
+ *   uncoreStatusPciICX
+ *
+ *   This function gathers the ICX Uncore Status PCI registers by using
+ *   crashdump_input_icx.json
+ *
+ ******************************************************************************/
+int uncoreStatusPciICX(CPUInfo* cpuInfo, cJSON* pJsonChild)
+{
+    cJSON* regList = NULL;
+    bool enable = false;
+    int peci_fd = -1;
+
+    acdStatus status = getRegisterList(&regList, cpuInfo, pJsonChild, &enable);
+
+    if (ACD_SUCCESS != status)
+    {
+        return status;
+    }
+    else if (!enable)
+    {
+        cJSON_AddFalseToObject(pJsonChild, RECORD_ENABLE);
+        return ACD_SUCCESS;
+    }
+
+    int ret = peci_Lock(&peci_fd, PECI_WAIT_FOREVER);
+    if (ret != PECI_CC_SUCCESS)
+    {
+        return ret;
+    }
+
+    ret = queryAndStoreUncoreRegisters(cpuInfo, pJsonChild, regList, peci_fd,
+                                       getBusNumberICX);
+
     peci_Unlock(peci_fd);
     return ret;
+}
+
+/******************************************************************************
+ *
+ *   uncoreStatusPciSPR
+ *
+ *   This function gathers the SPR Uncore Status PCI registers by using
+ *   crashdump_input_spr.json
+ *
+ ******************************************************************************/
+int uncoreStatusPciSPR(CPUInfo* cpuInfo, cJSON* pJsonChild)
+{
+    cJSON* regList = NULL;
+    bool enable = false;
+    int peci_fd = -1;
+
+    acdStatus status = getRegisterList(&regList, cpuInfo, pJsonChild, &enable);
+    if (ACD_SUCCESS != status)
+    {
+        return status;
+    }
+    else if (!enable)
+    {
+        cJSON_AddFalseToObject(pJsonChild, RECORD_ENABLE);
+        return ACD_SUCCESS;
+    }
+
+    int ret = peci_Lock(&peci_fd, PECI_WAIT_FOREVER);
+    if (ret != PECI_CC_SUCCESS)
+    {
+        return ret;
+    }
+
+    ret = queryAndStoreUncoreRegisters(cpuInfo, pJsonChild, regList, peci_fd,
+                                       getBusNumber);
+
+    peci_Unlock(peci_fd);
+    return ret;
+}
+
+/******************************************************************************
+ *
+ *   uncoreStatusPciMmioICX
+ *
+ *   This function gathers the Uncore Status PCI MMIO registers by using
+ *   crashdump_input_icx.json
+ *
+ ******************************************************************************/
+
+int uncoreStatusPciMmioICX(CPUInfo* cpuInfo, cJSON* pJsonChild)
+{
+    return uncoreStatusPciMmioICXSPR(cpuInfo, pJsonChild,
+                                     bus30ToPostEnumeratedBusICX);
 }
 
 /******************************************************************************
@@ -326,7 +477,24 @@ int uncoreStatusPciICXSPR(CPUInfo* cpuInfo, cJSON* pJsonChild)
  *
  ******************************************************************************/
 
-int uncoreStatusPciMmioICXSPR(CPUInfo* cpuInfo, cJSON* pJsonChild)
+int uncoreStatusPciMmioSPR(CPUInfo* cpuInfo, cJSON* pJsonChild)
+{
+    return uncoreStatusPciMmioICXSPR(cpuInfo, pJsonChild,
+                                     bus30ToPostEnumeratedBusSPR);
+}
+
+/******************************************************************************
+ *
+ *   uncoreStatusPciMmioICXSPR
+ *
+ *   This function gathers the Uncore Status PCI MMIO registers by using
+ *   crashdump_input_icx.json
+ *
+ ******************************************************************************/
+
+int uncoreStatusPciMmioICXSPR(
+    CPUInfo* cpuInfo, cJSON* pJsonChild,
+    int (*bus30ToPostEnumeratedBus)(uint32_t addr, uint8_t* const postEnumBus))
 {
     char jsonNameString[US_REG_NAME_LEN];
     int peci_fd = -1;
@@ -354,26 +522,27 @@ int uncoreStatusPciMmioICXSPR(CPUInfo* cpuInfo, cJSON* pJsonChild)
         return ACD_SUCCESS;
     }
 
-    ret = peci_Lock(&peci_fd, PECI_WAIT_FOREVER);
-    if (ret != PECI_CC_SUCCESS)
-    {
-        return ret;
-    }
-
     if (0 != bus30ToPostEnumeratedBus(cpuInfo->clientAddr, &postEnumBus))
     {
-        peci_Unlock(peci_fd);
         return ACD_FAILURE;
     }
 
     cd_snprintf_s(jsonNameString, US_JSON_STRING_LEN, "B%d", postEnumBus, cc);
     cJSON_AddStringToObject(pJsonChild, "_post_enumerated_B30", jsonNameString);
 
+    uint16_t count = 0;
     SUncoreStatusRegPciMmioICXSPR mmioReg = {0};
+
+    ret = peci_Lock(&peci_fd, PECI_WAIT_FOREVER);
+    if (ret != PECI_CC_SUCCESS)
+    {
+        return ret;
+    }
 
     cJSON_ArrayForEach(itRegs, regList)
     {
         int position = 0;
+        count++;
         cJSON_ArrayForEach(itParams, itRegs)
         {
             switch (position)
@@ -441,34 +610,68 @@ int uncoreStatusPciMmioICXSPR(CPUInfo* cpuInfo, cJSON* pJsonChild)
     }
 
     peci_Unlock(peci_fd);
+    cd_snprintf_s(jsonNameString, US_JSON_STRING_LEN, US_UINTVAL, count);
+    cJSON_AddStringToObject(pJsonChild, MMIO_COUNT_KEY, jsonNameString);
+
     return ret;
 }
 
-static UncoreStatusRead UncoreStatusTypesICXSPR[] = {
-    uncoreStatusPciICXSPR,
-    uncoreStatusPciMmioICXSPR,
+static UncoreStatusRead UncoreStatusTypesICX[] = {
+    uncoreStatusPciICX,
+    uncoreStatusPciMmioICX,
+    uncoreStatusRdIAMSRICXSPR,
+};
+
+static UncoreStatusRead UncoreStatusTypesSPR[] = {
+    uncoreStatusPciSPR,
+    uncoreStatusPciMmioSPR,
     uncoreStatusRdIAMSRICXSPR,
 };
 
 /******************************************************************************
  *
- *   logUncoreStatusICXSPR
+ *   logUncoreStatusICX
  *
  *   This function gathers the Uncore Status register contents and adds them to
  *   the debug log.
  *
  ******************************************************************************/
-int logUncoreStatusICXSPR(CPUInfo* cpuInfo, cJSON* pJsonChild)
+int logUncoreStatusICX(CPUInfo* cpuInfo, cJSON* pJsonChild)
 {
     int ret = 0;
 
-    for (uint32_t i = 0; i < (sizeof(UncoreStatusTypesICXSPR) /
-                              sizeof(UncoreStatusTypesICXSPR[0]));
+    for (uint32_t i = 0;
+         i < (sizeof(UncoreStatusTypesICX) / sizeof(UncoreStatusTypesICX[0]));
          i++)
     {
-        if (UncoreStatusTypesICXSPR[i](cpuInfo, pJsonChild) != 0)
+        if (UncoreStatusTypesICX[i](cpuInfo, pJsonChild) != ACD_SUCCESS)
         {
-            ret = 1;
+            ret = ACD_FAILURE;
+        }
+    }
+
+    return ret;
+}
+
+/******************************************************************************
+ *
+ *   logUncoreStatusSPR
+ *
+ *   This function gathers the Uncore Status register contents and adds them to
+ *   the debug log.
+ *
+ ******************************************************************************/
+int logUncoreStatusSPR(CPUInfo* cpuInfo, cJSON* pJsonChild)
+{
+    int ret = 0;
+
+    for (uint32_t i = 0;
+         i < (sizeof(UncoreStatusTypesSPR) / sizeof(UncoreStatusTypesSPR[0]));
+         i++)
+    {
+        if (UncoreStatusTypesSPR[i](cpuInfo, pJsonChild) != ACD_SUCCESS)
+        {
+            ret = ACD_FAILURE;
         }
     }
 
@@ -476,10 +679,10 @@ int logUncoreStatusICXSPR(CPUInfo* cpuInfo, cJSON* pJsonChild)
 }
 
 static const SUncoreStatusLogVx sUncoreStatusLogVx[] = {
-    {cd_icx, logUncoreStatusICXSPR},
-    {cd_icx2, logUncoreStatusICXSPR},
-    {cd_icxd, logUncoreStatusICXSPR},
-    {cd_spr, logUncoreStatusICXSPR},
+    {cd_icx, logUncoreStatusICX},
+    {cd_icx2, logUncoreStatusICX},
+    {cd_icxd, logUncoreStatusICX},
+    {cd_spr, logUncoreStatusSPR},
 };
 
 /******************************************************************************

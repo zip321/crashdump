@@ -18,20 +18,26 @@
  ******************************************************************************/
 
 #pragma once
-#include "utils_dbusplus.hpp"
 
 #include <linux/peci-ioctl.h>
 #include <peci.h>
 
 #include <array>
+#include <boost/asio/io_service.hpp>
+#include <filesystem>
+#include <sdbusplus/asio/object_server.hpp>
 #include <vector>
 
 extern "C" {
 #include <cjson/cJSON.h>
 
 #include "CrashdumpSections/crashdump.h"
+#include "CrashdumpSections/utils.h"
 #include "safe_str_lib.h"
 }
+
+#include "utils_dbusplus.hpp"
+
 #define ICXD_MODEL 0x606C0
 
 namespace crashdump
@@ -39,5 +45,53 @@ namespace crashdump
 constexpr char const* dbgStatusItemName = "status";
 constexpr const char* dbgFailedStatus = "N/A";
 
+constexpr char const* crashdumpService = "com.intel.crashdump";
+constexpr char const* crashdumpPath = "/com/intel/crashdump";
+constexpr char const* crashdumpInterface = "com.intel.crashdump";
+constexpr char const* crashdumpOnDemandPath = "/com/intel/crashdump/OnDemand";
+constexpr char const* crashdumpTelemetryPath = "/com/intel/crashdump/Telemetry";
+constexpr char const* crashdumpStoredInterface = "com.intel.crashdump.Stored";
+constexpr char const* crashdumpDeleteAllInterface =
+    "xyz.openbmc_project.Collection.DeleteAll";
+constexpr char const* crashdumpOnDemandInterface =
+    "com.intel.crashdump.OnDemand";
+constexpr char const* crashdumpTelemetryInterface =
+    "com.intel.crashdump.Telemetry";
+constexpr char const* crashdumpRawPeciInterface =
+    "com.intel.crashdump.SendRawPeci";
+constexpr int numStoredLogs = 3;
+
+static boost::asio::io_service io;
+static std::shared_ptr<sdbusplus::asio::connection> conn;
+static std::shared_ptr<sdbusplus::asio::object_server> server;
+static std::vector<
+    std::pair<std::string, std::shared_ptr<sdbusplus::asio::dbus_interface>>>
+    storedLogIfaces;
+
+const std::filesystem::path crashdumpDir = "/tmp/crashdump/output";
+const std::string crashdumpFileRoot{"crashdump_ondemand_"};
+const std::string crashdumpTelemetryFileRoot{"telemetry_"};
+const std::string crashdumpPrefix{"crashdump_"};
+
+void getClientAddrs(std::vector<CPUInfo>& cpuInfo);
+std::string newTimestamp(void);
+void initCPUInfo(std::vector<CPUInfo>& cpuInfo);
+int scandir_filter(const struct dirent* dirEntry);
+void dbusRemoveOnDemandLog();
+void dbusRemoveTelemetryLog();
+void dbusAddLog(const std::string& logContents, const std::string& timestamp,
+                const std::string& dbusPath, const std::string& filename);
+void newOnDemandLog(std::vector<CPUInfo>& cpuInfo,
+                    std::string& onDemandLogContents, std::string& timestamp);
+void newTelemetryLog(std::vector<CPUInfo>& cpuInfo,
+                     std::string& telemetryLogContents, std::string& timestamp);
+void incrementCrashdumpCount();
+void dbusAddStoredLog(const std::string& storedLogContents,
+                      const std::string& timestamp);
+void newStoredLog(std::vector<CPUInfo>& cpuInfo, std::string& storedLogContents,
+                  const std::string& triggerType, std::string& timestamp);
+bool isPECIAvailable();
 void setResetDetected();
+void loadInputFiles(std::vector<CPUInfo>& cpuInfo, InputFileInfo* inputFileInfo,
+                    bool isTelemetry);
 } // namespace crashdump

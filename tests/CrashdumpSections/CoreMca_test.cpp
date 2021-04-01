@@ -17,35 +17,29 @@
  *
  ******************************************************************************/
 
+#include "../mock/libpeci_mock.hpp"
 #include "../test_utils.hpp"
-#include "CrashdumpSections/CoreMca.hpp"
-#include "crashdump.hpp"
 
+extern "C" {
 #include <safe_mem_lib.h>
+
+#include "CrashdumpSections/CoreMca.h"
+#include "CrashdumpSections/crashdump.h"
+#include "CrashdumpSections/utils.h"
+}
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
 using namespace ::testing;
 using ::testing::Return;
-using namespace crashdump;
-
-cJSON* selectAndReadInputFile(crashdump::cpu::Model cpuModel, char** filename,
-                              bool isTelemetry);
-
-class CoreMcaMOCK
-{
-  public:
-    MOCK_METHOD5(peci_RdIAMSR,
-                 EPECIStatus(uint8_t, uint8_t, uint16_t, uint64_t*, uint8_t*));
-};
 
 class CoreMcaTestFixture : public Test
 {
   public:
     CoreMcaTestFixture()
     {
-        coreMcaMock = std::make_unique<NiceMock<CoreMcaMOCK>>();
+        coreMcaMock = std::make_unique<NiceMock<LibPeciMock>>();
     }
 
     ~CoreMcaTestFixture()
@@ -56,10 +50,10 @@ class CoreMcaTestFixture : public Test
     void SetUp() override
     {
         // Build a list of cpus
-        info.model = crashdump::cpu::spr;
+        info.model = cd_spr;
         info.coreMask = 0xa58a87356e08ab3;
         cpus.push_back(info);
-        info.model = crashdump::cpu::spr;
+        info.model = cd_spr;
         info.coreMask = 0xa58a87356e08ab3;
         cpus.push_back(info);
 
@@ -85,11 +79,11 @@ class CoreMcaTestFixture : public Test
     char* overrideFile = NULL;
     bool isTelemetry = false;
     int ret = ACD_FAILURE;
-    char* testFileBuf = readTestFile("/tmp/crashdump/ut/ut_core_mca.json");
-    static std::unique_ptr<CoreMcaMOCK> coreMcaMock;
+    char* testFileBuf = readTestFile("/tmp/crashdump/input/ut_core_mca.json");
+    static std::unique_ptr<LibPeciMock> coreMcaMock;
 };
 
-std::unique_ptr<CoreMcaMOCK> CoreMcaTestFixture::coreMcaMock;
+std::unique_ptr<LibPeciMock> CoreMcaTestFixture::coreMcaMock;
 
 EPECIStatus peci_RdIAMSR(uint8_t target, uint8_t threadID, uint16_t MSRAddress,
                          uint64_t* u64MsrVal, uint8_t* cc)
@@ -110,7 +104,7 @@ TEST_F(CoreMcaTestFixture, logCoreMcaICXSPRFail)
     cpus[0].inputFile.filenamePtr = NULL;
     cpus[0].inputFile.bufferPtr = NULL;
 
-    ret = logCoreMca(cpus[0], root);
+    ret = logCoreMca(&cpus[0], root);
     ut = cJSON_GetObjectItem(cJSON_Parse(testFileBuf), "logCoreMcaICXSPRFail");
     EXPECT_EQ(ret, ACD_INVALID_OBJECT);
     EXPECT_EQ(true, cJSON_Compare(ut, root, true));
@@ -134,7 +128,7 @@ TEST_F(CoreMcaTestFixture, logCoreMcaICXSPRDisable)
 
     ut = cJSON_GetObjectItem(cJSON_Parse(testFileBuf),
                              "logCoreMcaICXSPRDisable");
-    ret = logCoreMca(cpus[0], root);
+    ret = logCoreMca(&cpus[0], root);
     EXPECT_EQ(ret, ACD_SUCCESS);
     EXPECT_EQ(true, cJSON_Compare(ut, root, true));
 }
@@ -149,37 +143,8 @@ TEST_F(CoreMcaTestFixture, logCoreMcaICXSPR)
 
     EXPECT_CALL(*coreMcaMock, peci_RdIAMSR).Times(AtLeast(1));
 
-    ret = logCoreMca(cpus[0], root);
+    ret = logCoreMca(&cpus[0], root);
     ut = cJSON_GetObjectItem(cJSON_Parse(testFileBuf), "logCoreMcaICXSPR");
     EXPECT_EQ(ret, 0);
-    EXPECT_EQ(true, cJSON_Compare(ut, root, true));
-}
-
-TEST_F(CoreMcaTestFixture, logUncoreMcaICXSPRFail)
-{
-    inputFileInfo.buffers[0] = NULL;
-
-    cpus[0].inputFile.filenamePtr = NULL;
-    cpus[0].inputFile.bufferPtr = NULL;
-
-    ret = logUncoreMca(cpus[0], root);
-    ut =
-        cJSON_GetObjectItem(cJSON_Parse(testFileBuf), "logUncoreMcaICXSPRFail");
-    EXPECT_EQ(ret, ACD_INVALID_OBJECT);
-    EXPECT_EQ(true, cJSON_Compare(ut, root, true));
-}
-
-TEST_F(CoreMcaTestFixture, logUncoreMcaICXSPR)
-{
-    inputFileInfo.buffers[0] = selectAndReadInputFile(
-        cpus[0].model, inputFileInfo.filenames, isTelemetry);
-
-    cpus[0].inputFile.filenamePtr = inputFileInfo.filenames[0];
-    cpus[0].inputFile.bufferPtr = inputFileInfo.buffers[0];
-
-    EXPECT_CALL(*coreMcaMock, peci_RdIAMSR).Times(AtLeast(1));
-    ret = logUncoreMca(cpus[0], root);
-    ut = cJSON_GetObjectItem(cJSON_Parse(testFileBuf), "logUncoreMcaICXSPR");
-    EXPECT_EQ(ret, ACD_SUCCESS);
     EXPECT_EQ(true, cJSON_Compare(ut, root, true));
 }

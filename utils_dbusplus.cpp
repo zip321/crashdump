@@ -113,11 +113,12 @@ int getBIOSVersionDBus(char* biosVerStr, size_t biosVerStrSize)
         return ACD_FAILURE;
     }
     sdbusplus::bus::bus dbus = sdbusplus::bus::new_default_system();
-    auto method =
-        dbus.new_method_call("xyz.openbmc_project.Settings",
-                             "/xyz/openbmc_project/software/bios_active",
-                             "org.freedesktop.DBus.Properties", "Get");
-    method.append("xyz.openbmc_project.Software.Version", "Version");
+    auto method = dbus.new_method_call(
+        "xyz.openbmc_project.Smbios.MDR_V2",
+        "/xyz/openbmc_project/inventory/system/chassis/motherboard/bios",
+        "org.freedesktop.DBus.Properties", "Get");
+    method.append("xyz.openbmc_project.Inventory.Decorator.Revision",
+                  "Version");
     try
     {
         auto reply = dbus.call(method);

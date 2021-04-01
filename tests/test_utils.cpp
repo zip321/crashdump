@@ -19,6 +19,9 @@
 
 #include "test_utils.hpp"
 
+#include <stdio.h>
+
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 

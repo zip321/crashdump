@@ -16,26 +16,19 @@
  * License.
  *
  ******************************************************************************/
+#include "../mock/test_crashdump.hpp"
 
-#include "../test_utils.hpp"
-#include "CrashdumpSections/Uncore.hpp"
-#include "crashdump.hpp"
+extern "C" {
+#include "CrashdumpSections/Uncore.h"
+#include "CrashdumpSections/crashdump.h"
+#include "CrashdumpSections/utils.h"
+}
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
 using namespace ::testing;
 using ::testing::Return;
-using namespace crashdump;
-
-int uncoreStatusPciICX(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);
-int uncoreStatusPciMmioICX(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);
-cJSON* readInputFile(const char* filename);
-cJSON* selectAndReadInputFile(crashdump::cpu::Model cpuModel, char** filename,
-                              bool isTelemetry);
-
-// change to ifdef or adjust CMakeList.txt to test against hardware
-#ifndef MOCK
 
 class UncoreTestFixture : public Test
 {
@@ -43,9 +36,9 @@ class UncoreTestFixture : public Test
     void SetUp() override
     {
         // Build a list of cpus
-        info.model = crashdump::cpu::icx;
+        info.model = cd_icx;
         cpus.push_back(info);
-        info.model = crashdump::cpu::icx;
+        info.model = cd_icx;
         cpus.push_back(info);
 
         // Initialize json object
@@ -71,69 +64,280 @@ class UncoreTestFixture : public Test
     bool isTelemetry = false;
 };
 
-TEST_F(UncoreTestFixture, getCrashDataSection)
+TEST_F(UncoreTestFixture, DISABLED_getCrashDataSection)
 {
     bool enable = false;
     inputFileInfo.buffers[0] = selectAndReadInputFile(
         cpus[0].model, inputFileInfo.filenames, isTelemetry);
-    cJSON* section =
-        getCrashDataSection(inputFileInfo.buffers[0], "uncore", &enable);
+    getCrashDataSection(inputFileInfo.buffers[0], "uncore", &enable);
     EXPECT_TRUE(enable);
 }
 
-TEST_F(UncoreTestFixture, getCrashDataSectionVersion)
+TEST_F(UncoreTestFixture, DISABLED_getCrashDataSectionVersion)
 {
     inputFileInfo.buffers[0] = selectAndReadInputFile(
         cpus[0].model, inputFileInfo.filenames, isTelemetry);
     int version =
         getCrashDataSectionVersion(inputFileInfo.buffers[0], "uncore");
-    EXPECT_EQ(version, 0x21);
+    EXPECT_EQ(version, 0x24);
 }
 
-TEST_F(UncoreTestFixture, uncoreStatusPciICX)
+TEST(UncoreTest, logUncoreStatus_Invalid_Model)
 {
-    ut = readInputFile("/tmp/crashdump/input/ut_uncore_sample_icx.json");
-    inputFileInfo.buffers[0] = selectAndReadInputFile(
-        cpus[0].model, inputFileInfo.filenames, isTelemetry);
+    int ret;
+    CPUInfo cpuInfo = {.clientAddr = 48,
+                       .model = cd_numberOfModels, // invalid model#
+                       .coreMask = 0x0000db7e,
+                       .crashedCoreMask = 0x0,
+                       .sectionMask = 0,
+                       .chaCount = 0,
+                       .initialPeciWake = ON,
+                       .inputFile = {},
+                       .cpuidRead = {},
+                       .chaCountRead = {},
+                       .coreMaskRead = {},
+                       .launchDelay = {}};
+    cJSON* root = cJSON_CreateObject();
+    ret = logUncoreStatus(&cpuInfo, root);
+    EXPECT_EQ(ret, ACD_FAILURE);
+}
 
-    uncoreStatusPciICX(cpus[0], root);
+TEST(UncoreTest, logUncoreStatus_NULL_JsonPtr)
+{
+    int ret;
 
-    cJSON* pci = cJSON_GetObjectItemCaseSensitive(ut, "pci");
-    cJSON* expected = NULL;
-    cJSON* actual = NULL;
-
-    cJSON_ArrayForEach(expected, pci)
+    TestCrashdump crashdump(cd_icx);
+    for (auto cpuinfo : crashdump.cpusInfo)
     {
-        actual = cJSON_GetObjectItemCaseSensitive(root, expected->string);
-        EXPECT_TRUE(cJSON_Compare(actual, expected, true))
-            << "Not match!\n"
-            << "expected - " << expected->string << ":" << expected->valuestring
-            << "\n"
-            << "actual - " << actual->string << ":" << actual->valuestring;
+        ret = logUncoreStatus(&cpuinfo, NULL);
+        EXPECT_EQ(ret, ACD_INVALID_OBJECT);
     }
 }
 
-TEST_F(UncoreTestFixture, uncoreStatusPciMmioICX)
+TEST(UncoreTest, logCrashdumpVersion_validRecordType_SPR)
 {
-    ut = readInputFile("/tmp/crashdump/input/ut_uncore_sample_icx.json");
-    inputFileInfo.buffers[0] = selectAndReadInputFile(
-        cpus[0].model, inputFileInfo.filenames, isTelemetry);
+    CPUInfo cpuInfo = {.clientAddr = 48,
+                       .model = cd_spr,
+                       .coreMask = 0x0000db7e,
+                       .crashedCoreMask = 0x0,
+                       .sectionMask = 0,
+                       .chaCount = 0,
+                       .initialPeciWake = ON,
+                       .inputFile = {},
+                       .cpuidRead = {},
+                       .chaCountRead = {},
+                       .coreMaskRead = {},
+                       .launchDelay = {}};
+    std::vector<CPUInfo> cpusInfo = {cpuInfo};
+    TestCrashdump crashdump(cpusInfo);
 
-    uncoreStatusPciMmioICX(cpus[0], root);
+    revision_uncore = getCrashDataSectionVersion(
+        crashdump.cpusInfo[0].inputFile.bufferPtr, "uncore");
 
-    cJSON* mmio = cJSON_GetObjectItemCaseSensitive(ut, "mmio");
-    cJSON* expected = NULL;
-    cJSON* actual = NULL;
+    cJSON* uncore_root = cJSON_CreateObject();
+    logCrashdumpVersion(uncore_root, &cpuInfo, RECORD_TYPE_UNCORESTATUSLOG);
+    cJSON* actual = cJSON_GetObjectItemCaseSensitive(uncore_root, "_version");
+    ASSERT_NE(actual, nullptr);
+    EXPECT_STREQ(actual->valuestring, "0x801c009");
+}
 
-    cJSON_ArrayForEach(expected, mmio)
+TEST(UncoreTest, logCrashdumpVersion_validRecordType_ICX)
+{
+    CPUInfo cpuInfo = {.clientAddr = 48,
+                       .model = cd_icx,
+                       .coreMask = 0x0000db7e,
+                       .crashedCoreMask = 0x0,
+                       .sectionMask = 0,
+                       .chaCount = 0,
+                       .initialPeciWake = ON,
+                       .inputFile = {},
+                       .cpuidRead = {},
+                       .chaCountRead = {},
+                       .coreMaskRead = {},
+                       .launchDelay = {}};
+
+    revision_uncore = 0xbb;
+
+    cJSON* uncore_root = cJSON_CreateObject();
+    logCrashdumpVersion(uncore_root, &cpuInfo, RECORD_TYPE_UNCORESTATUSLOG);
+    cJSON* actual = cJSON_GetObjectItemCaseSensitive(uncore_root, "_version");
+    ASSERT_NE(actual, nullptr);
+    EXPECT_STREQ(actual->valuestring, "0x801a0bb");
+}
+
+TEST(UncoreTest, logUncoreStatus_fullFlow)
+{
+    int ret;
+    CPUInfo cpuInfo = {.clientAddr = 48,
+                       .model = cd_spr,
+                       .coreMask = 0x0000db7e,
+                       .crashedCoreMask = 0x0,
+                       .sectionMask = 0,
+                       .chaCount = 0,
+                       .initialPeciWake = ON,
+                       .inputFile = {},
+                       .cpuidRead = {},
+                       .chaCountRead = {},
+                       .coreMaskRead = {},
+                       .launchDelay = {}};
+
+    std::vector<CPUInfo> cpusInfo = {cpuInfo};
+    TestCrashdump crashdump(cpusInfo);
+
+    EXPECT_CALL(*crashdump.libPeciMock, peci_Lock)
+        .WillRepeatedly(Return(PECI_CC_SUCCESS));
+
+    uint8_t returnValue[2] = {0x86, 0x80}; // 0x8086;
+    uint8_t cc = 0x94;
+    EXPECT_CALL(*crashdump.libPeciMock, peci_RdEndPointConfigPciLocal_seq)
+        .WillRepeatedly(DoAll(SetArrayArgument<7>(returnValue, returnValue + 2),
+                              SetArgPointee<9>(cc), Return(PECI_CC_SUCCESS)));
+
+    uint8_t returnBusValidQuery[4] = {0x3f, 0x0f, 0x00,
+                                      0xc0}; // 0xc0000f3f; bit 30 set
+    uint8_t returnEnumeratedBus[4] = {0x00, 0x00, 0x7e, 0x7f}; // 0x7f7e0000;
+    cc = 0x94;
+    EXPECT_CALL(*crashdump.libPeciMock, peci_RdEndPointConfigPciLocal)
+        .WillOnce(DoAll(
+            SetArrayArgument<7>(returnBusValidQuery, returnBusValidQuery + 4),
+            SetArgPointee<8>(cc), Return(PECI_CC_SUCCESS)))
+        .WillOnce(DoAll(
+            SetArrayArgument<7>(returnEnumeratedBus, returnEnumeratedBus + 4),
+            SetArgPointee<8>(cc), Return(PECI_CC_SUCCESS)));
+
+    for (auto cpuinfo : crashdump.cpusInfo)
     {
-        actual = cJSON_GetObjectItemCaseSensitive(root, expected->string);
-        EXPECT_TRUE(cJSON_Compare(actual, expected, true))
-            << "Not match!\n"
-            << "expected - " << expected->string << ":" << expected->valuestring
-            << "\n"
-            << "actual - " << actual->string << ":" << actual->valuestring;
+        ret = logUncoreStatus(&cpuinfo, crashdump.root);
+        EXPECT_EQ(ret, ACD_SUCCESS);
     }
 }
 
-#endif
+TEST(UncoreTest, logUncoreStatus_fullFlow_ICX)
+{
+    int ret;
+    CPUInfo cpuInfo = {.clientAddr = 48,
+                       .model = cd_icx,
+                       .coreMask = 0x0000db7e,
+                       .crashedCoreMask = 0x0,
+                       .sectionMask = 0,
+                       .chaCount = 0,
+                       .initialPeciWake = ON,
+                       .inputFile = {},
+                       .cpuidRead = {},
+                       .chaCountRead = {},
+                       .coreMaskRead = {},
+                       .launchDelay = {}};
+
+    std::vector<CPUInfo> cpusInfo = {cpuInfo};
+    TestCrashdump crashdump(cpusInfo);
+
+    EXPECT_CALL(*crashdump.libPeciMock, peci_Lock)
+        .WillRepeatedly(Return(PECI_CC_SUCCESS));
+
+    uint8_t returnValue[2] = {0x86, 0x80}; // 0x8086;
+    uint8_t cc = 0x94;
+    EXPECT_CALL(*crashdump.libPeciMock, peci_RdEndPointConfigPciLocal_seq)
+        .WillRepeatedly(DoAll(SetArrayArgument<7>(returnValue, returnValue + 2),
+                              SetArgPointee<9>(cc), Return(PECI_CC_SUCCESS)));
+
+    uint8_t firstReturnEnumBus[2] = {0x00, 0x08};          // 0x0800; BIT 11 set
+    uint8_t returnBusNumber[4] = {0x00, 0x00, 0xdd, 0x00}; // bus# 0xdd [23:16]
+
+    EXPECT_CALL(*crashdump.libPeciMock, peci_RdPkgConfig)
+        .WillOnce(DoAll(
+            SetArrayArgument<4>(firstReturnEnumBus, firstReturnEnumBus + 2),
+            SetArgPointee<5>(cc), Return(PECI_CC_SUCCESS)))
+        .WillOnce(
+            DoAll(SetArrayArgument<4>(returnBusNumber, returnBusNumber + 4),
+                  SetArgPointee<5>(cc), Return(PECI_CC_SUCCESS)));
+
+    for (auto cpuinfo : crashdump.cpusInfo)
+    {
+        ret = logUncoreStatus(&cpuinfo, crashdump.root);
+        EXPECT_EQ(ret, ACD_SUCCESS);
+    }
+}
+
+TEST(UncoreTest, bus30ToPostEnumeratedBusSPR_disabledbus30)
+{
+    int ret;
+    CPUInfo cpuInfo = {.clientAddr = 48,
+                       .model = cd_spr,
+                       .coreMask = 0x0000db7e,
+                       .crashedCoreMask = 0x0,
+                       .sectionMask = 0,
+                       .chaCount = 0,
+                       .initialPeciWake = ON,
+                       .inputFile = {},
+                       .cpuidRead = {},
+                       .chaCountRead = {},
+                       .coreMaskRead = {},
+                       .launchDelay = {}};
+
+    std::vector<CPUInfo> cpusInfo = {cpuInfo};
+    TestCrashdump crashdump(cpusInfo);
+
+    EXPECT_CALL(*crashdump.libPeciMock, peci_Lock)
+        .WillRepeatedly(Return(PECI_CC_SUCCESS));
+
+    uint8_t returnValue[2] = {0x86, 0x80}; // 0x8086;
+    uint8_t cc = 0x94;
+    EXPECT_CALL(*crashdump.libPeciMock, peci_RdEndPointConfigPciLocal_seq)
+        .WillRepeatedly(DoAll(SetArrayArgument<7>(returnValue, returnValue + 2),
+                              SetArgPointee<9>(cc), Return(PECI_CC_SUCCESS)));
+
+    uint8_t returnBusValidQuery[4] = {0x3f, 0x0f, 0x00,
+                                      0x00}; // 0x00000f3f; bit 30 not set
+    cc = 0x94;
+    EXPECT_CALL(*crashdump.libPeciMock, peci_RdEndPointConfigPciLocal)
+        .WillOnce(DoAll(
+            SetArrayArgument<7>(returnBusValidQuery, returnBusValidQuery + 4),
+            SetArgPointee<8>(cc), Return(PECI_CC_SUCCESS)));
+
+    for (auto cpuinfo : crashdump.cpusInfo)
+    {
+        ret = logUncoreStatus(&cpuinfo, crashdump.root);
+        EXPECT_EQ(ret, ACD_FAILURE);
+    }
+}
+
+TEST(UncoreTest, bus30ToPostEnumeratedBusICX_disabledbus30)
+{
+    int ret;
+    CPUInfo cpuInfo = {.clientAddr = 48,
+                       .model = cd_icx,
+                       .coreMask = 0x0000db7e,
+                       .crashedCoreMask = 0x0,
+                       .sectionMask = 0,
+                       .chaCount = 0,
+                       .initialPeciWake = ON,
+                       .inputFile = {},
+                       .cpuidRead = {},
+                       .chaCountRead = {},
+                       .coreMaskRead = {},
+                       .launchDelay = {}};
+
+    std::vector<CPUInfo> cpusInfo = {cpuInfo};
+    TestCrashdump crashdump(cpusInfo);
+
+    EXPECT_CALL(*crashdump.libPeciMock, peci_Lock)
+        .WillRepeatedly(Return(PECI_CC_SUCCESS));
+
+    uint8_t returnValue[2] = {0x86, 0x80}; // 0x8086;
+    uint8_t cc = 0x94;
+    EXPECT_CALL(*crashdump.libPeciMock, peci_RdEndPointConfigPciLocal_seq)
+        .WillRepeatedly(DoAll(SetArrayArgument<7>(returnValue, returnValue + 2),
+                              SetArgPointee<9>(cc), Return(PECI_CC_SUCCESS)));
+
+    uint8_t firstReturnEnumBus[2] = {0x00, 0x00}; // 0x0000; BIT 11 not set
+    EXPECT_CALL(*crashdump.libPeciMock, peci_RdPkgConfig)
+        .WillOnce(DoAll(
+            SetArrayArgument<4>(firstReturnEnumBus, firstReturnEnumBus + 2),
+            SetArgPointee<5>(cc), Return(PECI_CC_SUCCESS)));
+
+    for (auto cpuinfo : crashdump.cpusInfo)
+    {
+        ret = logUncoreStatus(&cpuinfo, crashdump.root);
+        EXPECT_EQ(ret, ACD_FAILURE);
+    }
+}

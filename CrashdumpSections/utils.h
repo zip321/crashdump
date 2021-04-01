@@ -73,6 +73,42 @@ uint32_t bitField(uint32_t offset, uint32_t size, uint32_t val);
 // crashdump_input_xxx.json #define(s) and c-helper functions
 #define RECORD_ENABLE "_record_enable"
 #define ENABLE 0
+#define UT_REG_NAME_LEN 32
+#define UT_REG_DWORD 4
+#define UT_REG_QWORD 8
+
+typedef union
+{
+    uint64_t u64;
+    uint32_t u32[2];
+} SRegValue;
+
+typedef struct
+{
+    SRegValue uValue;
+    uint8_t cc;
+    int ret;
+} SRegRawData;
+
+typedef struct
+{
+    char regName[UT_REG_NAME_LEN];
+    uint8_t u8Seg;
+    uint8_t u8Bus;
+    uint8_t u8Dev;
+    uint8_t u8Func;
+    uint16_t u16Reg;
+    uint8_t u8Size;
+} SRegPci;
+
+static const SRegPci sPciReg[] = {
+    // Register, Seg, Bus, Dev, Func, Offset, Size
+    {"ierrloggingreg", 0, 30, 0, 0, 0xA4, 4},
+    {"mcerrloggingreg", 0, 30, 0, 0, 0xA8, 4},
+    {"firstierrtsc", 0, 31, 30, 4, 0xFCF8, 8},
+    {"firstmcerrtsc", 0, 31, 30, 4, 0xF4F0, 8},
+    {"mca_err_src_log", 0, 31, 30, 2, 0xEC, 4},
+};
 
 void updateRecordEnable(cJSON* root, bool enable);
 cJSON* getCrashDataSection(cJSON* root, char* section, bool* enable);
@@ -97,4 +133,12 @@ cJSON* getCrashDataSectionObjectOneLevel(cJSON* root, char* section,
 void addDelayToSection(cJSON* cpu, CPUInfo* cpuInfo, char* sectionName,
                        struct timespec* crashdumpStart);
 uint64_t tsToNanosecond(struct timespec* ts);
+void updateMcaRunTime(cJSON* root, struct timespec* start);
+struct timespec calculateDelay(struct timespec* crashdumpStart,
+                               uint32_t delayTimeFromInputFileInSec);
+uint32_t getDelayFromInputFile(CPUInfo* cpuInfo, char* sectionName);
+void logDelayTime(cJSON* parent, const char* sectionName,
+                  struct timespec delay);
+int getPciRegister(CPUInfo* cpuInfo, SRegRawData* sRegData, uint8_t u8index);
+cJSON* getPeciAccessType(cJSON* root);
 #endif // UTILS_H

@@ -19,15 +19,23 @@
 
 #include "crashdump.h"
 
+#include "CrashdumpSections/AddressMap.h"
+#include "CrashdumpSections/BigCore.h"
+#include "CrashdumpSections/CoreMca.h"
+#include "CrashdumpSections/PowerManagement.h"
+#include "CrashdumpSections/TorDump.h"
+#include "CrashdumpSections/Uncore.h"
+#include "CrashdumpSections/UncoreMca.h"
 #include "utils.h"
 
 const CrashdumpSection sectionNames[NUMBER_OF_SECTIONS] = {
-    {"big_core", BIG_CORE, RECORD_TYPE_OFFSET},
-    {"MCA", MCA, RECORD_TYPE_MCALOG},
-    {"uncore", UNCORE, RECORD_TYPE_UNCORESTATUSLOG},
-    {"TOR", TOR, RECORD_TYPE_TORDUMP},
-    {"PM_info", PM_INFO, RECORD_TYPE_PMINFO},
-    {"address_map", ADDRESS_MAP, RECORD_TYPE_ADDRESSMAP},
+    {"MCA", MCA_UNCORE, RECORD_TYPE_MCALOG, logUncoreMca},
+    {"uncore", UNCORE, RECORD_TYPE_UNCORESTATUSLOG, logUncoreStatus},
+    {"TOR", TOR, RECORD_TYPE_TORDUMP, logTorDump},
+    {"PM_info", PM_INFO, RECORD_TYPE_PMINFO, logPowerManagement},
+    {"address_map", ADDRESS_MAP, RECORD_TYPE_ADDRESSMAP, logAddressMap},
+    {"big_core", BIG_CORE, RECORD_TYPE_OFFSET, logCrashdump},
+    {"MCA", MCA_CORE, RECORD_TYPE_MCALOG, logCoreMca},
     {"METADATA", METADATA, RECORD_TYPE_METADATA}};
 
 int revision_uncore = 0;

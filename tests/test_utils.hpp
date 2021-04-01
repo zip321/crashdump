@@ -18,7 +18,8 @@
  ******************************************************************************/
 
 #pragma once
-#include "crashdump.hpp"
+#include <cjson/cJSON.h>
+#include <stdint.h>
 
 #define NTIME(n) for (int i = 0; i < n; i++)
 
