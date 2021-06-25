@@ -34,7 +34,7 @@ const CrashdumpSection sectionNames[NUMBER_OF_SECTIONS] = {
     {"TOR", TOR, RECORD_TYPE_TORDUMP, logTorDump},
     {"PM_info", PM_INFO, RECORD_TYPE_PMINFO, logPowerManagement},
     {"address_map", ADDRESS_MAP, RECORD_TYPE_ADDRESSMAP, logAddressMap},
-    {"big_core", BIG_CORE, RECORD_TYPE_OFFSET, logCrashdump},
+    {"big_core", BIG_CORE, RECORD_TYPE_CORECRASHLOG, logCrashdump},
     {"MCA", MCA_CORE, RECORD_TYPE_MCALOG, logCoreMca},
     {"METADATA", METADATA, RECORD_TYPE_METADATA}};
 

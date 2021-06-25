@@ -1,4 +1,5 @@
 #include "test_crashdump.hpp"
+using namespace ::testing;
 
 void initCrashdump()
 {
@@ -24,7 +25,7 @@ TestCrashdump::TestCrashdump(Model model)
     initializeModelMap();
     initCrashdump();
 
-    libPeciMock = std::make_unique<LibPeciMock>();
+    libPeciMock = std::make_unique<NiceMock<LibPeciMock>>();
 
     CPUInfo cpuInfo;
     // Initialize cpuInfo
@@ -39,13 +40,62 @@ TestCrashdump::TestCrashdump(Model model)
     setupInputFiles();
 }
 
+TestCrashdump::TestCrashdump(Model model, int delay)
+{
+    initializeModelMap();
+    initCrashdump();
+
+    libPeciMock = std::make_unique<NiceMock<LibPeciMockWithDelay>>(delay);
+
+    CPUInfo cpuInfo;
+    // Initialize cpuInfo
+    cpuInfo.clientAddr = 48;
+    cpuInfo.model = model;
+    cpuInfo.coreMask = 0x0000db7e;
+    cpuInfo.chaCount = 0;
+    cpuInfo.crashedCoreMask = 0x0;
+    cpuInfo.chaCountRead = {};
+    cpuInfo.cpuidRead = {};
+    cpuInfo.coreMaskRead = {};
+    cpusInfo.push_back(cpuInfo);
+
+    root = cJSON_CreateObject();
+    setupInputFiles();
+}
+
+TestCrashdump::TestCrashdump(Model model, int delay, int numberOfCpus)
+{
+    initializeModelMap();
+    initCrashdump();
+
+    libPeciMock = std::make_unique<NiceMock<LibPeciMockWithDelay>>(delay);
+
+    for (int c = 0; c < numberOfCpus; c++)
+    {
+        CPUInfo cpuInfo;
+        // Initialize cpuInfo
+        cpuInfo.clientAddr = 48 + c;
+        cpuInfo.model = model;
+        cpuInfo.coreMask = 0x0000db7e;
+        cpuInfo.chaCount = 0;
+        cpuInfo.crashedCoreMask = 0x0;
+        cpuInfo.chaCountRead = {};
+        cpuInfo.cpuidRead = {};
+        cpuInfo.coreMaskRead = {};
+        cpusInfo.push_back(cpuInfo);
+    }
+
+    root = cJSON_CreateObject();
+    setupInputFiles();
+}
+
 TestCrashdump::TestCrashdump(std::vector<CPUInfo>& cpuInfo_) :
     cpusInfo(cpuInfo_)
 {
     initializeModelMap();
     initCrashdump();
 
-    libPeciMock = std::make_unique<LibPeciMock>();
+    libPeciMock = std::make_unique<NiceMock<LibPeciMock>>();
     root = cJSON_CreateObject();
     setupInputFiles();
 }

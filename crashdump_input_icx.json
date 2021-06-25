@@ -7,6 +7,7 @@
     "DefaultState": "Enable",
     "MCA": {
       "_record_enable": true,
+      "_skip_on_fail": true,
       "core": {
         "header_info": ["bank_name", "reg_name", "addr"],
         "reg_list": [
@@ -33,100 +34,120 @@
         ]
       },
       "uncore": {
-        "header_info": ["bank_name", "reg_name", "addr", "instance_id"],
-        "reg_list": [
-          ["MC4", "mc4_ctl", "0x410", 0],
-          ["MC4", "mc4_status", "0x411", 0],
-          ["MC4", "mc4_addr", "0x412", 0],
-          ["MC4", "mc4_misc", "0x413", 0],
-          ["MC4", "mc4_ctl2", "0x284", 0],
-          ["MC5", "mc5_ctl", "0x414", 0],
-          ["MC5", "mc5_status", "0x415", 0],
-          ["MC5", "mc5_addr", "0x416", 0],
-          ["MC5", "mc5_misc", "0x417", 0],
-          ["MC5", "mc5_ctl2", "0x285", 0],
-          ["MC6", "mc6_ctl", "0x418", 0],
-          ["MC6", "mc6_status", "0x419", 0],
-          ["MC6", "mc6_addr", "0x41a", 0],
-          ["MC6", "mc6_misc", "0x41b", 0],
-          ["MC6", "mc6_ctl2", "0x286", 0],
-          ["MC7", "mc7_ctl", "0x41c", 1],
-          ["MC7", "mc7_status", "0x41d", 1],
-          ["MC7", "mc7_addr", "0x41e", 1],
-          ["MC7", "mc7_misc", "0x41f", 1],
-          ["MC7", "mc7_ctl2", "0x287", 1],
-          ["MC8", "mc8_ctl", "0x420", 2],
-          ["MC8", "mc8_status", "0x421", 2],
-          ["MC8", "mc8_addr", "0x422", 2],
-          ["MC8", "mc8_misc", "0x423", 2],
-          ["MC8", "mc8_ctl2", "0x288", 2],
-          ["MC9", "mc9_status", "0x425", 0],
-          ["MC9", "mc9_ctl2", "0x289", 0],
-          ["MC10", "mc10_status", "0x429", 0],
-          ["MC10", "mc10_ctl2", "0x28a", 0],
-          ["MC11", "mc11_status", "0x42d", 0],
-          ["MC11", "mc11_ctl2", "0x28b", 0],
-          ["MC12", "mc12_ctl", "0x430", 0],
-          ["MC12", "mc12_status", "0x431", 0],
-          ["MC12", "mc12_addr", "0x432", 0],
-          ["MC12", "mc12_misc", "0x433", 0],
-          ["MC12", "mc12_ctl2", "0x28c", 0],
-          ["MC13", "mc13_ctl", "0x434", 0],
-          ["MC13", "mc13_status", "0x435", 0],
-          ["MC13", "mc13_addr", "0x436", 0],
-          ["MC13", "mc13_misc", "0x437", 0],
-          ["MC13", "mc13_ctl2", "0x28d", 0],
-          ["MC14", "mc14_ctl", "0x438", 0],
-          ["MC14", "mc14_status", "0x439", 0],
-          ["MC14", "mc14_addr", "0x43a", 0],
-          ["MC14", "mc14_misc", "0x43b", 0],
-          ["MC14", "mc14_ctl2", "0x28e", 0],
-          ["MC16", "mc16_ctl", "0x440", 1],
-          ["MC16", "mc16_status", "0x441", 1],
-          ["MC16", "mc16_addr", "0x442", 1],
-          ["MC16", "mc16_misc", "0x443", 1],
-          ["MC16", "mc16_ctl2", "0x290", 1],
-          ["MC17", "mc17_ctl", "0x444", 1],
-          ["MC17", "mc17_status", "0x445", 1],
-          ["MC17", "mc17_addr", "0x446", 1],
-          ["MC17", "mc17_misc", "0x447", 1],
-          ["MC17", "mc17_ctl2", "0x291", 1],
-          ["MC18", "mc18_ctl", "0x448", 1],
-          ["MC18", "mc18_status", "0x449", 1],
-          ["MC18", "mc18_addr", "0x44a", 1],
-          ["MC18", "mc18_misc", "0x44b", 1],
-          ["MC18", "mc18_ctl2", "0x292", 1],
-          ["MC20", "mc20_ctl", "0x450", 2],
-          ["MC20", "mc20_status", "0x451", 2],
-          ["MC20", "mc20_addr", "0x452", 2],
-          ["MC20", "mc20_misc", "0x453", 2],
-          ["MC20", "mc20_ctl2", "0x294", 2],
-          ["MC21", "mc21_ctl", "0x454", 2],
-          ["MC21", "mc21_status", "0x455", 2],
-          ["MC21", "mc21_addr", "0x456", 2],
-          ["MC21", "mc21_misc", "0x457", 2],
-          ["MC21", "mc21_ctl2", "0x295", 2],
-          ["MC22", "mc22_ctl", "0x458", 2],
-          ["MC22", "mc22_status", "0x459", 2],
-          ["MC22", "mc22_addr", "0x45a", 2],
-          ["MC22", "mc22_misc", "0x45b", 2],
-          ["MC22", "mc22_ctl2", "0x296", 2],
-          ["MC24", "mc24_ctl", "0x460", 3],
-          ["MC24", "mc24_status", "0x461", 3],
-          ["MC24", "mc24_addr", "0x462", 3],
-          ["MC24", "mc24_misc", "0x463", 3],
-          ["MC24", "mc24_ctl2", "0x298", 3],
-          ["MC25", "mc25_ctl", "0x464", 3],
-          ["MC25", "mc25_status", "0x465", 3],
-          ["MC25", "mc25_addr", "0x466", 3],
-          ["MC25", "mc25_misc", "0x467", 3],
-          ["MC25", "mc25_ctl2", "0x299", 3],
-          ["MC26", "mc26_ctl", "0x468", 3],
-          ["MC26", "mc26_status", "0x469", 3],
-          ["MC26", "mc26_addr", "0x46a", 3],
-          ["MC26", "mc26_misc", "0x46b", 3],
-          ["MC26", "mc26_ctl2", "0x29a", 3]
-        ]
+        "header_info": ["reg_name", "addr", "instance_id"],
+        "reg_list": {
+            "MC4": [
+              ["mc4_status", "0x411", 0],
+              ["mc4_ctl", "0x410", 0],
+              ["mc4_addr", "0x412", 0],
+              ["mc4_misc", "0x413", 0],
+              ["mc4_ctl2", "0x284", 0]],
+          "MC5": [
+              ["mc5_status", "0x415", 0],
+              ["mc5_ctl", "0x414", 0],
+              ["mc5_addr", "0x416", 0],
+              ["mc5_misc", "0x417", 0],
+              ["mc5_ctl2", "0x285", 0]],
+          "MC6": [
+              ["mc6_status", "0x419", 0],
+              ["mc6_ctl", "0x418", 0],
+              ["mc6_addr", "0x41a", 0],
+              ["mc6_misc", "0x41b", 0],
+              ["mc6_ctl2", "0x286", 0]],
+          "MC7": [
+              ["mc7_status", "0x41d", 1],
+              ["mc7_ctl", "0x41c", 1],
+              ["mc7_addr", "0x41e", 1],
+              ["mc7_misc", "0x41f", 1],
+              ["mc7_ctl2", "0x287", 1]],
+          "MC8": [
+              ["mc8_status", "0x421", 2],
+              ["mc8_ctl", "0x420", 2],
+              ["mc8_addr", "0x422", 2],
+              ["mc8_misc", "0x423", 2],
+              ["mc8_ctl2", "0x288", 2]],
+          "MC9": [
+              ["mc9_status", "0x425", 0],
+              ["mc9_ctl2", "0x289", 0]],
+          "MC10": [
+              ["mc10_status", "0x429", 0],
+              ["mc10_ctl2", "0x28a", 0]],
+          "MC11": [
+              ["mc11_status", "0x42d", 0],
+              ["mc11_ctl2", "0x28b", 0]],
+          "MC12": [
+              ["mc12_status", "0x431", 0],
+              ["mc12_ctl", "0x430", 0],
+              ["mc12_addr", "0x432", 0],
+              ["mc12_misc", "0x433", 0],
+              ["mc12_ctl2", "0x28c", 0]],
+          "MC13": [
+              ["mc13_status", "0x435", 0],
+              ["mc13_ctl", "0x434", 0],
+              ["mc13_addr", "0x436", 0],
+              ["mc13_misc", "0x437", 0],
+              ["mc13_ctl2", "0x28d", 0]],
+          "MC14": [
+              ["mc14_status", "0x439", 0],
+              ["mc14_ctl", "0x438", 0],
+              ["mc14_addr", "0x43a", 0],
+              ["mc14_misc", "0x43b", 0],
+              ["mc14_ctl2", "0x28e", 0]],
+          "MC16": [
+              ["mc16_status", "0x441", 1],
+              ["mc16_ctl", "0x440", 1],
+              ["mc16_addr", "0x442", 1],
+              ["mc16_misc", "0x443", 1],
+              ["mc16_ctl2", "0x290", 1]],
+          "MC17": [
+              ["mc17_status", "0x445", 1],
+              ["mc17_ctl", "0x444", 1],
+              ["mc17_addr", "0x446", 1],
+              ["mc17_misc", "0x447", 1],
+              ["mc17_ctl2", "0x291", 1]],
+          "MC18": [
+              ["mc18_status", "0x449", 1],
+              ["mc18_ctl", "0x448", 1],
+              ["mc18_addr", "0x44a", 1],
+              ["mc18_misc", "0x44b", 1],
+              ["mc18_ctl2", "0x292", 1]],
+          "MC20": [
+              ["mc20_status", "0x451", 2],
+              ["mc20_ctl", "0x450", 2],
+              ["mc20_addr", "0x452", 2],
+              ["mc20_misc", "0x453", 2],
+              ["mc20_ctl2", "0x294", 2]],
+          "MC21": [
+              ["mc21_status", "0x455", 2],
+              ["mc21_ctl", "0x454", 2],
+              ["mc21_addr", "0x456", 2],
+              ["mc21_misc", "0x457", 2],
+              ["mc21_ctl2", "0x295", 2]],
+          "MC22": [
+              ["mc22_status", "0x459", 2],
+              ["mc22_ctl", "0x458", 2],
+              ["mc22_addr", "0x45a", 2],
+              ["mc22_misc", "0x45b", 2],
+              ["mc22_ctl2", "0x296", 2]],
+          "MC24": [
+              ["mc24_status", "0x461", 3],
+              ["mc24_ctl", "0x460", 3],
+              ["mc24_addr", "0x462", 3],
+              ["mc24_misc", "0x463", 3],
+              ["mc24_ctl2", "0x298", 3]],
+          "MC25": [
+              ["mc25_status", "0x465", 3],
+              ["mc25_ctl", "0x464", 3],
+              ["mc25_addr", "0x466", 3],
+              ["mc25_misc", "0x467", 3],
+              ["mc25_ctl2", "0x299", 3]],
+          "MC26": [
+              ["mc26_status", "0x469", 3],
+              ["mc26_ctl", "0x468", 3],
+              ["mc26_addr", "0x46a", 3],
+              ["mc26_misc", "0x46b", 3],
+              ["mc26_ctl2", "0x29a", 3]]
+          }
       },
       "cbo": {
         "header_info": ["reg_name", "addr"],
@@ -143,23 +164,25 @@
     },
     "PM_info": {
       "_record_enable": true,
+      "_skip_on_fail": true,
       "pci": {
         "header_info": ["reg_name", "core_scope", "param"],
         "reg_list": [
-          ["pm_0x101", false, "0x101"],
-          ["pm_0x201", false, "0x201"],
+          ["pm_0x001", false, "0x001"],
           ["pm_0x002", false, "0x002"],
-          ["pm_0x102", false, "0x102"],
-          ["pm_0x202", false, "0x202"],
           ["pm_0x003", false, "0x003"],
           ["pm_0x004", true, "0x004"],
           ["pm_0x005", true, "0x005"],
           ["pm_0x006", true, "0x006"],
-          ["pm_0x00a", false, "0x00a"],
+          ["pm_0x007", false, "0x007"],
           ["pm_0x008", false, "0x008"],
           ["pm_0x009", false, "0x009"],
-          ["pm_0x007", false, "0x007"],
+          ["pm_0x00a", false, "0x00a"],
+          ["pm_0x101", false, "0x101"],
+          ["pm_0x102", false, "0x102"],
           ["pm_0x107", false, "0x107"],
+          ["pm_0x201", false, "0x201"],
+          ["pm_0x202", false, "0x202"],
           ["pm_0x207", false, "0x207"],
           ["pm_0x307", false, "0x307"],
           ["pm_0x407", false, "0x407"],
@@ -170,6 +193,7 @@
       "pll": {
         "header_info": ["sec_name", "reg_name", "param"],
         "reg_list": [
+          ["pm_index0", "pm_subindex_0x010b",  "0x010b"],
           ["pm_index0", "pm_subindex_0x110b",  "0x110b"],
           ["pm_index0", "pm_subindex_0x210b",  "0x210b"],
           ["pm_index0", "pm_subindex_0x310b",  "0x310b"],
@@ -224,7 +248,7 @@
           ["pm_index8", "pm_subindex_0x310d",  "0x310d"],
           ["pm_index8", "pm_subindex_0x410d",  "0x410d"],
           ["pm_index8", "pm_subindex_0x510d",  "0x510d"],
-          ["pm_index9", "pm_subindex_0x610d",  "0x610d"],
+          ["pm_index8", "pm_subindex_0x610d",  "0x610d"],
           ["pm_index9", "pm_subindex_0x020d",  "0x020d"],
           ["pm_index9", "pm_subindex_0x120d",  "0x120d"],
           ["pm_index9", "pm_subindex_0x220d",  "0x220d"],
@@ -317,10 +341,16 @@
           ["pm_index21", "pm_subindex_0x520e",  "0x520e"],
           ["pm_index21", "pm_subindex_0x620e",  "0x620e"]
         ]
+      },
+      "dispatch": {
+        "header_info": ["sec_name", "reg_name", "param"],
+        "reg_list": [
+        ]
       }
     },
     "TOR": {
-      "_record_enable": true
+      "_record_enable": true,
+      "_skip_on_fail": true
     },
     "address_map": {
       "_record_enable": true,
@@ -435,6 +465,10 @@
     },
     "big_core": {
       "_record_enable": true,
+      "_max_wait_sec" : 120,
+      "_wait_on_int_ierr" : true,
+      "_wait_on_ext_ierr" : true,
+      "_max_collection_sec" : 150,
       "decode" : [
         {
           "version" : ["0x401e002"],
@@ -652,6 +686,7 @@
       "_record_enable": true,
       "_version": "0x28",
       "pci": {
+        "_max_time_sec" : 30,
         "header_info": ["reg_name", "bus", "device", "function", "offset", "size"],
         "reg_list": [
           ["B00_D00_F0_0x0", 0, 0, 0, "0x0", 2],
@@ -4058,6 +4093,7 @@
         ]
       },
       "mmio": {
+        "_max_time_sec" : 30,
         "header_info": ["reg_name", "bar_id", "bus", "device", "function", "offset", "addr_type", "size"],
         "reg_list": [
           ["B30_D26_F0_0x2290", 0, 30, 26, 0, "0x2290", 6, 8],
@@ -5467,6 +5503,7 @@
         ]
       },
       "rdiamsr": {
+        "_max_time_sec" : 15,
         "header_info": ["reg_name", "address", "thread_id", "size"],
         "reg_list": [
           ["RDIAMSR_0x194", "0x194", 0, 8],

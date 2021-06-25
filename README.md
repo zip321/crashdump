@@ -1,34 +1,45 @@
-Crashdump
+# CrashDump
 
-## Installation Steps:
-Intel Builds CrashDump against this OpenBMC version.
-https://github.com/Intel-BMC/openbmc/tree/intel/meta-openbmc-mods
+The Eaglestream BMC CrashDump firmware is intended for use by internal
+debuggers and external customers in order to correlate failures to known
+signatures and/or as a first step in debugging new failure signatures on
+Eaglestream platforms.
 
-Dependencies:
-- <peci.h> from libpeci (https://github.com/openbmc/libpeci)
-    Tested with: a2ceec2aa139277cebb62e1eda449ef60fa4c962
-- <peci-ioctl.h> from the PECI kernel driver (https://github.com/openbmc/linux/blob/dev-5.4/include/uapi/linux/peci-ioctl.h)
-- Install sdbusplus (https://github.com/openbmc/sdbusplus)
-    Tested with: 1b7a58871cba4b97025f493f72cbb26ca6b21254
-- Install boost (https://www.boost.org/) Tested with: version 1.73
-- Install CJSON (https://github.com/DaveGamble/cJSON) Tested with verison v1.7.12
-- Install safeclib (https://github.com/rurban/safeclib)
-    Tested with: 60786283fd61cd621a5d1df00e083a1c1e3cf52a
-- (optional)Install gtest (https://github.com/google/googletest)
-    Tested with: 2134e3fd857d952e03ce76064fad5ac6e9036104
+CrashDump is a method for the BMC to collect crash data from the CPU
+immediately upon failure. This crash data can be then retrieved at a later time
+by the users.
 
-## BUILD
-run cmake . to generate make files
-(Optional to run unit testing) run cmake --DCRASHDUMP_BUILD_UT=ON
-run make on same directory
+```
+                                         _ _ _ _
+                                        |   _ _ |_
+              _ _ _ _ _ _               |_| DIMM  |
+            |            |                |_ _ _ _|
+            |  PCH       |                    |
+            |_ _ _ _ _ _ |                    |
+                                            _ _ _ _ _ _
+                                          |            |
+                                          |  CPU 1     |
+     _ _ _ _ _ _ _ _ _                    |_ _ _ _ _ _ |
+    |                 |  error signalling   +   |
+    | BMC   _ _ _ _ _ |+-+-+-+-+-+-+-+-+-+-+-   |
+    |     |          ||                     +   |
+    |     | crashdump||_________________________|
+    |     |_ _ _ _ _ ||      PECI           +   |
+    |_ _ _ _ _ || _ _ |                    _+ _ |_ _ _
+               ||                         |           |
+               ||                         | CPU 2     |
+             _ \/_ _ _                    |_ _ _ _ _ _|
+            |  DRAM   |                       |
+            |_ _ _ _ _|                       |
+                                         _ _ _|_
+                                        |   _ _ |_
+                                        |_| DIMM  |
+                                          |_ _ _ _|
+```
 
-## SECURITY FLAGS
-if your compiler supports we recommend to add to the cmake file
-set(CMAKE_CXX_FLAGS "-fstack-protector-strong")
-set(CMAKE_C_FLAGS "-fstack-protector-strong")
-
-## AutoStart
-copy the file com.intel.crashdump into the /lib/systemd/system directory.
-Once it is copied you can manually start the process typing systemctl start
-    com.intel.crashdump
-
+## Documentation
+Documentation for the project can be found in the [docs folder](docs/) of the repository.
+  - [Build Instructions](docs/build_instructions.md)
+  - [Build Dependencies](docs/dependencies.md) if building as stand alone
+    application
+  - [changelog](docs/changelog.md)

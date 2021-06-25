@@ -51,6 +51,8 @@
 #define FILE_PM_ERR "Error parsing power management section"
 #define FILE_PLL_KEY "_input_file_pll"
 #define FILE_PLL_ERR "Error parsing Phase Lock Loop section"
+#define FILE_DISP_KEY "_input_file_dispatch"
+#define FILE_DISP_ERR "Error parsing dispatcher section"
 /******************************************************************************
  *
  *   Structures
@@ -71,7 +73,8 @@ typedef struct
     uint16_t param;
 } SPmEntry;
 
-typedef int (*PowerManagementStatusRead)(CPUInfo* cpuInfo, cJSON* pJsonChild);
+typedef acdStatus (*PowerManagementStatusRead)(CPUInfo* cpuInfo,
+                                               cJSON* pJsonChild);
 
 enum PM_REG
 {

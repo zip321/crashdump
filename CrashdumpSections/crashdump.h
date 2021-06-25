@@ -76,7 +76,9 @@ typedef enum
     ACD_SUCCESS,
     ACD_FAILURE,
     ACD_INVALID_OBJECT,
-    ACD_ALLOCATE_FAILURE
+    ACD_ALLOCATE_FAILURE,
+    ACD_SECTION_DISABLE,
+    ACD_INPUT_FILE_ERROR
 } acdStatus;
 
 typedef enum
@@ -170,7 +172,7 @@ typedef struct
     CPUIDRead cpuidRead;
     CHACountRead chaCountRead;
     COREMaskRead coreMaskRead;
-    struct timespec launchDelay;
+    uint16_t dimmMask;
 } CPUInfo;
 
 typedef struct

@@ -25,10 +25,14 @@ extern "C" {
 #include "CrashdumpSections/crashdump.h"
 }
 
+#include <chrono>
+
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
+using namespace std::chrono;
 using namespace ::testing;
+using ::testing::DoDefault;
 using ::testing::Return;
 
 void validateCrashlogVersionAndSize(cJSON* output, std::string expectedVersion,
@@ -66,7 +70,7 @@ TEST(BigCoreTest, logCrashdump_Invalid_Model)
                        .cpuidRead = {},
                        .chaCountRead = {},
                        .coreMaskRead = {},
-                       .launchDelay = {}};
+                       .dimmMask = 0};
     cJSON* root = cJSON_CreateObject();
     ret = logCrashdump(&cpuInfo, root);
     EXPECT_EQ(ret, ACD_FAILURE);
@@ -96,7 +100,7 @@ TEST(BigCoreTest, logCrashdumpICX1_1st_return)
     for (auto cpuinfo : crashdump.cpusInfo)
     {
         ret = logCrashdump(&cpuinfo, crashdump.root);
-        EXPECT_EQ(ret, PECI_CC_DRIVER_ERR);
+        EXPECT_EQ(ret, ACD_SUCCESS);
     }
 }
 
@@ -116,7 +120,7 @@ TEST(BigCoreTest, logCrashdumpICX1_2nd_return)
     for (auto cpuinfo : crashdump.cpusInfo)
     {
         ret = logCrashdump(&cpuinfo, crashdump.root);
-        EXPECT_EQ(ret, PECI_CC_DRIVER_ERR);
+        EXPECT_EQ(ret, ACD_SUCCESS);
     }
 }
 
@@ -125,7 +129,7 @@ TEST(BigCoreTest, logCrashdumpICX1_3rd_return)
     int ret;
     uint8_t u8CrashdumpDisabled = ICX_A0_CRASHDUMP_ENABLED;
     uint16_t u16CrashdumpNumAgents = 2;
-    uint8_t cc = 0x40;
+    uint8_t cc = PECI_DEV_CC_SUCCESS;
     uint64_t u64UniqueId = 0xabcdef;
     TestCrashdump crashdump(cd_icx);
 
@@ -140,7 +144,7 @@ TEST(BigCoreTest, logCrashdumpICX1_3rd_return)
     for (auto cpuinfo : crashdump.cpusInfo)
     {
         ret = logCrashdump(&cpuinfo, crashdump.root);
-        EXPECT_EQ(ret, PECI_CC_DRIVER_ERR);
+        EXPECT_EQ(ret, ACD_SUCCESS);
     }
 }
 
@@ -151,7 +155,7 @@ TEST(BigCoreTest, logCrashdumpICX1_4th_return)
     uint16_t u16CrashdumpNumAgents = 2;
     uint64_t u64UniqueId = 0xabcdef;
     uint64_t u64PayloadExp = 0x55555;
-    uint8_t cc = 0x40;
+    uint8_t cc = PECI_DEV_CC_SUCCESS;
 
     TestCrashdump crashdump(cd_icx);
 
@@ -168,7 +172,7 @@ TEST(BigCoreTest, logCrashdumpICX1_4th_return)
     for (auto cpuinfo : crashdump.cpusInfo)
     {
         ret = logCrashdump(&cpuinfo, crashdump.root);
-        EXPECT_EQ(ret, PECI_CC_DRIVER_ERR);
+        EXPECT_EQ(ret, ACD_SUCCESS);
     }
 }
 
@@ -179,7 +183,7 @@ TEST(BigCoreTest, logCrashdumpICX1_test)
     uint16_t u16CrashdumpNumAgents = 2;
     uint64_t u64UniqueId = 0xabcdef;
     uint64_t u64PayloadExp = 0x2b0;
-    uint8_t cc = 0x40;
+    uint8_t cc = PECI_DEV_CC_SUCCESS;
 
     CPUInfo cpuInfo = {.clientAddr = 48,
                        .model = cd_icx,
@@ -192,7 +196,7 @@ TEST(BigCoreTest, logCrashdumpICX1_test)
                        .cpuidRead = {},
                        .chaCountRead = {},
                        .coreMaskRead = {},
-                       .launchDelay = {}};
+                       .dimmMask = 0};
 
     std::vector<CPUInfo> cpusInfo = {cpuInfo};
     TestCrashdump crashdump(cpusInfo);
@@ -224,7 +228,7 @@ TEST(BigCoreTest, logCrashdumpSPR_testRegDump)
     uint16_t u16CrashdumpNumAgents = 2;
     uint64_t u64UniqueId = 0xabcdef;
     uint64_t u64PayloadExp = 0x2b0;
-    uint8_t cc = 0x40;
+    uint8_t cc = PECI_DEV_CC_SUCCESS;
 
     CPUInfo cpuInfo = {.clientAddr = 48,
                        .model = cd_spr,
@@ -237,7 +241,7 @@ TEST(BigCoreTest, logCrashdumpSPR_testRegDump)
                        .cpuidRead = {},
                        .chaCountRead = {},
                        .coreMaskRead = {},
-                       .launchDelay = {}};
+                       .dimmMask = 0};
 
     std::vector<CPUInfo> cpusInfo = {cpuInfo};
     TestCrashdump crashdump(cpusInfo);
@@ -280,7 +284,7 @@ TEST(BigCoreTest, logCrashdumpSPR_testRegDumpWithSqDump)
     uint16_t u16CrashdumpNumAgents = 2;
     uint64_t u64UniqueId = 0xabcdef;
     uint64_t u64PayloadExp = 0x2b0;
-    uint8_t cc = 0x40;
+    uint8_t cc = PECI_DEV_CC_SUCCESS;
 
     CPUInfo cpuInfo = {.clientAddr = 48,
                        .model = cd_spr,
@@ -293,7 +297,7 @@ TEST(BigCoreTest, logCrashdumpSPR_testRegDumpWithSqDump)
                        .cpuidRead = {},
                        .chaCountRead = {},
                        .coreMaskRead = {},
-                       .launchDelay = {}};
+                       .dimmMask = 0};
 
     std::vector<CPUInfo> cpusInfo = {cpuInfo};
     TestCrashdump crashdump(cpusInfo);
@@ -337,7 +341,7 @@ TEST(BigCoreTest, logCrashdumpSPR_B0_testRegDump)
     uint16_t u16CrashdumpNumAgents = 2;
     uint64_t u64UniqueId = 0xabcdef;
     uint64_t u64PayloadExp = 0x2b0;
-    uint8_t cc = 0x40;
+    uint8_t cc = PECI_DEV_CC_SUCCESS;
 
     CPUInfo cpuInfo = {.clientAddr = 48,
                        .model = cd_spr,
@@ -350,7 +354,7 @@ TEST(BigCoreTest, logCrashdumpSPR_B0_testRegDump)
                        .cpuidRead = {},
                        .chaCountRead = {},
                        .coreMaskRead = {},
-                       .launchDelay = {}};
+                       .dimmMask = 0};
 
     std::vector<CPUInfo> cpusInfo = {cpuInfo};
     TestCrashdump crashdump(cpusInfo);
@@ -393,7 +397,7 @@ TEST(BigCoreTest, logCrashdumpSPR_B0_testRegDumpWithSqDump)
     uint16_t u16CrashdumpNumAgents = 2;
     uint64_t u64UniqueId = 0xabcdef;
     uint64_t u64PayloadExp = 0x2b0;
-    uint8_t cc = 0x40;
+    uint8_t cc = PECI_DEV_CC_SUCCESS;
 
     CPUInfo cpuInfo = {.clientAddr = 48,
                        .model = cd_spr,
@@ -406,7 +410,7 @@ TEST(BigCoreTest, logCrashdumpSPR_B0_testRegDumpWithSqDump)
                        .cpuidRead = {},
                        .chaCountRead = {},
                        .coreMaskRead = {},
-                       .launchDelay = {}};
+                       .dimmMask = 0};
 
     std::vector<CPUInfo> cpusInfo = {cpuInfo};
     TestCrashdump crashdump(cpusInfo);
@@ -443,6 +447,119 @@ TEST(BigCoreTest, logCrashdumpSPR_B0_testRegDumpWithSqDump)
     validateCrashlogVersionAndSize(crashdump.root, "0x04029002", "0x030005a8");
 }
 
+TEST(BigCoreTest, logCrashdumpSPR_C0_testRegDump)
+{
+    int ret;
+    uint8_t u8CrashdumpDisabled = ICX_A0_CRASHDUMP_ENABLED;
+    uint16_t u16CrashdumpNumAgents = 2;
+    uint64_t u64UniqueId = 0xabcdef;
+    uint64_t u64PayloadExp = 0x2b0;
+    uint8_t cc = PECI_DEV_CC_SUCCESS;
+
+    CPUInfo cpuInfo = {.clientAddr = 48,
+                       .model = cd_spr,
+                       .coreMask = 0x0000db7e,
+                       .crashedCoreMask = 0x0,
+                       .sectionMask = 0,
+                       .chaCount = 0,
+                       .initialPeciWake = ON,
+                       .inputFile = {},
+                       .cpuidRead = {},
+                       .chaCountRead = {},
+                       .coreMaskRead = {},
+                       .dimmMask = 0};
+
+    std::vector<CPUInfo> cpusInfo = {cpuInfo};
+    TestCrashdump crashdump(cpusInfo);
+
+    EXPECT_CALL(*crashdump.libPeciMock, peci_CrashDump_Discovery)
+        .WillOnce(DoAll(SetArgPointee<6>(u8CrashdumpDisabled),
+                        Return(PECI_CC_SUCCESS)))
+        .WillOnce(DoAll(SetArgPointee<6>(u16CrashdumpNumAgents),
+                        SetArgPointee<7>(cc), Return(PECI_CC_SUCCESS)))
+        .WillOnce(DoAll(SetArgPointee<6>(u64UniqueId), SetArgPointee<7>(cc),
+                        Return(PECI_CC_SUCCESS)))
+        .WillOnce(DoAll(SetArgPointee<6>(u64PayloadExp), SetArgPointee<7>(cc),
+                        Return(PECI_CC_SUCCESS)));
+
+    uint8_t firstFrame[8] = {0x03, 0x90, 0x02, 0x04,
+                             0xb0, 0x05, 0x00, 0x00}; // 0x05b004029003;
+    uint8_t allOtherFrames[8] = {0xab, 0xfa, 0xed, 0xfe,
+                                 0xef, 0xbe, 0xad, 0xde}; // 0xdeadbeeffeedfaab;
+
+    EXPECT_CALL(*crashdump.libPeciMock, peci_CrashDump_GetFrame)
+        .WillOnce(DoAll(SetArrayArgument<5>(firstFrame, firstFrame + 8),
+                        SetArgPointee<6>(cc), Return(PECI_CC_SUCCESS)))
+        .WillRepeatedly(
+            DoAll(SetArrayArgument<5>(allOtherFrames, allOtherFrames + 8),
+                  SetArgPointee<6>(cc), Return(PECI_CC_SUCCESS)));
+
+    for (auto cpuinfo : crashdump.cpusInfo)
+    {
+        ret = logCrashdump(&cpuinfo, crashdump.root);
+        EXPECT_EQ(ret, PECI_CC_SUCCESS);
+    }
+
+    validateCrashlogVersionAndSize(crashdump.root, "0x04029003", "0x05b0");
+}
+
+TEST(BigCoreTest, logCrashdumpSPR_C0_testRegDumpWithSqDump)
+{
+    int ret;
+    uint8_t u8CrashdumpDisabled = ICX_A0_CRASHDUMP_ENABLED;
+    uint16_t u16CrashdumpNumAgents = 2;
+    uint64_t u64UniqueId = 0xabcdef;
+    uint64_t u64PayloadExp = 0x2b0;
+    uint8_t cc = PECI_DEV_CC_SUCCESS;
+
+    CPUInfo cpuInfo = {.clientAddr = 48,
+                       .model = cd_spr,
+                       .coreMask = 0x0000db7e,
+                       .crashedCoreMask = 0x0,
+                       .sectionMask = 0,
+                       .chaCount = 0,
+                       .initialPeciWake = ON,
+                       .inputFile = {},
+                       .cpuidRead = {},
+                       .chaCountRead = {},
+                       .coreMaskRead = {},
+                       .dimmMask = 0};
+
+    std::vector<CPUInfo> cpusInfo = {cpuInfo};
+    TestCrashdump crashdump(cpusInfo);
+
+    EXPECT_CALL(*crashdump.libPeciMock, peci_CrashDump_Discovery)
+        .WillOnce(DoAll(SetArgPointee<6>(u8CrashdumpDisabled),
+                        Return(PECI_CC_SUCCESS)))
+        .WillOnce(DoAll(SetArgPointee<6>(u16CrashdumpNumAgents),
+                        SetArgPointee<7>(cc), Return(PECI_CC_SUCCESS)))
+        .WillOnce(DoAll(SetArgPointee<6>(u64UniqueId), SetArgPointee<7>(cc),
+                        Return(PECI_CC_SUCCESS)))
+        .WillOnce(DoAll(SetArgPointee<6>(u64PayloadExp), SetArgPointee<7>(cc),
+                        Return(PECI_CC_SUCCESS)));
+
+    // SQ size = 0x0300, Reg Dump size = 0x05b0
+    uint8_t firstFrame[8] = {0x03, 0x90, 0x02, 0x04,
+                             0xb0, 0x05, 0x00, 0x03}; // 0x030005b004029003;
+    uint8_t allOtherFrames[8] = {0xab, 0xfa, 0xed, 0xfe,
+                                 0xef, 0xbe, 0xad, 0xde}; // 0xdeadbeeffeedfaab;
+
+    EXPECT_CALL(*crashdump.libPeciMock, peci_CrashDump_GetFrame)
+        .WillOnce(DoAll(SetArrayArgument<5>(firstFrame, firstFrame + 8),
+                        SetArgPointee<6>(cc), Return(PECI_CC_SUCCESS)))
+        .WillRepeatedly(
+            DoAll(SetArrayArgument<5>(allOtherFrames, allOtherFrames + 8),
+                  SetArgPointee<6>(cc), Return(PECI_CC_SUCCESS)));
+
+    for (auto cpuinfo : crashdump.cpusInfo)
+    {
+        ret = logCrashdump(&cpuinfo, crashdump.root);
+        EXPECT_EQ(ret, PECI_CC_SUCCESS);
+    }
+
+    validateCrashlogVersionAndSize(crashdump.root, "0x04029003", "0x030005b0");
+}
+
 TEST(BigCoreTest, logCrashdumpICX_testRegDump_ICX)
 {
     int ret;
@@ -450,7 +567,7 @@ TEST(BigCoreTest, logCrashdumpICX_testRegDump_ICX)
     uint16_t u16CrashdumpNumAgents = 2;
     uint64_t u64UniqueId = 0xabcdef;
     uint64_t u64PayloadExp = 0x2b0;
-    uint8_t cc = 0x40;
+    uint8_t cc = PECI_DEV_CC_SUCCESS;
 
     CPUInfo cpuInfo = {.clientAddr = 48,
                        .model = cd_icx,
@@ -463,7 +580,7 @@ TEST(BigCoreTest, logCrashdumpICX_testRegDump_ICX)
                        .cpuidRead = {},
                        .chaCountRead = {},
                        .coreMaskRead = {},
-                       .launchDelay = {}};
+                       .dimmMask = 0};
 
     std::vector<CPUInfo> cpusInfo = {cpuInfo};
     TestCrashdump crashdump(cpusInfo);
@@ -506,7 +623,7 @@ TEST(BigCoreTest, logCrashdumpICX_testRegDumpWithSqDump_ICX)
     uint16_t u16CrashdumpNumAgents = 2;
     uint64_t u64UniqueId = 0xabcdef;
     uint64_t u64PayloadExp = 0x2b0;
-    uint8_t cc = 0x40;
+    uint8_t cc = PECI_DEV_CC_SUCCESS;
 
     CPUInfo cpuInfo = {.clientAddr = 48,
                        .model = cd_icx,
@@ -519,7 +636,7 @@ TEST(BigCoreTest, logCrashdumpICX_testRegDumpWithSqDump_ICX)
                        .cpuidRead = {},
                        .chaCountRead = {},
                        .coreMaskRead = {},
-                       .launchDelay = {}};
+                       .dimmMask = 0};
 
     std::vector<CPUInfo> cpusInfo = {cpuInfo};
     TestCrashdump crashdump(cpusInfo);
@@ -584,6 +701,48 @@ TEST(BigCoreTest, getTotalInputRegsSize_correctSizeOptimizedReturn_SPR)
     EXPECT_EQ(size, (uint32_t)0x5A8);
 }
 
+TEST(BigCoreTest, getTotalInputRegsSize_correctSize_SPR_B0)
+{
+    TestCrashdump crashdump(cd_spr);
+    uint32_t version_spr = 0x4029002;
+    uint32_t size = getTotalInputRegsSize(&crashdump.cpusInfo[0], version_spr);
+
+    EXPECT_EQ(size, (uint32_t)0x5A8);
+}
+
+TEST(BigCoreTest, getTotalInputRegsSize_correctSizeOptimizedReturn_SPR_B0)
+{
+    TestCrashdump crashdump(cd_spr);
+    uint32_t version_spr = 0x4029002;
+    uint32_t size = getTotalInputRegsSize(&crashdump.cpusInfo[0], version_spr);
+
+    EXPECT_EQ(size, (uint32_t)0x5A8);
+
+    size = getTotalInputRegsSize(&crashdump.cpusInfo[0], version_spr);
+    EXPECT_EQ(size, (uint32_t)0x5A8);
+}
+
+TEST(BigCoreTest, getTotalInputRegsSize_correctSize_SPR_C0)
+{
+    TestCrashdump crashdump(cd_spr);
+    uint32_t version_spr = 0x4029003;
+    uint32_t size = getTotalInputRegsSize(&crashdump.cpusInfo[0], version_spr);
+
+    EXPECT_EQ(size, (uint32_t)0x5B0);
+}
+
+TEST(BigCoreTest, getTotalInputRegsSize_correctSizeOptimizedReturn_SPR_C0)
+{
+    TestCrashdump crashdump(cd_spr);
+    uint32_t version_spr = 0x4029003;
+    uint32_t size = getTotalInputRegsSize(&crashdump.cpusInfo[0], version_spr);
+
+    EXPECT_EQ(size, (uint32_t)0x5B0);
+
+    size = getTotalInputRegsSize(&crashdump.cpusInfo[0], version_spr);
+    EXPECT_EQ(size, (uint32_t)0x5B0);
+}
+
 TEST(BigCoreTest, getTotalInputRegsSize_correctSize_ICX)
 {
     TestCrashdump crashdump(cd_icx);
@@ -623,4 +782,228 @@ TEST(CrashdumpTest, DISABLED_TODO_Remove_After_Implementing_UnitTests)
     std::string storedLogTime = crashdump::newTimestamp();
     std::string storedLogContents;
     crashdump::newStoredLog(cpusInfo, storedLogContents, "Test", storedLogTime);
+}
+
+TEST(BigCoreTest, logCrashdumpSPR_C0_testRegDumpWithSqDump_withDelay)
+{
+    int ret;
+    uint8_t u8CrashdumpDisabled = ICX_A0_CRASHDUMP_ENABLED;
+    uint16_t u16CrashdumpNumAgents = 2;
+    uint64_t u64UniqueId = 0xabcdef;
+    uint64_t u64PayloadExp = 0x2b0;
+    uint8_t cc = PECI_DEV_CC_SUCCESS;
+
+    TestCrashdump crashdump(cd_spr, 700);
+
+    EXPECT_CALL(*crashdump.libPeciMock, peci_CrashDump_Discovery)
+        .WillOnce(DoAll(SetArgPointee<6>(u8CrashdumpDisabled),
+                        Return(PECI_CC_SUCCESS)))
+        .WillOnce(DoAll(SetArgPointee<6>(u16CrashdumpNumAgents),
+                        SetArgPointee<7>(cc), Return(PECI_CC_SUCCESS)))
+        .WillOnce(DoAll(SetArgPointee<6>(u64UniqueId), SetArgPointee<7>(cc),
+                        Return(PECI_CC_SUCCESS)))
+        .WillOnce(DoAll(SetArgPointee<6>(u64PayloadExp), SetArgPointee<7>(cc),
+                        Return(PECI_CC_SUCCESS)));
+
+    crashdump.libPeciMock->DelegateForBigCore();
+
+    // SQ size = 0x0300, Reg Dump size = 0x05b0
+    uint8_t firstFrame[8] = {0x03, 0x90, 0x02, 0x04,
+                             0xb0, 0x05, 0x00, 0x03}; // 0x030005b004029003;
+    EXPECT_CALL(*crashdump.libPeciMock, peci_CrashDump_GetFrame)
+        .WillOnce(DoAll(SetArrayArgument<5>(firstFrame, firstFrame + 8),
+                        SetArgPointee<6>(cc), Return(PECI_CC_SUCCESS)))
+        .WillRepeatedly(DoDefault());
+
+    std::chrono::steady_clock::time_point startTime =
+        std::chrono::steady_clock::now();
+    for (auto cpuinfo : crashdump.cpusInfo)
+    {
+        ret = logCrashdump(&cpuinfo, crashdump.root);
+        EXPECT_EQ(ret, PECI_CC_SUCCESS);
+    }
+
+    std::chrono::steady_clock::time_point endTime =
+        std::chrono::steady_clock::now();
+    ASSERT_GE(std::chrono::duration_cast<std::chrono::milliseconds>(endTime -
+                                                                    startTime)
+                  .count(),
+              8400); // 8400 ==> 11(getframe calls) * 700ms
+    validateCrashlogVersionAndSize(crashdump.root, "0x04029003", "0x030005b0");
+}
+
+TEST(BigCoreTest, logCrashdumpICX_testRegDumpWithSqDump_withDelay)
+{
+    int ret;
+    uint8_t u8CrashdumpDisabled = ICX_A0_CRASHDUMP_ENABLED;
+    uint16_t u16CrashdumpNumAgents = 2;
+    uint64_t u64UniqueId = 0xabcdef;
+    uint64_t u64PayloadExp = 0x2b0;
+    uint8_t cc = PECI_DEV_CC_SUCCESS;
+
+    TestCrashdump crashdump(cd_icx, 700);
+
+    EXPECT_CALL(*crashdump.libPeciMock, peci_CrashDump_Discovery)
+        .WillOnce(DoAll(SetArgPointee<6>(u8CrashdumpDisabled),
+                        Return(PECI_CC_SUCCESS)))
+        .WillOnce(DoAll(SetArgPointee<6>(u16CrashdumpNumAgents),
+                        SetArgPointee<7>(cc), Return(PECI_CC_SUCCESS)))
+        .WillOnce(DoAll(SetArgPointee<6>(u64UniqueId), SetArgPointee<7>(cc),
+                        Return(PECI_CC_SUCCESS)))
+        .WillOnce(DoAll(SetArgPointee<6>(u64PayloadExp), SetArgPointee<7>(cc),
+                        Return(PECI_CC_SUCCESS)));
+
+    crashdump.libPeciMock->DelegateForBigCore();
+
+    // SQ size = 0x0200, Reg Dump size = 0x05a8
+    uint8_t firstFrame[8] = {0x02, 0xe0, 0x01, 0x04,
+                             0xf8, 0x05, 0x00, 0x02}; // 0x020005f80401e002;
+    EXPECT_CALL(*crashdump.libPeciMock, peci_CrashDump_GetFrame)
+        .WillOnce(DoAll(SetArrayArgument<5>(firstFrame, firstFrame + 8),
+                        SetArgPointee<6>(cc), Return(PECI_CC_SUCCESS)))
+        .WillRepeatedly(DoDefault());
+
+    std::chrono::steady_clock::time_point startTime =
+        std::chrono::steady_clock::now();
+    for (auto cpuinfo : crashdump.cpusInfo)
+    {
+        ret = logCrashdump(&cpuinfo, crashdump.root);
+        EXPECT_EQ(ret, PECI_CC_SUCCESS);
+    }
+
+    std::chrono::steady_clock::time_point endTime =
+        std::chrono::steady_clock::now();
+    ASSERT_GE(std::chrono::duration_cast<std::chrono::milliseconds>(endTime -
+                                                                    startTime)
+                  .count(),
+              8400); // 8400 ==> 11(getframe calls) * 700ms
+    validateCrashlogVersionAndSize(crashdump.root, "0x0401e002", "0x020005f8");
+}
+
+TEST(BigCoreTest, logCrashdumpSPR_C0_testRegDumpWithSqDump_withDelay_PerfTest)
+{
+    int ret;
+    uint8_t u8CrashdumpDisabled = ICX_A0_CRASHDUMP_ENABLED;
+    uint16_t u16CrashdumpNumAgents = 2;
+    uint64_t u64UniqueId = 0xabcdef;
+    uint64_t u64PayloadExp = 0x2b0;
+    uint8_t cc = PECI_DEV_CC_SUCCESS;
+
+    TestCrashdump crashdump(cd_spr, 700);
+
+    EXPECT_CALL(*crashdump.libPeciMock, peci_CrashDump_Discovery)
+        .WillOnce(DoAll(SetArgPointee<6>(u8CrashdumpDisabled),
+                        Return(PECI_CC_SUCCESS)))
+        .WillOnce(DoAll(SetArgPointee<6>(u16CrashdumpNumAgents),
+                        SetArgPointee<7>(cc), Return(PECI_CC_SUCCESS)))
+        .WillOnce(DoAll(SetArgPointee<6>(u64UniqueId), SetArgPointee<7>(cc),
+                        Return(PECI_CC_SUCCESS)))
+        .WillOnce(DoAll(SetArgPointee<6>(u64PayloadExp), SetArgPointee<7>(cc),
+                        Return(PECI_CC_SUCCESS)));
+
+    crashdump.libPeciMock->DelegateForBigCoreWithGoodReturnWithDelay();
+
+    // SQ size = 0x0300, Reg Dump size = 0x05b0
+    uint8_t firstFrame[8] = {0x03, 0x90, 0x02, 0x04,
+                             0xb0, 0x05, 0x00, 0x03}; // 0x030005b004029003;
+    EXPECT_CALL(*crashdump.libPeciMock, peci_CrashDump_GetFrame)
+        .WillOnce(DoAll(SetArrayArgument<5>(firstFrame, firstFrame + 8),
+                        SetArgPointee<6>(cc), Return(PECI_CC_SUCCESS)))
+        .WillRepeatedly(DoDefault());
+
+    std::chrono::steady_clock::time_point startTime =
+        std::chrono::steady_clock::now();
+    for (auto cpuinfo : crashdump.cpusInfo)
+    {
+        ret = logCrashdump(&cpuinfo, crashdump.root);
+        EXPECT_EQ(ret, PECI_CC_SUCCESS);
+    }
+
+    std::chrono::steady_clock::time_point endTime =
+        std::chrono::steady_clock::now();
+
+    ASSERT_LE(
+        std::chrono::duration_cast<std::chrono::milliseconds>(endTime -
+                                                              startTime)
+            .count(),
+        31000); // 31000 = 30000ms(30sec input file max) + other processing time
+
+    cJSON* actual = cJSON_CreateObject();
+    actual = cJSON_GetObjectItemCaseSensitive(
+        crashdump.root->child->next->child, "crashlog_version");
+    ASSERT_NE(actual, nullptr);
+    EXPECT_STREQ(actual->valuestring, "0x04029003");
+
+    actual = cJSON_GetObjectItemCaseSensitive(
+        crashdump.root->child->next->child, "size");
+    ASSERT_NE(actual, nullptr);
+    EXPECT_STREQ(actual->valuestring, "0x030005b0");
+
+    actual = cJSON_GetObjectItemCaseSensitive(crashdump.root, CD_ABORT_MSG_KEY);
+    ASSERT_NE(actual, nullptr);
+    EXPECT_THAT(actual->valuestring, HasSubstr("Max time 30 sec exceeded"));
+}
+
+TEST(BigCoreTest, logCrashdumpICX_testRegDumpWithSqDump_withDelay_PerfTest)
+{
+    int ret;
+    uint8_t u8CrashdumpDisabled = ICX_A0_CRASHDUMP_ENABLED;
+    uint16_t u16CrashdumpNumAgents = 2;
+    uint64_t u64UniqueId = 0xabcdef;
+    uint64_t u64PayloadExp = 0x2b0;
+    uint8_t cc = PECI_DEV_CC_SUCCESS;
+
+    TestCrashdump crashdump(cd_icx, 700);
+
+    EXPECT_CALL(*crashdump.libPeciMock, peci_CrashDump_Discovery)
+        .WillOnce(DoAll(SetArgPointee<6>(u8CrashdumpDisabled),
+                        Return(PECI_CC_SUCCESS)))
+        .WillOnce(DoAll(SetArgPointee<6>(u16CrashdumpNumAgents),
+                        SetArgPointee<7>(cc), Return(PECI_CC_SUCCESS)))
+        .WillOnce(DoAll(SetArgPointee<6>(u64UniqueId), SetArgPointee<7>(cc),
+                        Return(PECI_CC_SUCCESS)))
+        .WillOnce(DoAll(SetArgPointee<6>(u64PayloadExp), SetArgPointee<7>(cc),
+                        Return(PECI_CC_SUCCESS)));
+
+    crashdump.libPeciMock->DelegateForBigCoreWithGoodReturnWithDelay();
+
+    // SQ size = 0x0200, Reg Dump size = 0x05a8
+    uint8_t firstFrame[8] = {0x02, 0xe0, 0x01, 0x04,
+                             0xf8, 0x05, 0x00, 0x02}; // 0x020005f80401e002;
+    EXPECT_CALL(*crashdump.libPeciMock, peci_CrashDump_GetFrame)
+        .WillOnce(DoAll(SetArrayArgument<5>(firstFrame, firstFrame + 8),
+                        SetArgPointee<6>(cc), Return(PECI_CC_SUCCESS)))
+        .WillRepeatedly(DoDefault());
+
+    std::chrono::steady_clock::time_point startTime =
+        std::chrono::steady_clock::now();
+    for (auto cpuinfo : crashdump.cpusInfo)
+    {
+        ret = logCrashdump(&cpuinfo, crashdump.root);
+        EXPECT_EQ(ret, PECI_CC_SUCCESS);
+    }
+
+    std::chrono::steady_clock::time_point endTime =
+        std::chrono::steady_clock::now();
+
+    // 151000 = 150000ms(150sec input file max) + other processing time
+    ASSERT_LE(std::chrono::duration_cast<std::chrono::milliseconds>(endTime -
+                                                                    startTime)
+                  .count(),
+              151000);
+
+    cJSON* actual = cJSON_CreateObject();
+    actual = cJSON_GetObjectItemCaseSensitive(
+        crashdump.root->child->next->child, "crashlog_version");
+    ASSERT_NE(actual, nullptr);
+    EXPECT_STREQ(actual->valuestring, "0x0401e002");
+
+    actual = cJSON_GetObjectItemCaseSensitive(
+        crashdump.root->child->next->child, "size");
+    ASSERT_NE(actual, nullptr);
+    EXPECT_STREQ(actual->valuestring, "0x020005f8");
+
+    actual = cJSON_GetObjectItemCaseSensitive(crashdump.root, CD_ABORT_MSG_KEY);
+    ASSERT_NE(actual, nullptr);
+    EXPECT_THAT(actual->valuestring, HasSubstr("Max time 150 sec exceeded"));
 }

@@ -31,7 +31,7 @@
 static void torDumpJsonICXSPR(uint32_t u32Cha, uint32_t u32TorIndex,
                               uint32_t u32TorSubIndex, uint32_t u32PayloadBytes,
                               uint8_t* pu8TorCrashdumpData, cJSON* pJsonChild,
-                              bool bInvalid, uint8_t cc, int ret)
+                              bool bInvalid, uint8_t cc, int ret, bool skipCha)
 {
     cJSON* channel;
     cJSON* tor;
@@ -61,6 +61,12 @@ static void torDumpJsonICXSPR(uint32_t u32Cha, uint32_t u32TorIndex,
     // Add the SubIndex data to the TOR dump JSON structure
     cd_snprintf_s(jsonItemName, TD_JSON_STRING_LEN, TD_JSON_SUBINDEX_NAME,
                   u32TorSubIndex);
+    if (skipCha)
+    {
+        cd_snprintf_s(jsonItemString, TD_JSON_STRING_LEN, TD_NA);
+        cJSON_AddStringToObject(tor, jsonItemName, jsonItemString);
+        return;
+    }
     if (bInvalid)
     {
         cd_snprintf_s(jsonItemString, TD_JSON_STRING_LEN, TD_FIXED_DATA_CC_RC,
@@ -130,7 +136,9 @@ int logTorDumpICXSPR(CPUInfo* cpuInfo, cJSON* pJsonChild)
     uint64_t u64PayloadExp;
     int ret = 0;
     uint8_t cc = 0;
-
+    bool skipCha = false;
+    bool skipFromInputFile =
+        getSkipFromInputFile(cpuInfo, sectionNames[TOR].name);
     // Crashdump Discovery
     // Crashdump Enabled
     ret = peci_CrashDump_Discovery(cpuInfo->clientAddr, PECI_CRASHDUMP_ENABLED,
@@ -205,26 +213,37 @@ int logTorDumpICXSPR(CPUInfo* cpuInfo, cJSON* pJsonChild)
                                     u32PayloadBytes);
                     return ACD_ALLOCATE_FAILURE;
                 }
-                ret = peci_CrashDump_GetFrame(
-                    cpuInfo->clientAddr, PECI_CRASHDUMP_TOR, cha,
-                    (u32TorIndex | (u32TorSubIndex << 8)), u32PayloadBytes,
-                    pu8TorCrashdumpData, &cc);
-
-                if (ret != PECI_CC_SUCCESS)
+                if (!skipCha)
                 {
-                    bInvalid = true;
-                    CRASHDUMP_PRINT(ERR, stderr,
-                                    "Error (%d) during GetFrame"
-                                    "(cha:%d index:%d sub-index:%d)\n",
-                                    ret, (int)cha, u32TorIndex, u32TorSubIndex);
+                    ret = peci_CrashDump_GetFrame(
+                        cpuInfo->clientAddr, PECI_CRASHDUMP_TOR, cha,
+                        (u32TorIndex | (u32TorSubIndex << 8)), u32PayloadBytes,
+                        pu8TorCrashdumpData, &cc);
+
+                    if (ret != PECI_CC_SUCCESS)
+                    {
+                        bInvalid = true;
+                        CRASHDUMP_PRINT(ERR, stderr,
+                                        "Error (%d) during GetFrame"
+                                        "(cha:%d index:%d sub-index:%d)\n",
+                                        ret, (int)cha, u32TorIndex,
+                                        u32TorSubIndex);
+                    }
                 }
                 torDumpJsonICXSPR(cha, u32TorIndex, u32TorSubIndex,
                                   u32PayloadBytes, pu8TorCrashdumpData,
-                                  pJsonChild, bInvalid, cc, ret);
-
+                                  pJsonChild, bInvalid, cc, ret, skipCha);
                 free(pu8TorCrashdumpData);
+                if (PECI_CC_UA(cc) && !skipCha)
+                {
+                    if (skipFromInputFile)
+                    {
+                        skipCha = true;
+                    }
+                }
             }
         }
+        skipCha = false;
     }
 
     return ret;

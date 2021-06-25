@@ -51,7 +51,7 @@ static void readCboParams(SUncoreMcaCboReg* reg, const cJSON* itRegs)
  *
  ******************************************************************************/
 static void unCoreMcaCboJson(uint32_t u32CboNum, SUncoreMcaCboReg* reg,
-                             cJSON* pJsonChild, int ret)
+                             cJSON* pJsonChild, int ret, bool skipCha)
 {
     char jsonItemString[UNCORE_MCA_JSON_STRING_LEN];
     char jsonNameString[UNCORE_MCA_JSON_STRING_LEN];
@@ -81,8 +81,15 @@ static void unCoreMcaCboJson(uint32_t u32CboNum, SUncoreMcaCboReg* reg,
         cJSON_AddItemToObject(uncore, jsonItemString,
                               uncoreMcaCbo = cJSON_CreateObject());
     }
-
-    if (!reg->valid)
+    if (skipCha)
+    {
+        cd_snprintf_s(jsonNameString, UNCORE_MCA_JSON_STRING_LEN,
+                      UNCORE_MCA_CBO_REG_NAME, u32CboNum, reg->regName);
+        cd_snprintf_s(jsonItemString, UNCORE_MCA_JSON_STRING_LEN,
+                      UNCORE_MCA_FAILED);
+        cJSON_AddStringToObject(uncoreMcaCbo, jsonNameString, jsonItemString);
+    }
+    else if (!reg->valid)
     {
         cd_snprintf_s(jsonNameString, UNCORE_MCA_JSON_STRING_LEN,
                       UNCORE_MCA_CBO_REG_NAME, u32CboNum, reg->regName);
@@ -117,7 +124,7 @@ static void unCoreMcaCboJson(uint32_t u32CboNum, SUncoreMcaCboReg* reg,
  ******************************************************************************/
 static void uncoreMcaJsonICXSPR(const SUncoreMcaReg* sUncoreMcaReg,
                                 uint64_t u64UncoreMcaData, cJSON* pJsonChild,
-                                uint8_t cc, int ret)
+                                uint8_t cc, int ret, bool skipBank)
 {
     char jsonItemString[UNCORE_MCA_JSON_STRING_LEN];
 
@@ -142,7 +149,12 @@ static void uncoreMcaJsonICXSPR(const SUncoreMcaReg* sUncoreMcaReg,
         cJSON_AddItemToObject(uncore, sUncoreMcaReg->bankName,
                               uncoreMca = cJSON_CreateObject());
     }
-    if (ret != PECI_CC_SUCCESS)
+    if (skipBank)
+    {
+        cd_snprintf_s(jsonItemString, UNCORE_MCA_JSON_STRING_LEN,
+                      UNCORE_MCA_FAILED);
+    }
+    else if (ret != PECI_CC_SUCCESS)
     {
         cd_snprintf_s(jsonItemString, UNCORE_MCA_JSON_STRING_LEN,
                       UNCORE_MCA_FIXED_DATA_CC_RC, cc, ret);
@@ -169,7 +181,7 @@ static void uncoreMcaJsonICXSPR(const SUncoreMcaReg* sUncoreMcaReg,
  *   This function gathers the UnCore MCA CBO registers
  *
  ******************************************************************************/
-static int logUnCoreMcaCboICXSPR(CPUInfo* cpuInfo, cJSON* pJsonChild)
+static acdStatus logUnCoreMcaCboICXSPR(CPUInfo* cpuInfo, cJSON* pJsonChild)
 {
     int ret = ACD_FAILURE;
     cJSON* regList = NULL;
@@ -177,6 +189,9 @@ static int logUnCoreMcaCboICXSPR(CPUInfo* cpuInfo, cJSON* pJsonChild)
     uint8_t chaCount = cpuInfo->chaCount;
     cJSON* itRegs = NULL;
     bool enable = false;
+    bool skipCha = false;
+    bool skipFromInputFile =
+        getSkipFromInputFile(cpuInfo, sectionNames[MCA_UNCORE].name);
 
     regList = getCrashDataSectionRegList(cpuInfo->inputFile.bufferPtr, "MCA",
                                          "cbo", &enable);
@@ -204,17 +219,28 @@ static int logUnCoreMcaCboICXSPR(CPUInfo* cpuInfo, cJSON* pJsonChild)
         cJSON_ArrayForEach(itRegs, regList)
         {
             readCboParams(&reg, itRegs);
-            ret = peci_RdIAMSR(cpuInfo->clientAddr, i, reg.addr, &reg.data,
-                               &reg.cc);
-            if (ret != PECI_CC_SUCCESS)
+            if (!skipCha)
             {
-                reg.valid = false;
+                ret = peci_RdIAMSR(cpuInfo->clientAddr, i, reg.addr, &reg.data,
+                                   &reg.cc);
+                if (ret != PECI_CC_SUCCESS)
+                {
+                    reg.valid = false;
+                }
             }
-            unCoreMcaCboJson(i, &reg, pJsonChild, ret);
+            unCoreMcaCboJson(i, &reg, pJsonChild, ret, skipCha);
+            if (PECI_CC_UA(reg.cc) && !skipCha)
+            {
+                if (skipFromInputFile)
+                {
+                    skipCha = true;
+                }
+            }
         }
+        skipCha = false;
     }
 
-    return ret;
+    return ACD_SUCCESS;
 }
 
 static void readParams(SUncoreMcaReg* reg, const cJSON* itRegs)
@@ -225,9 +251,6 @@ static void readParams(SUncoreMcaReg* reg, const cJSON* itRegs)
     {
         switch (position)
         {
-            case MCA_UC_BANK_NAME:
-                reg->bankName = itParams->valuestring;
-                break;
             case MCA_UC_REG_NAME:
                 reg->regName = itParams->valuestring;
                 break;
@@ -252,14 +275,17 @@ static void readParams(SUncoreMcaReg* reg, const cJSON* itRegs)
  *   debug log.
  *
  ******************************************************************************/
-int logUncoreMcaICXSPR(CPUInfo* cpuInfo, cJSON* pJsonChild)
+acdStatus logUncoreMcaICXSPR(CPUInfo* cpuInfo, cJSON* pJsonChild)
 {
     int ret = ACD_FAILURE;
     cJSON* regList = NULL;
     cJSON* itRegs = NULL;
+    cJSON* mca = NULL;
     bool enable = false;
     uint8_t cc = 0;
-
+    bool skipBank = false;
+    bool skipFromInputFile =
+        getSkipFromInputFile(cpuInfo, sectionNames[MCA_UNCORE].name);
     regList = getCrashDataSectionRegList(cpuInfo->inputFile.bufferPtr, "MCA",
                                          "uncore", &enable);
 
@@ -268,29 +294,58 @@ int logUncoreMcaICXSPR(CPUInfo* cpuInfo, cJSON* pJsonChild)
         cJSON_AddStringToObject(pJsonChild, FILE_MCA_UC_KEY, FILE_MCA_UC_ERR);
         return ACD_INVALID_OBJECT;
     }
-
     SUncoreMcaReg reg = {0};
-
-    // Go through each uncore register on this cpu and log it
-    cJSON_ArrayForEach(itRegs, regList)
+    cJSON_ArrayForEach(mca, regList)
     {
-        uint64_t u64UncoreMcaData = 0;
-        readParams(&reg, itRegs);
-        ret = peci_RdIAMSR(cpuInfo->clientAddr, reg.instance_id, reg.addr,
-                           &u64UncoreMcaData, &cc);
-        uncoreMcaJsonICXSPR(&reg, u64UncoreMcaData, pJsonChild, cc, ret);
+        reg.bankName = mca->string;
+        cJSON_ArrayForEach(itRegs, mca)
+        {
+            uint64_t u64UncoreMcaData = 0;
+            readParams(&reg, itRegs);
+            if (!skipBank)
+            {
+                ret = peci_RdIAMSR(cpuInfo->clientAddr, reg.instance_id,
+                                   reg.addr, &u64UncoreMcaData, &cc);
+            }
+            uncoreMcaJsonICXSPR(&reg, u64UncoreMcaData, pJsonChild, cc, ret,
+                                skipBank);
+            if (PECI_CC_UA(cc) && !skipBank)
+            {
+                if (skipFromInputFile)
+                {
+                    skipBank = true;
+                }
+            }
+        }
+        skipBank = false;
     }
+    return ACD_SUCCESS;
+}
 
-    logUnCoreMcaCboICXSPR(cpuInfo, pJsonChild);
+static UncoreMcaSections UncoreMcaTypesSPRICX[] = {
+    logUncoreMcaICXSPR,
+    logUnCoreMcaCboICXSPR,
+};
 
-    return ret;
+int logUncoreMcaSPRICX(CPUInfo* cpuInfo, cJSON* pJsonChild)
+{
+    for (uint32_t i = 0;
+         i < (sizeof(UncoreMcaTypesSPRICX) / sizeof(UncoreMcaTypesSPRICX[0]));
+         i++)
+    {
+        if (UncoreMcaTypesSPRICX[i](cpuInfo, pJsonChild) != ACD_SUCCESS)
+        {
+            return ACD_FAILURE;
+        }
+    }
+    return ACD_SUCCESS;
 }
 
 static const SUncoreMcaLogVx sUncoreMcaLogVx[] = {
-    {cd_icx, logUncoreMcaICXSPR},
-    {cd_icx2, logUncoreMcaICXSPR},
-    {cd_spr, logUncoreMcaICXSPR},
-    {cd_icxd, logUncoreMcaICXSPR},
+    {cd_icx, logUncoreMcaSPRICX},
+    {cd_icx2, logUncoreMcaSPRICX},
+    {cd_spr, logUncoreMcaSPRICX},
+    {cd_icxd, logUncoreMcaSPRICX},
 };
 
 /******************************************************************************

@@ -21,6 +21,10 @@ class TestCrashdump
 
     TestCrashdump(Model model);
 
+    TestCrashdump(Model model, int delay);
+
+    TestCrashdump(Model model, int delay, int numberOfCpus);
+
     TestCrashdump(std::vector<CPUInfo>& cpuInfo_);
 
     ~TestCrashdump();

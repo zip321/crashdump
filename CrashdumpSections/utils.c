@@ -24,6 +24,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <unistd.h>
+struct timespec crashdumpStart;
 
 int cd_snprintf_s(char* str, size_t len, const char* format, ...)
 {
@@ -426,61 +427,37 @@ uint64_t tsToNanosecond(struct timespec* ts)
     return (ts->tv_sec * (uint64_t)1e9 + ts->tv_nsec);
 }
 
-inline void logDelayTime(cJSON* parent, const char* sectionName,
-                         struct timespec delay)
-{
-    // Create an empty JSON object for this section if it doesn't already
-    // exist
-    cJSON* logSectionJson;
-    logSectionJson = cJSON_GetObjectItemCaseSensitive(parent, sectionName);
-    if (logSectionJson == NULL)
-    {
-        cJSON_AddItemToObject(parent, sectionName,
-                              logSectionJson = cJSON_CreateObject());
-    }
-
-    char timeString[64];
-
-    cd_snprintf_s(timeString, sizeof(timeString), "%.2fs",
-                  (double)tsToNanosecond(&delay) / 1e9);
-
-    CRASHDUMP_PRINT(INFO, stderr, "Inserted max delay of %s in %s section!\n",
-                    timeString, sectionName);
-    cJSON_AddStringToObject(logSectionJson, "_inserted_max_delay_sec",
-                            timeString);
-}
-
-inline struct timespec calculateDelay(struct timespec* crashdumpStart,
-                                      uint32_t delayTimeFromInputFileInSec)
+inline struct timespec
+    calculateTimeRemaining(uint32_t maxWaitTimeFromInputFileInSec)
 {
     struct timespec current = {0, 0};
     clock_gettime(CLOCK_MONOTONIC, &current);
 
     uint64_t runTimeInNs =
-        tsToNanosecond(&current) - tsToNanosecond(crashdumpStart);
+        tsToNanosecond(&current) - tsToNanosecond(&crashdumpStart);
 
-    uint64_t delayTimeFromInputFileInNs =
-        delayTimeFromInputFileInSec * (uint64_t)1e9;
+    uint64_t maxWaitTimeFromInputFileInNs =
+        maxWaitTimeFromInputFileInSec * (uint64_t)1e9;
 
-    struct timespec delay = {0, 0};
-    if (runTimeInNs < delayTimeFromInputFileInNs)
+    struct timespec timeRemaining = {0, 0};
+    if (runTimeInNs < maxWaitTimeFromInputFileInNs)
     {
-        delay.tv_sec = (delayTimeFromInputFileInNs - runTimeInNs) / 1e9;
-        delay.tv_nsec =
-            (delayTimeFromInputFileInNs - runTimeInNs) % (uint64_t)1e9;
+        timeRemaining.tv_sec =
+            (maxWaitTimeFromInputFileInNs - runTimeInNs) / 1e9;
+        timeRemaining.tv_nsec =
+            (maxWaitTimeFromInputFileInNs - runTimeInNs) % (uint64_t)1e9;
 
-        return delay;
+        return timeRemaining;
     }
 
-    return delay;
+    return timeRemaining;
 }
 
 inline uint32_t getDelayFromInputFile(CPUInfo* cpuInfo, char* sectionName)
 {
     bool enable = false;
     cJSON* inputDelayField = getCrashDataSectionObjectOneLevel(
-        cpuInfo->inputFile.bufferPtr, sectionName, "_required_delay_sec",
-        &enable);
+        cpuInfo->inputFile.bufferPtr, sectionName, "_max_wait_sec", &enable);
 
     if (inputDelayField != NULL && enable)
     {
@@ -490,35 +467,33 @@ inline uint32_t getDelayFromInputFile(CPUInfo* cpuInfo, char* sectionName)
     return 0;
 }
 
-static inline bool doAddDelay(CPUInfo* cpuInfo, struct timespec* crashdumpStart,
-                              uint32_t delayTimeFromInputFileInSec)
+uint32_t getCollectionTimeFromInputFile(CPUInfo* cpuInfo)
 {
-    if (0 == delayTimeFromInputFileInSec)
+    bool enable = false;
+    cJSON* inputField = getCrashDataSectionObjectOneLevel(
+        cpuInfo->inputFile.bufferPtr, "big_core", "_max_collection_sec",
+        &enable);
+
+    if (inputField != NULL && enable)
     {
-        return false;
+        return (uint32_t)inputField->valueint;
     }
 
-    cpuInfo->launchDelay =
-        calculateDelay(crashdumpStart, delayTimeFromInputFileInSec);
-
-    if (0 == tsToNanosecond(&cpuInfo->launchDelay))
-    {
-        return false;
-    }
-
-    return true;
+    return 0;
 }
 
-void addDelayToSection(cJSON* cpu, CPUInfo* cpuInfo, char* sectionName,
-                       struct timespec* crashdumpStart)
+inline bool getSkipFromInputFile(CPUInfo* cpuInfo, char* sectionName)
 {
-    if (doAddDelay(cpuInfo, crashdumpStart,
-                   getDelayFromInputFile(cpuInfo, sectionName)))
-    {
-        logDelayTime(cpu, sectionName, cpuInfo->launchDelay);
+    bool enable = false;
+    cJSON* skipIfFailRead = getCrashDataSectionObjectOneLevel(
+        cpuInfo->inputFile.bufferPtr, sectionName, "_skip_on_fail", &enable);
 
-        nanosleep(&cpuInfo->launchDelay, NULL);
+    if (skipIfFailRead != NULL && enable)
+    {
+        return cJSON_IsTrue(skipIfFailRead);
     }
+
+    return false;
 }
 
 void updateMcaRunTime(cJSON* root, struct timespec* start)
@@ -606,4 +581,90 @@ int getPciRegister(CPUInfo* cpuInfo, SRegRawData* sRegData, uint8_t u8index)
     }
     peci_Unlock(peci_fd);
     return ACD_SUCCESS;
+}
+
+inputField getFlagValueFromInputFile(CPUInfo* cpuInfo, char* sectionName,
+                                     char* flagName)
+{
+    bool enable;
+    cJSON* flagField = getCrashDataSectionObjectOneLevel(
+        cpuInfo->inputFile.bufferPtr, sectionName, flagName, &enable);
+
+    if (flagField != NULL && enable)
+    {
+        return (cJSON_IsTrue(flagField) ? FLAG_ENABLE : FLAG_DISABLE);
+    }
+
+    return FLAG_NOT_PRESENT;
+}
+
+static struct timespec
+    calculateTimeRemainingFromStart(uint32_t maxTimeInSec,
+                                    struct timespec sectionStartTime)
+{
+    struct timespec current = {0, 0};
+    clock_gettime(CLOCK_MONOTONIC, &current);
+
+    uint64_t runTimeInNs =
+        tsToNanosecond(&current) - tsToNanosecond(&sectionStartTime);
+
+    uint64_t maxTimeInNs = maxTimeInSec * (uint64_t)1e9;
+
+    struct timespec timeRemaining = {0, 0};
+    if (runTimeInNs < maxTimeInNs)
+    {
+        timeRemaining.tv_sec = (maxTimeInNs - runTimeInNs) / 1e9;
+        timeRemaining.tv_nsec = (maxTimeInNs - runTimeInNs) % (uint64_t)1e9;
+    }
+
+    return timeRemaining;
+}
+
+executionStatus checkMaxTimeElapsed(uint32_t maxTime,
+                                    struct timespec sectionStartTime)
+{
+    struct timespec timeRemaining =
+        calculateTimeRemainingFromStart(maxTime, sectionStartTime);
+
+    if (0 == tsToNanosecond(&timeRemaining))
+    {
+        return EXECUTION_ABORTED;
+    }
+
+    return EXECUTION_TILL_ABORT;
+}
+
+cJSON* getNVDSection(cJSON* root, const char* const section, bool* const enable)
+{
+    *enable = false;
+    cJSON* child = cJSON_GetObjectItemCaseSensitive(
+        cJSON_GetObjectItemCaseSensitive(root, "NVD"), section);
+
+    if (child != NULL)
+    {
+        cJSON* recordEnable = cJSON_GetObjectItem(child, RECORD_ENABLE);
+        if (recordEnable == NULL)
+        {
+            *enable = true;
+        }
+        else
+        {
+            *enable = cJSON_IsTrue(recordEnable);
+        }
+    }
+
+    return child;
+}
+
+cJSON* getNVDSectionRegList(cJSON* root, const char* const section,
+                            bool* const enable)
+{
+    cJSON* child = getNVDSection(root, section, enable);
+
+    if (child != NULL)
+    {
+        return cJSON_GetObjectItemCaseSensitive(child, "reg_list");
+    }
+
+    return child;
 }

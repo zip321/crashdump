@@ -2,7 +2,7 @@
  *
  * INTEL CONFIDENTIAL
  *
- * Copyright 2020 Intel Corporation.
+ * Copyright 2021 Intel Corporation.
  *
  * This software and the related documents are Intel copyrighted materials,
  * and your use of them is governed by the express license under which they
@@ -16,27 +16,16 @@
  * License.
  *
  ******************************************************************************/
+
 #pragma once
 
-extern "C" {
-#include <cjson/cJSON.h>
-}
+#include <stdio.h>
 
-#include "crashdump.hpp"
+#include <string>
 
-#include <boost/container/flat_map.hpp>
-#include <sdbusplus/asio/object_server.hpp>
-#include <sdbusplus/bus.hpp>
-#include <sdbusplus/message.hpp>
-#include <variant>
+#define TRIAGE_STR_LEN 32
+#define TRIAGE_RC "RC:0x%x"
+#define TRIAGE_KEY "triage"
+#define TRIAGE_ERR "Error appending triage section"
 
-namespace crashdump
-{
-acdStatus getDIMMInventoryDBus(std::vector<CPUInfo>& cpuInfo);
-int getBMCVersionDBus(char* bmcVerStr, size_t bmcVerStrSize);
-int getBIOSVersionDBus(char* biosVerStr, size_t biosVerStrSize);
-std::shared_ptr<sdbusplus::bus::match::match>
-    startHostStateMonitor(std::shared_ptr<sdbusplus::asio::connection> conn);
-} // namespace crashdump
-
-int logSysInfoCommon(cJSON* pJsonChild);
+void appendTriageSection(std::string& storedLogContents);

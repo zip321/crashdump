@@ -823,7 +823,7 @@ int logSysInfoInputfile(CPUInfo* cpuInfo, cJSON* pJsonChild,
  *
  *   logResetDetected
  *
- *   This function logs the section which was being captured when reset occured
+ *   This function logs the section which was being captured when reset occurred
  *
  ******************************************************************************/
 int logResetDetected(cJSON* metadata, int cpuNum, int sectionName)
@@ -835,7 +835,7 @@ int logResetDetected(cJSON* metadata, int cpuNum, int sectionName)
         cd_snprintf_s(resetSection, SI_JSON_STRING_LEN, RESET_DETECTED_NAME,
                       cpuNum, sectionNames[sectionName].name);
 
-        CRASHDUMP_PRINT(INFO, stderr, "Reset occured while in section %s\n",
+        CRASHDUMP_PRINT(INFO, stderr, "Reset occurred while in section %s\n",
                         resetSection);
     }
     else

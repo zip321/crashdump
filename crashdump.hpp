@@ -92,6 +92,11 @@ void newStoredLog(std::vector<CPUInfo>& cpuInfo, std::string& storedLogContents,
                   const std::string& triggerType, std::string& timestamp);
 bool isPECIAvailable();
 void setResetDetected();
-void loadInputFiles(std::vector<CPUInfo>& cpuInfo, InputFileInfo* inputFileInfo,
-                    bool isTelemetry);
+acdStatus loadInputFiles(std::vector<CPUInfo>& cpuInfo,
+                         InputFileInfo* inputFileInfo, bool isTelemetry);
+void createCrashdump(std::vector<CPUInfo>& cpuInfo,
+                     std::string& crashdumpContents,
+                     const std::string& triggerType, std::string& timestamp,
+                     bool isTelemetry);
+std::string newTimestamp(void);
 } // namespace crashdump

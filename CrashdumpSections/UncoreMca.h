@@ -64,7 +64,6 @@ enum MCA_UC_CBO
 
 enum MCA_UC
 {
-    MCA_UC_BANK_NAME,
     MCA_UC_REG_NAME,
     MCA_UC_ADDR,
     MCA_UC_ID,
@@ -91,6 +90,8 @@ typedef struct
     bool valid;
     uint8_t cc;
 } SUncoreMcaCboReg;
+
+typedef acdStatus (*UncoreMcaSections)(CPUInfo* cpuInfo, cJSON* pJsonChild);
 
 typedef struct
 {

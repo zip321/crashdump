@@ -36,7 +36,7 @@
 
 #define SI_CPU_NAME_LEN 8
 #define SI_CRASHDUMP_VER_LEN 8
-#define SI_CRASHDUMP_VER "BMC_EGS_0.4"
+#define SI_CRASHDUMP_VER "BMC_EGS_0.5"
 
 #define SI_PECI_PPIN_IDX 19
 #define SI_PECI_PPIN_LOWER 0x01
@@ -55,6 +55,7 @@
 #define MD_INVALID "INVALID"
 
 #define RESET_DETECTED_DEFAULT "NONE"
+#define INPUT_FILE_ERROR_STR "Error while reading input file"
 
 /******************************************************************************
  *

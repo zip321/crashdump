@@ -87,6 +87,8 @@ enum US_RDIAMSR
 #define UNCORE_UA_DF "UA:0x%x,DF:0x%x"
 #define UNCORE_FIXED_DATA_CC_RC "0x0,CC:0x%x,RC:0x%x"
 #define UNCORE_DATA_CC_RC "0x%" PRIx64 ",CC:0x%x,RC:0x%x"
+#define UNCORE_NA "N/A"
+#define UNCORE_ABORT_MSG "Max time %.2u sec exceeded"
 
 /******************************************************************************
  *
@@ -128,6 +130,9 @@ enum US_RDIAMSR
 #define PCI_COUNT_KEY "_reg_count_pci"
 #define RDIAMSR_COUNT_KEY "_reg_count_rdiamsr"
 #define MMIO_COUNT_KEY "_reg_count_mmio"
+#define PCI_ABORT_MSG_KEY "_pci_aborted"
+#define MMIO_ABORT_MSG_KEY "_mmio_aborted"
+#define RDIAMSR_ABORT_MSG_KEY "_rdiamsr_aborted"
 
 /******************************************************************************
  *
@@ -212,7 +217,7 @@ typedef struct
 static const char uncoreStatusMcaRegNames[][US_MCA_NAME_LEN] = {
     "ctl", "status", "addr", "misc", "ctl2"};
 
-typedef int (*UncoreStatusRead)(CPUInfo* cpuInfo, cJSON* pJsonChild);
+typedef acdStatus (*UncoreStatusRead)(CPUInfo* cpuInfo, cJSON* pJsonChild);
 
 typedef struct
 {

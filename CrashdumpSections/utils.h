@@ -72,10 +72,24 @@ uint32_t bitField(uint32_t offset, uint32_t size, uint32_t val);
 
 // crashdump_input_xxx.json #define(s) and c-helper functions
 #define RECORD_ENABLE "_record_enable"
-#define ENABLE 0
+#define CD_ENABLE 0
 #define UT_REG_NAME_LEN 32
 #define UT_REG_DWORD 4
 #define UT_REG_QWORD 8
+
+typedef enum
+{
+    EXECUTION_ALL_REGISTERS,
+    EXECUTION_TILL_ABORT,
+    EXECUTION_ABORTED
+} executionStatus;
+
+typedef enum
+{
+    FLAG_ENABLE,
+    FLAG_DISABLE,
+    FLAG_NOT_PRESENT
+} inputField;
 
 typedef union
 {
@@ -110,6 +124,8 @@ static const SRegPci sPciReg[] = {
     {"mca_err_src_log", 0, 31, 30, 2, 0xEC, 4},
 };
 
+extern struct timespec crashdumpStart;
+
 void updateRecordEnable(cJSON* root, bool enable);
 cJSON* getCrashDataSection(cJSON* root, char* section, bool* enable);
 cJSON* getCrashDataSectionRegList(cJSON* root, char* section, char* regType,
@@ -130,15 +146,22 @@ cJSON* selectAndReadInputFile(Model cpuModel, char** filename,
 cJSON* getCrashDataSectionAddressMapRegList(cJSON* root);
 cJSON* getCrashDataSectionObjectOneLevel(cJSON* root, char* section,
                                          const char* firstLevel, bool* enable);
-void addDelayToSection(cJSON* cpu, CPUInfo* cpuInfo, char* sectionName,
-                       struct timespec* crashdumpStart);
 uint64_t tsToNanosecond(struct timespec* ts);
 void updateMcaRunTime(cJSON* root, struct timespec* start);
-struct timespec calculateDelay(struct timespec* crashdumpStart,
-                               uint32_t delayTimeFromInputFileInSec);
+struct timespec calculateTimeRemaining(uint32_t maxWaitTimeFromInputFileInSec);
 uint32_t getDelayFromInputFile(CPUInfo* cpuInfo, char* sectionName);
-void logDelayTime(cJSON* parent, const char* sectionName,
-                  struct timespec delay);
 int getPciRegister(CPUInfo* cpuInfo, SRegRawData* sRegData, uint8_t u8index);
+bool getSkipFromInputFile(CPUInfo* cpuInfo, char* sectionName);
 cJSON* getPeciAccessType(cJSON* root);
+inputField getFlagValueFromInputFile(CPUInfo* cpuInfo, char* sectionName,
+                                     char* flagName);
+uint32_t getCollectionTimeFromInputFile(CPUInfo* cpuInfo);
+
+executionStatus checkMaxTimeElapsed(uint32_t maxTime,
+                                    struct timespec sectionStartTime);
+/* NVD Related functions */
+cJSON* getNVDSection(cJSON* root, const char* const section,
+                     bool* const enable);
+cJSON* getNVDSectionRegList(cJSON* root, const char* const section,
+                            bool* const enable);
 #endif // UTILS_H

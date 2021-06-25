@@ -52,6 +52,7 @@ extern "C" {
 #include "CrashdumpSections/Uncore.h"
 #include "CrashdumpSections/UncoreMca.h"
 #include "CrashdumpSections/crashdump.h"
+#include "CrashdumpSections/nvd.h"
 #ifdef OEMDATA_SECTION
 #include "CrashdumpSections/OemData.h"
 #endif
@@ -59,6 +60,7 @@ extern "C" {
 }
 
 #include "crashdump.hpp"
+#include "utils_triage.hpp"
 
 namespace crashdump
 {
@@ -228,12 +230,13 @@ inline void updateCurrentSection(const CrashdumpSection& sectionName,
     platformState.currentCpu = cpuInfo->clientAddr & 0xF;
 }
 
-void loadInputFiles(std::vector<CPUInfo>& cpuInfo, InputFileInfo* inputFileInfo,
-                    bool isTelemetry)
+acdStatus loadInputFiles(std::vector<CPUInfo>& cpuInfo,
+                         InputFileInfo* inputFileInfo, bool isTelemetry)
 {
     int uniqueCount = 0;
     cJSON* defaultStateSection = NULL;
     bool enable = false;
+    acdStatus status = ACD_SUCCESS;
 
     for (CPUInfo& cpu : cpuInfo)
     {
@@ -266,8 +269,9 @@ void loadInputFiles(std::vector<CPUInfo>& cpuInfo, InputFileInfo* inputFileInfo,
         {
             CRASHDUMP_PRINT(ERR, stderr, "Missing \"DefaultState\" in %s\n",
                             inputFileInfo->filenames[cpu.model]);
+            status = ACD_INPUT_FILE_ERROR;
         }
-        if (defaultStateEnable == ENABLE)
+        if (defaultStateEnable == CD_ENABLE)
         {
             // Check local enable "_record_enable"
             for (uint8_t i = 0; i < NUMBER_OF_SECTIONS; i++)
@@ -283,6 +287,8 @@ void loadInputFiles(std::vector<CPUInfo>& cpuInfo, InputFileInfo* inputFileInfo,
             cpu.sectionMask = 0x00;
         }
     }
+
+    return status;
 }
 
 static bool getCoreMasks(std::vector<CPUInfo>& cpuInfo, cpuidState cpuState)
@@ -455,8 +461,13 @@ static bool getCHACounts(std::vector<CPUInfo>& cpuInfo, cpuidState cpuState)
             default:
                 return false;
         }
-        cpu.chaCount =
-            __builtin_popcount(chaMask0) + __builtin_popcount(chaMask1);
+
+        cpu.chaCount = 0;
+        if (cpu.chaCountRead.chaCountValid)
+        {
+            cpu.chaCount =
+                __builtin_popcount(chaMask0) + __builtin_popcount(chaMask1);
+        }
         cpu.chaCountRead.source = cpuState;
     }
     return true;
@@ -827,7 +838,9 @@ void createCrashdump(std::vector<CPUInfo>& cpuInfo,
     crashdump::savePeciWake(cpuInfo);
     crashdump::setPeciWake(cpuInfo, ON);
 
-    loadInputFiles(cpuInfo, &inputFileInfo, isTelemetry);
+    acdStatus inputFileLoadError =
+        loadInputFiles(cpuInfo, &inputFileInfo, isTelemetry);
+
     // start the JSON tree for CPU dump
     root = cJSON_CreateObject();
 
@@ -844,12 +857,24 @@ void createCrashdump(std::vector<CPUInfo>& cpuInfo,
     cJSON_AddItemToObject(crashlogData, "PROCESSORS",
                           processors = cJSON_CreateObject());
 
+    if (inputFileLoadError)
+    {
+        cJSON_AddStringToObject(metaData, "_input_file_error",
+                                INPUT_FILE_ERROR_STR);
+    }
+
+#ifdef NVD_SECTION
+    cJSON* nvd = NULL;
+    // Create the NVD section
+    cJSON_AddItemToObject(crashlogData, "NVD", nvd = cJSON_CreateObject());
+#endif
+
     // Include the version field
     logCrashdumpVersion(processors, &cpuInfo[0], RECORD_TYPE_BMCAUTONOMOUS);
 
     // Fill in the Crashdump data in the correct order (uncore to core) for
     // each CPU
-    struct timespec sectionStart, crashdumpStart;
+    struct timespec sectionStart;
 
     clock_gettime(CLOCK_MONOTONIC, &sectionStart);
     clock_gettime(CLOCK_MONOTONIC, &crashdumpStart);
@@ -878,13 +903,6 @@ void createCrashdump(std::vector<CPUInfo>& cpuInfo,
                     switch ((int)sectionNames[i].section)
                     {
                         case BIG_CORE:
-
-                            cpuInfo[j].launchDelay = calculateDelay(
-                                &crashdumpStart,
-                                getDelayFromInputFile(
-                                    &cpuInfo[j],
-                                    sectionNames[Section::BIG_CORE].name));
-
                             fillSection(cpu, &cpuInfo[j], sectionNames[i],
                                         sectionNames[i].fptr, &sectionStart,
                                         timeStr);
@@ -911,6 +929,21 @@ void createCrashdump(std::vector<CPUInfo>& cpuInfo,
             }
         }
     }
+
+#ifdef NVD_SECTION
+    acdStatus nvdStatus = crashdump::getDIMMInventoryDBus(cpuInfo);
+    if (nvdStatus == ACD_SUCCESS)
+    {
+        for (size_t j = 0; j < cpuInfo.size(); j++)
+        {
+            nvdStatus = fillNVDSection(&cpuInfo[j], j, nvd);
+        }
+        if (nvdStatus != ACD_SECTION_DISABLE)
+        {
+            logRunTime(nvd, &sectionStart, "_time");
+        }
+    }
+#endif
 
     fillMetaDataCommon(metaData, cpuInfo[0], &inputFileInfo, triggerType,
                        timestamp, &crashdumpStart, &sectionStart, timeStr);
@@ -960,6 +993,9 @@ void createCrashdump(std::vector<CPUInfo>& cpuInfo,
     if (out != NULL)
     {
         crashdumpContents = out;
+#ifdef TRIAGE_SECTION
+        appendTriageSection(crashdumpContents);
+#endif
         cJSON_free(out);
         CRASHDUMP_PRINT(INFO, stderr, "Completed!\n");
     }
@@ -1156,7 +1192,7 @@ void dbusAddStoredLog(const std::string& storedLogContents,
                       const std::string& timestamp)
 {
     constexpr char const* crashdumpFile = "crashdump_%llu";
-    uint64_t crashdump_num = 0;
+    uint64_t crashdumpNum = 0;
     struct dirent** namelist = NULL;
     FILE* fpJson = NULL;
     std::error_code ec;
@@ -1182,55 +1218,76 @@ void dbusAddStoredLog(const std::string& storedLogContents,
         return;
     }
 
-    // Get the number for this crashdump. The crashdump_num is not
-    // kept as a static in order to cover crashdump service
-    // restarts. In that case it is undesirable to restart the number
-    // at zero.
-    if (numLogFiles > 0)
-    {
-        // otherwise, get the number of the last log and increment it
-        sscanf_s(namelist[numLogFiles - 1]->d_name, crashdumpFile,
-                 &crashdump_num);
-        crashdump_num++;
-    }
-
-    // In case multiple crashdumps are triggered for the same error, the policy
-    // is to keep the first log until it is manually cleared and rotate through
-    // additional logs.  This guarantees that we have the first and last log of
-    // a failure.
+    // Get the number for this crashdump by finding the highest numbered
+    // crashdump so far and incrementing by 1. The crashdumpNum is not kept as a
+    // static in order to cover crashdump service restarts. In that case it is
+    // undesirable to restart the number at zero.
+    std::vector<std::string> storedLogsToRemove;
     for (int i = 0; i < numLogFiles; i++)
     {
-        // Except for log 0, if it's below the number of saved logs, delete it
-        if ((i != 0) && (i <= (numLogFiles - (numStoredLogs - 1))))
+        uint64_t currentNum = 0;
+        int ret = sscanf_s(namelist[i]->d_name, crashdumpFile, &currentNum);
+        if (ret > 0)
         {
-            std::error_code ec;
-            if (!(std::filesystem::remove(crashdumpDir / namelist[i]->d_name,
-                                          ec)))
+            // This is a stored log, so track it for possible removal
+            storedLogsToRemove.emplace_back(namelist[i]->d_name);
+            if (currentNum >= crashdumpNum)
             {
-                CRASHDUMP_PRINT(ERR, stderr, "failed to remove %s: %s\n",
-                                namelist[i]->d_name, ec.message().c_str());
-            }
-            // Now remove the interface for the deleted log
-            auto eraseit =
-                std::find_if(storedLogIfaces.begin(), storedLogIfaces.end(),
-                             [&namelist, &i](auto& log) {
-                                 std::string& storedName = std::get<0>(log);
-                                 return (storedName == namelist[1]->d_name);
-                             });
-
-            if (eraseit != std::end(storedLogIfaces))
-            {
-                crashdump::server->remove_interface(std::get<1>(*eraseit));
-                storedLogIfaces.erase(eraseit);
+                crashdumpNum = currentNum + 1;
             }
         }
         free(namelist[i]);
     }
     free(namelist);
 
+    // In case multiple crashdumps are triggered for the same error, the policy
+    // is to keep the first log until it is manually cleared and rotate through
+    // additional logs.  This guarantees that we have the first and last log of
+    // a failure.
+
+    if (storedLogsToRemove.size() >= numStoredLogs)
+    {
+        // We want up to numStoredLogs including the first log and this log
+        // So, keep log 0
+        storedLogsToRemove.erase(storedLogsToRemove.begin());
+        // and the highest numbered logs up to numStoredLogs - 2
+        storedLogsToRemove.erase(
+            std::prev(storedLogsToRemove.end(), numStoredLogs - 2),
+            storedLogsToRemove.end());
+    }
+    else
+    {
+        // We haven't reached numStoredLogs yet, so keep all of them
+        storedLogsToRemove.clear();
+    }
+
+    // Remove the remaining logs
+    for (const std::string& filename : storedLogsToRemove)
+    {
+        std::error_code ec;
+        if (!(std::filesystem::remove(crashdumpDir / filename, ec)))
+        {
+            CRASHDUMP_PRINT(ERR, stderr, "failed to remove %s: %s\n",
+                            filename.c_str(), ec.message().c_str());
+        }
+        // Now remove the interface for the deleted log
+        auto eraseit =
+            std::find_if(storedLogIfaces.begin(), storedLogIfaces.end(),
+                         [&filename](auto& log) {
+                             std::string& storedName = std::get<0>(log);
+                             return (storedName == filename);
+                         });
+
+        if (eraseit != std::end(storedLogIfaces))
+        {
+            crashdump::server->remove_interface(std::get<1>(*eraseit));
+            storedLogIfaces.erase(eraseit);
+        }
+    }
+
     // Create the new crashdump filename
     std::string new_logfile_name = crashdumpPrefix +
-                                   std::to_string(crashdump_num) + "-" +
+                                   std::to_string(crashdumpNum) + "-" +
                                    timestamp + ".json";
     std::filesystem::path out_file = crashdumpDir / new_logfile_name;
 
@@ -1244,7 +1301,7 @@ void dbusAddStoredLog(const std::string& storedLogContents,
 
     // Add the new interface for this log
     std::filesystem::path path =
-        std::filesystem::path(crashdumpPath) / std::to_string(crashdump_num);
+        std::filesystem::path(crashdumpPath) / std::to_string(crashdumpNum);
     std::shared_ptr<sdbusplus::asio::dbus_interface> ifaceLog =
         server->add_interface(path.c_str(), crashdumpInterface);
     storedLogIfaces.emplace_back(new_logfile_name, ifaceLog);

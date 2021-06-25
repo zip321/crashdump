@@ -17,6 +17,10 @@ cmake_minimum_required (VERSION 3.6)
 option (YOCTO_DEPENDENCIES "Use YOCTO dependencies system" OFF)
 option (CRASHDUMP_BUILD_UT "Enable Building Unit tests" OFF)
 
+# optional features
+option (NVD_SECTION "Add NVD section to the crashdump contents." OFF)
+option (TRIAGE_SECTION "Add triage section to the crashdump contents." OFF)
+
 project (crashdump)
 include (ExternalProject)
 if (${YOCTO_DEPENDENCIES})
@@ -197,6 +201,17 @@ set (
     CrashdumpSections/crashdump.c
 )
 
+if (${NVD_SECTION})
+    set (SRC_FILES ${SRC_FILES} CrashdumpSections/nvd.c)
+    add_definitions (-DNVD_SECTION)
+    set (NVD_LIB fis)
+endif ()
+
+if (${TRIAGE_SECTION})
+    set (SRC_FILES ${SRC_FILES} utils_triage.cpp)
+    add_definitions (-DTRIAGE_SECTION)
+endif ()
+
 if (NOT ${CRASHDUMP_BUILD_UT})
     add_definitions (-DBUILD_MAIN)
     add_executable (crashdump crashdump.cpp utils_dbusplus.cpp ${SRC_FILES})
@@ -235,6 +250,7 @@ if (NOT ${CRASHDUMP_BUILD_UT})
         -lstdc++fs
         sdbusplus
         ${SAFEC_LIBRARIES}
+        ${NVD_LIB}
     )
 
     install (
@@ -249,6 +265,7 @@ install (
     FILES ${CMAKE_CURRENT_SOURCE_DIR}/crashdump_input_icx.json
           ${CMAKE_CURRENT_SOURCE_DIR}/telemetry_input_icx.json
           ${CMAKE_CURRENT_SOURCE_DIR}/crashdump_input_spr.json
+          ${CMAKE_CURRENT_SOURCE_DIR}/telemetry_input_spr.json
     PERMISSIONS OWNER_READ
     DESTINATION /usr/share/crashdump/input/
 )
@@ -300,8 +317,17 @@ if (NOT ${YOCTO_DEPENDENCIES})
         set (
             UT_FILES
             tests/mock/test_crashdump.cpp
-            tests/CrashdumpSections/BigCore_test.cpp tests/test_utils.cpp
-            tests/test_main.cpp tests/CrashdumpSections/Uncore_test.cpp
+            tests/CrashdumpSections/BigCore_test.cpp
+            tests/test_utils.cpp
+            tests/test_main.cpp
+            tests/CrashdumpSections/Uncore_test.cpp
+            tests/CrashdumpSections/AddressMap_test.cpp
+            tests/CrashdumpSections/MetaData_test.cpp
+            tests/CrashdumpSections/TorDump_test.cpp
+            tests/CrashdumpSections/crashdump_test.cpp
+            tests/CrashdumpSections/PowerManagement_test.cpp
+            tests/CrashdumpSections/UncoreMca_test.cpp
+            tests/CrashdumpSections/utils_test.cpp
         )
 
         add_definitions (-DCOMPILE_UNIT_TESTS)

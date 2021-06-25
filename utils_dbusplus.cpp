@@ -29,6 +29,34 @@ using PropertyValue =
 
 namespace crashdump
 {
+acdStatus getDIMMInventoryDBus(std::vector<CPUInfo>& cpuInfo)
+{
+    // Notes: Use input file dimm masks temporarily, update this section
+    // once DBus code is ready.
+
+    cJSON* dimmMasks = cJSON_GetObjectItemCaseSensitive(
+        cJSON_GetObjectItemCaseSensitive(cpuInfo[0].inputFile.bufferPtr, "NVD"),
+        "dimm_masks");
+
+    for (CPUInfo& cpu : cpuInfo)
+    {
+        cpu.dimmMask = 0x0;
+    }
+
+    if (dimmMasks != NULL)
+    {
+        if ((int)cpuInfo.size() == cJSON_GetArraySize(dimmMasks))
+        {
+            for (int i = 0; i < cJSON_GetArraySize(dimmMasks); i++)
+            {
+                cJSON* subitem = cJSON_GetArrayItem(dimmMasks, i);
+                cpuInfo[i].dimmMask = strtoull(subitem->valuestring, NULL, 16);
+            }
+        }
+    }
+
+    return ACD_SUCCESS;
+}
 int getBMCVersionDBus(char* bmcVerStr, size_t bmcVerStrSize)
 {
     using ManagedObjectType = boost::container::flat_map<

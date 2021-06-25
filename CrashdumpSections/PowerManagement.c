@@ -30,11 +30,16 @@
  ******************************************************************************/
 static void powerManagementJsonSPRICX1(const char* regName,
                                        SPmRegRawData* sRegData,
-                                       cJSON* pJsonChild, uint8_t cc, int ret)
+                                       cJSON* pJsonChild, uint8_t cc, int ret,
+                                       bool skipSection)
 {
     char jsonItemString[PM_JSON_STRING_LEN] = {0};
 
-    if (sRegData->bInvalid)
+    if (skipSection)
+    {
+        cd_snprintf_s(jsonItemString, PM_JSON_STRING_LEN, PM_NA);
+    }
+    else if (sRegData->bInvalid)
     {
         cd_snprintf_s(jsonItemString, PM_JSON_STRING_LEN, PM_FIXED_DATA_CC_RC,
                       cc, ret);
@@ -65,7 +70,7 @@ static void powerManagementPllJsonSPRICX1(const char* secName,
                                           const char* regName,
                                           SPmRegRawData* sRegData,
                                           cJSON* pJsonChild, uint8_t cc,
-                                          int ret)
+                                          int ret, bool skipSection)
 {
     char jsonItemString[PM_JSON_STRING_LEN] = {0};
     cJSON* section = NULL;
@@ -75,7 +80,11 @@ static void powerManagementPllJsonSPRICX1(const char* secName,
         cJSON_AddItemToObject(pJsonChild, secName,
                               section = cJSON_CreateObject());
     }
-    if (sRegData->bInvalid)
+    if (skipSection)
+    {
+        cd_snprintf_s(jsonItemString, PM_JSON_STRING_LEN, PM_NA);
+    }
+    else if (sRegData->bInvalid)
     {
         cd_snprintf_s(jsonItemString, PM_JSON_STRING_LEN, PM_FIXED_DATA_CC_RC,
                       cc, ret);
@@ -106,7 +115,7 @@ static void powerManagementJsonPerCoreSPRICX1(const char* regName,
                                               uint32_t u32CoreNum,
                                               SPmRegRawData* sRegData,
                                               cJSON* pJsonChild, uint8_t cc,
-                                              int ret)
+                                              int ret, bool skipSection)
 {
     char jsonItemName[PM_JSON_STRING_LEN] = {0};
     cJSON* core = NULL;
@@ -122,7 +131,7 @@ static void powerManagementJsonPerCoreSPRICX1(const char* regName,
                               core = cJSON_CreateObject());
     }
 
-    powerManagementJsonSPRICX1(regName, sRegData, core, cc, ret);
+    powerManagementJsonSPRICX1(regName, sRegData, core, cc, ret, skipSection);
 }
 
 /******************************************************************************
@@ -134,7 +143,7 @@ static void powerManagementJsonPerCoreSPRICX1(const char* regName,
  *   The PECI flow is listed below to dump the core state registers
  *
  ******************************************************************************/
-int logPowerManagementSPRICX1(CPUInfo* cpuInfo, cJSON* pJsonChild)
+acdStatus logPowerManagementSPRICX1(CPUInfo* cpuInfo, cJSON* pJsonChild)
 {
     int ret = 0;
     uint8_t cc = 0;
@@ -143,6 +152,9 @@ int logPowerManagementSPRICX1(CPUInfo* cpuInfo, cJSON* pJsonChild)
     cJSON* itRegs = NULL;
     cJSON* itParams = NULL;
     bool enable = false;
+    bool skipSection = false;
+    bool skipFromInputFile =
+        getSkipFromInputFile(cpuInfo, sectionNames[PM_INFO].name);
 
     regList = getCrashDataSectionRegList(cpuInfo->inputFile.bufferPtr,
                                          "PM_info", "pci", &enable);
@@ -194,21 +206,100 @@ int logPowerManagementSPRICX1(CPUInfo* cpuInfo, cJSON* pJsonChild)
                     continue;
                 }
 
-                uint16_t param = (u32CoreNum << 8) | (uint8_t)reg.param;
-
-                ret = peci_RdPkgConfig(cpuInfo->clientAddr, PM_PCS_88, param,
-                                       sizeof(uint32_t),
+                if (!skipSection)
+                {
+                    uint16_t param = (u32CoreNum << 8) | (uint8_t)reg.param;
+                    ret = peci_RdPkgConfig(cpuInfo->clientAddr, PM_PCS_88,
+                                           param, sizeof(uint32_t),
+                                           (uint8_t*)&sRegData.uValue, &cc);
+                    if (ret != PECI_CC_SUCCESS)
+                    {
+                        sRegData.bInvalid = true;
+                    }
+                }
+                cd_snprintf_s(jsonNameString, PM_JSON_STRING_LEN, reg.regName);
+                powerManagementJsonPerCoreSPRICX1(jsonNameString, u32CoreNum,
+                                                  &sRegData, pJsonChild, cc,
+                                                  ret, skipSection);
+                if (PECI_CC_UA(cc) && !skipSection)
+                {
+                    if (skipFromInputFile)
+                    {
+                        skipSection = true;
+                    }
+                }
+            }
+        }
+        else
+        {
+            if (!skipSection)
+            {
+                ret = peci_RdPkgConfig(cpuInfo->clientAddr, PM_PCS_88,
+                                       reg.param, sizeof(uint32_t),
                                        (uint8_t*)&sRegData.uValue, &cc);
                 if (ret != PECI_CC_SUCCESS)
                 {
                     sRegData.bInvalid = true;
                 }
-                cd_snprintf_s(jsonNameString, PM_JSON_STRING_LEN, reg.regName);
-                powerManagementJsonPerCoreSPRICX1(
-                    jsonNameString, u32CoreNum, &sRegData, pJsonChild, cc, ret);
+            }
+            cd_snprintf_s(jsonNameString, PM_JSON_STRING_LEN, reg.regName);
+            powerManagementJsonSPRICX1(jsonNameString, &sRegData, pJsonChild,
+                                       cc, ret, skipSection);
+            if (PECI_CC_UA(cc) && !skipSection)
+            {
+                if (skipFromInputFile)
+                {
+                    skipSection = true;
+                }
             }
         }
-        else
+    }
+    return ACD_SUCCESS;
+}
+/******************************************************************************
+ *
+ *   logCommonSPRICX
+ *
+ *   This function uses the register list to read using Peci the
+ *   corresponding register.
+ *
+ ******************************************************************************/
+acdStatus logCommonSPRICX(CPUInfo* cpuInfo, cJSON* pJsonChild, cJSON* regList)
+{
+    SPmEntry reg = {0};
+    cJSON* itRegs = NULL;
+    cJSON* itParams = NULL;
+    int ret = ACD_SUCCESS;
+    uint8_t cc = 0;
+    char jsonNameString1[PM_JSON_STRING_LEN];
+    char jsonNameString2[PM_JSON_STRING_LEN];
+    bool skipSection = false;
+    bool skipFromInputFile =
+        getSkipFromInputFile(cpuInfo, sectionNames[PM_INFO].name);
+
+    cJSON_ArrayForEach(itRegs, regList)
+    {
+        int position = 0;
+        cJSON_ArrayForEach(itParams, itRegs)
+        {
+            switch (position)
+            {
+                case PLL_SEC_NAME:
+                    reg.secName = itParams->valuestring;
+                    break;
+                case PLL_REG_NAME:
+                    reg.regName = itParams->valuestring;
+                    break;
+                case PLL_PARAM:
+                    reg.param = strtoull(itParams->valuestring, NULL, 16);
+                    break;
+                default:
+                    break;
+            }
+            position++;
+        }
+        SPmRegRawData sRegData = {0};
+        if (!skipSection)
         {
             ret = peci_RdPkgConfig(cpuInfo->clientAddr, PM_PCS_88, reg.param,
                                    sizeof(uint32_t), (uint8_t*)&sRegData.uValue,
@@ -217,9 +308,18 @@ int logPowerManagementSPRICX1(CPUInfo* cpuInfo, cJSON* pJsonChild)
             {
                 sRegData.bInvalid = true;
             }
-            cd_snprintf_s(jsonNameString, PM_JSON_STRING_LEN, reg.regName);
-            powerManagementJsonSPRICX1(jsonNameString, &sRegData, pJsonChild,
-                                       cc, ret);
+        }
+        cd_snprintf_s(jsonNameString1, PM_JSON_STRING_LEN, reg.regName);
+        cd_snprintf_s(jsonNameString2, PM_JSON_STRING_LEN, reg.secName);
+        powerManagementPllJsonSPRICX1(jsonNameString2, jsonNameString1,
+                                      &sRegData, pJsonChild, cc, ret,
+                                      skipSection);
+        if (PECI_CC_UA(cc) && !skipSection)
+        {
+            if (skipFromInputFile)
+            {
+                skipSection = true;
+            }
         }
     }
     return ACD_SUCCESS;
@@ -234,7 +334,7 @@ int logPowerManagementSPRICX1(CPUInfo* cpuInfo, cJSON* pJsonChild)
  *   The PECI flow is listed below to dump the core state registers
  *
  ******************************************************************************/
-int logPllSPRICX1(CPUInfo* cpuInfo, cJSON* pJsonChild)
+acdStatus logPllSPRICX1(CPUInfo* cpuInfo, cJSON* pJsonChild)
 {
     int ret = 0;
     uint8_t cc = 0;
@@ -259,64 +359,67 @@ int logPllSPRICX1(CPUInfo* cpuInfo, cJSON* pJsonChild)
         return ACD_SUCCESS;
     }
 
-    SPmEntry reg = {0};
+    return logCommonSPRICX(cpuInfo, pJsonChild, regList);
+}
 
-    cJSON_ArrayForEach(itRegs, regList)
+/******************************************************************************
+ *
+ *   logDispatchSPRCX1
+ *
+ *   This function reads the input file and gathers the Phase Lock Loop log
+ *   and adds it to the debug log.
+ *   The PECI flow is listed below to dump the core state registers
+ *
+ ******************************************************************************/
+acdStatus logDispatchSPRICX1(CPUInfo* cpuInfo, cJSON* pJsonChild)
+{
+    int ret = 0;
+    uint8_t cc = 0;
+    char jsonNameString1[PM_JSON_STRING_LEN];
+    char jsonNameString2[PM_JSON_STRING_LEN];
+    cJSON* regList = NULL;
+    cJSON* itRegs = NULL;
+    cJSON* itParams = NULL;
+    bool enable = false;
+    regList = getCrashDataSectionRegList(cpuInfo->inputFile.bufferPtr,
+                                         "PM_info", "dispatch", &enable);
+
+    if (regList == NULL)
     {
-        int position = 0;
-        cJSON_ArrayForEach(itParams, itRegs)
-        {
-            switch (position)
-            {
-                case PLL_SEC_NAME:
-                    reg.secName = itParams->valuestring;
-                    break;
-                case PLL_REG_NAME:
-                    reg.regName = itParams->valuestring;
-                    break;
-                case PLL_PARAM:
-                    reg.param = strtoull(itParams->valuestring, NULL, 16);
-                    break;
-                default:
-                    break;
-            }
-            position++;
-        }
-        SPmRegRawData sRegData = {0};
-        ret =
-            peci_RdPkgConfig(cpuInfo->clientAddr, PM_PCS_88, reg.param,
-                             sizeof(uint32_t), (uint8_t*)&sRegData.uValue, &cc);
-        if (ret != PECI_CC_SUCCESS)
-        {
-            sRegData.bInvalid = true;
-        }
-        cd_snprintf_s(jsonNameString1, PM_JSON_STRING_LEN, reg.regName);
-        cd_snprintf_s(jsonNameString2, PM_JSON_STRING_LEN, reg.secName);
-        powerManagementPllJsonSPRICX1(jsonNameString2, jsonNameString1,
-                                      &sRegData, pJsonChild, cc, ret);
+        cJSON_AddStringToObject(pJsonChild, FILE_DISP_KEY, FILE_DISP_ERR);
+        return ACD_INVALID_OBJECT;
     }
-    return ACD_SUCCESS;
+
+    if (!enable)
+    {
+        cJSON_AddFalseToObject(pJsonChild, RECORD_ENABLE);
+        return ACD_SUCCESS;
+    }
+
+    return logCommonSPRICX(cpuInfo, pJsonChild, regList);
 }
 
 static PowerManagementStatusRead PowerManagementStatusTypesSPRICX[] = {
     logPowerManagementSPRICX1,
     logPllSPRICX1,
+    logDispatchSPRICX1,
 };
 
-int logPowerManagementSPRICX(CPUInfo* cpuInfo, cJSON* pJsonChild)
+acdStatus logPowerManagementSPRICX(CPUInfo* cpuInfo, cJSON* pJsonChild)
 {
     int ret = 0;
     for (uint32_t i = 0; i < (sizeof(PowerManagementStatusTypesSPRICX) /
                               sizeof(PowerManagementStatusTypesSPRICX[0]));
          i++)
     {
-        if (PowerManagementStatusTypesSPRICX[i](cpuInfo, pJsonChild) != 0)
+        if (PowerManagementStatusTypesSPRICX[i](cpuInfo, pJsonChild) !=
+            ACD_SUCCESS)
         {
-            ret = 1;
+            return ACD_FAILURE;
         }
     }
 
-    return ret;
+    return ACD_SUCCESS;
 }
 
 static const SPowerManagementVx sPowerManagementVx[] = {

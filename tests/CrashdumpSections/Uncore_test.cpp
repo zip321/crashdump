@@ -96,7 +96,7 @@ TEST(UncoreTest, logUncoreStatus_Invalid_Model)
                        .cpuidRead = {},
                        .chaCountRead = {},
                        .coreMaskRead = {},
-                       .launchDelay = {}};
+                       .dimmMask = 0};
     cJSON* root = cJSON_CreateObject();
     ret = logUncoreStatus(&cpuInfo, root);
     EXPECT_EQ(ret, ACD_FAILURE);
@@ -127,7 +127,7 @@ TEST(UncoreTest, logCrashdumpVersion_validRecordType_SPR)
                        .cpuidRead = {},
                        .chaCountRead = {},
                        .coreMaskRead = {},
-                       .launchDelay = {}};
+                       .dimmMask = 0};
     std::vector<CPUInfo> cpusInfo = {cpuInfo};
     TestCrashdump crashdump(cpusInfo);
 
@@ -138,7 +138,7 @@ TEST(UncoreTest, logCrashdumpVersion_validRecordType_SPR)
     logCrashdumpVersion(uncore_root, &cpuInfo, RECORD_TYPE_UNCORESTATUSLOG);
     cJSON* actual = cJSON_GetObjectItemCaseSensitive(uncore_root, "_version");
     ASSERT_NE(actual, nullptr);
-    EXPECT_STREQ(actual->valuestring, "0x801c009");
+    EXPECT_STREQ(actual->valuestring, "0x801c013");
 }
 
 TEST(UncoreTest, logCrashdumpVersion_validRecordType_ICX)
@@ -154,7 +154,7 @@ TEST(UncoreTest, logCrashdumpVersion_validRecordType_ICX)
                        .cpuidRead = {},
                        .chaCountRead = {},
                        .coreMaskRead = {},
-                       .launchDelay = {}};
+                       .dimmMask = 0};
 
     revision_uncore = 0xbb;
 
@@ -179,7 +179,7 @@ TEST(UncoreTest, logUncoreStatus_fullFlow)
                        .cpuidRead = {},
                        .chaCountRead = {},
                        .coreMaskRead = {},
-                       .launchDelay = {}};
+                       .dimmMask = 0};
 
     std::vector<CPUInfo> cpusInfo = {cpuInfo};
     TestCrashdump crashdump(cpusInfo);
@@ -188,7 +188,7 @@ TEST(UncoreTest, logUncoreStatus_fullFlow)
         .WillRepeatedly(Return(PECI_CC_SUCCESS));
 
     uint8_t returnValue[2] = {0x86, 0x80}; // 0x8086;
-    uint8_t cc = 0x94;
+    uint8_t cc = PECI_DEV_CC_FATAL_MCA_DETECTED;
     EXPECT_CALL(*crashdump.libPeciMock, peci_RdEndPointConfigPciLocal_seq)
         .WillRepeatedly(DoAll(SetArrayArgument<7>(returnValue, returnValue + 2),
                               SetArgPointee<9>(cc), Return(PECI_CC_SUCCESS)));
@@ -196,7 +196,7 @@ TEST(UncoreTest, logUncoreStatus_fullFlow)
     uint8_t returnBusValidQuery[4] = {0x3f, 0x0f, 0x00,
                                       0xc0}; // 0xc0000f3f; bit 30 set
     uint8_t returnEnumeratedBus[4] = {0x00, 0x00, 0x7e, 0x7f}; // 0x7f7e0000;
-    cc = 0x94;
+    cc = PECI_DEV_CC_FATAL_MCA_DETECTED;
     EXPECT_CALL(*crashdump.libPeciMock, peci_RdEndPointConfigPciLocal)
         .WillOnce(DoAll(
             SetArrayArgument<7>(returnBusValidQuery, returnBusValidQuery + 4),
@@ -205,11 +205,48 @@ TEST(UncoreTest, logUncoreStatus_fullFlow)
             SetArrayArgument<7>(returnEnumeratedBus, returnEnumeratedBus + 4),
             SetArgPointee<8>(cc), Return(PECI_CC_SUCCESS)));
 
+    EXPECT_CALL(*crashdump.libPeciMock, peci_RdIAMSR)
+        .WillRepeatedly(DoAll(SetArgPointee<3>(0xAAABACADBABBBCBD),
+                              SetArgPointee<4>(cc), Return(PECI_CC_SUCCESS)));
+
     for (auto cpuinfo : crashdump.cpusInfo)
     {
         ret = logUncoreStatus(&cpuinfo, crashdump.root);
         EXPECT_EQ(ret, ACD_SUCCESS);
     }
+
+    cJSON* actual =
+        cJSON_GetObjectItemCaseSensitive(crashdump.root, "B00_D00_F0_0x90");
+    ASSERT_NE(actual, nullptr);
+    EXPECT_STREQ(actual->valuestring, "0x808600008086");
+
+    actual =
+        cJSON_GetObjectItemCaseSensitive(crashdump.root, "B00_D00_F0_0x98");
+    ASSERT_NE(actual, nullptr);
+    EXPECT_STREQ(actual->valuestring, "0x808600008086");
+
+    actual = cJSON_GetObjectItemCaseSensitive(crashdump.root, "RDIAMSR_0x772");
+    ASSERT_NE(actual, nullptr);
+    EXPECT_STREQ(actual->valuestring, "0xaaabacadbabbbcbd");
+
+    actual =
+        cJSON_GetObjectItemCaseSensitive(crashdump.root, "RDIAMSR_cha1_0x8005");
+    ASSERT_NE(actual, nullptr);
+    EXPECT_STREQ(actual->valuestring, "0xaaabacadbabbbcbd");
+
+    actual = cJSON_GetObjectItemCaseSensitive(crashdump.root, "RDIAMSR_0x8102");
+    ASSERT_NE(actual, nullptr);
+    EXPECT_STREQ(actual->valuestring, "0xbabbbcbd");
+
+    actual =
+        cJSON_GetObjectItemCaseSensitive(crashdump.root, PCI_ABORT_MSG_KEY);
+    ASSERT_EQ(actual, nullptr);
+    actual =
+        cJSON_GetObjectItemCaseSensitive(crashdump.root, MMIO_ABORT_MSG_KEY);
+    ASSERT_EQ(actual, nullptr);
+    actual =
+        cJSON_GetObjectItemCaseSensitive(crashdump.root, RDIAMSR_ABORT_MSG_KEY);
+    ASSERT_EQ(actual, nullptr);
 }
 
 TEST(UncoreTest, logUncoreStatus_fullFlow_ICX)
@@ -226,7 +263,7 @@ TEST(UncoreTest, logUncoreStatus_fullFlow_ICX)
                        .cpuidRead = {},
                        .chaCountRead = {},
                        .coreMaskRead = {},
-                       .launchDelay = {}};
+                       .dimmMask = 0};
 
     std::vector<CPUInfo> cpusInfo = {cpuInfo};
     TestCrashdump crashdump(cpusInfo);
@@ -235,7 +272,7 @@ TEST(UncoreTest, logUncoreStatus_fullFlow_ICX)
         .WillRepeatedly(Return(PECI_CC_SUCCESS));
 
     uint8_t returnValue[2] = {0x86, 0x80}; // 0x8086;
-    uint8_t cc = 0x94;
+    uint8_t cc = PECI_DEV_CC_FATAL_MCA_DETECTED;
     EXPECT_CALL(*crashdump.libPeciMock, peci_RdEndPointConfigPciLocal_seq)
         .WillRepeatedly(DoAll(SetArrayArgument<7>(returnValue, returnValue + 2),
                               SetArgPointee<9>(cc), Return(PECI_CC_SUCCESS)));
@@ -251,11 +288,48 @@ TEST(UncoreTest, logUncoreStatus_fullFlow_ICX)
             DoAll(SetArrayArgument<4>(returnBusNumber, returnBusNumber + 4),
                   SetArgPointee<5>(cc), Return(PECI_CC_SUCCESS)));
 
+    EXPECT_CALL(*crashdump.libPeciMock, peci_RdIAMSR)
+        .WillRepeatedly(DoAll(SetArgPointee<3>(0xAAABACADBABBBCBD),
+                              SetArgPointee<4>(cc), Return(PECI_CC_SUCCESS)));
+
     for (auto cpuinfo : crashdump.cpusInfo)
     {
         ret = logUncoreStatus(&cpuinfo, crashdump.root);
         EXPECT_EQ(ret, ACD_SUCCESS);
     }
+
+    cJSON* actual =
+        cJSON_GetObjectItemCaseSensitive(crashdump.root, "B00_D00_F0_0x90");
+    ASSERT_NE(actual, nullptr);
+    EXPECT_STREQ(actual->valuestring, "0x808600008086");
+
+    actual =
+        cJSON_GetObjectItemCaseSensitive(crashdump.root, "B00_D00_F0_0x98");
+    ASSERT_NE(actual, nullptr);
+    EXPECT_STREQ(actual->valuestring, "0x808600008086");
+
+    actual = cJSON_GetObjectItemCaseSensitive(crashdump.root, "RDIAMSR_0x772");
+    ASSERT_NE(actual, nullptr);
+    EXPECT_STREQ(actual->valuestring, "0xaaabacadbabbbcbd");
+
+    actual =
+        cJSON_GetObjectItemCaseSensitive(crashdump.root, "RDIAMSR_CHA1_0x8005");
+    ASSERT_NE(actual, nullptr);
+    EXPECT_STREQ(actual->valuestring, "0xaaabacadbabbbcbd");
+
+    actual = cJSON_GetObjectItemCaseSensitive(crashdump.root, "RDIAMSR_0x8102");
+    ASSERT_NE(actual, nullptr);
+    EXPECT_STREQ(actual->valuestring, "0xbabbbcbd");
+
+    actual =
+        cJSON_GetObjectItemCaseSensitive(crashdump.root, PCI_ABORT_MSG_KEY);
+    ASSERT_EQ(actual, nullptr);
+    actual =
+        cJSON_GetObjectItemCaseSensitive(crashdump.root, MMIO_ABORT_MSG_KEY);
+    ASSERT_EQ(actual, nullptr);
+    actual =
+        cJSON_GetObjectItemCaseSensitive(crashdump.root, RDIAMSR_ABORT_MSG_KEY);
+    ASSERT_EQ(actual, nullptr);
 }
 
 TEST(UncoreTest, bus30ToPostEnumeratedBusSPR_disabledbus30)
@@ -272,7 +346,7 @@ TEST(UncoreTest, bus30ToPostEnumeratedBusSPR_disabledbus30)
                        .cpuidRead = {},
                        .chaCountRead = {},
                        .coreMaskRead = {},
-                       .launchDelay = {}};
+                       .dimmMask = 0};
 
     std::vector<CPUInfo> cpusInfo = {cpuInfo};
     TestCrashdump crashdump(cpusInfo);
@@ -281,14 +355,14 @@ TEST(UncoreTest, bus30ToPostEnumeratedBusSPR_disabledbus30)
         .WillRepeatedly(Return(PECI_CC_SUCCESS));
 
     uint8_t returnValue[2] = {0x86, 0x80}; // 0x8086;
-    uint8_t cc = 0x94;
+    uint8_t cc = PECI_DEV_CC_FATAL_MCA_DETECTED;
     EXPECT_CALL(*crashdump.libPeciMock, peci_RdEndPointConfigPciLocal_seq)
         .WillRepeatedly(DoAll(SetArrayArgument<7>(returnValue, returnValue + 2),
                               SetArgPointee<9>(cc), Return(PECI_CC_SUCCESS)));
 
     uint8_t returnBusValidQuery[4] = {0x3f, 0x0f, 0x00,
                                       0x00}; // 0x00000f3f; bit 30 not set
-    cc = 0x94;
+    cc = PECI_DEV_CC_FATAL_MCA_DETECTED;
     EXPECT_CALL(*crashdump.libPeciMock, peci_RdEndPointConfigPciLocal)
         .WillOnce(DoAll(
             SetArrayArgument<7>(returnBusValidQuery, returnBusValidQuery + 4),
@@ -299,6 +373,16 @@ TEST(UncoreTest, bus30ToPostEnumeratedBusSPR_disabledbus30)
         ret = logUncoreStatus(&cpuinfo, crashdump.root);
         EXPECT_EQ(ret, ACD_FAILURE);
     }
+
+    cJSON* actual =
+        cJSON_GetObjectItemCaseSensitive(crashdump.root, PCI_ABORT_MSG_KEY);
+    ASSERT_EQ(actual, nullptr);
+    actual =
+        cJSON_GetObjectItemCaseSensitive(crashdump.root, MMIO_ABORT_MSG_KEY);
+    ASSERT_EQ(actual, nullptr);
+    actual =
+        cJSON_GetObjectItemCaseSensitive(crashdump.root, RDIAMSR_ABORT_MSG_KEY);
+    ASSERT_EQ(actual, nullptr);
 }
 
 TEST(UncoreTest, bus30ToPostEnumeratedBusICX_disabledbus30)
@@ -315,7 +399,7 @@ TEST(UncoreTest, bus30ToPostEnumeratedBusICX_disabledbus30)
                        .cpuidRead = {},
                        .chaCountRead = {},
                        .coreMaskRead = {},
-                       .launchDelay = {}};
+                       .dimmMask = 0};
 
     std::vector<CPUInfo> cpusInfo = {cpuInfo};
     TestCrashdump crashdump(cpusInfo);
@@ -324,7 +408,7 @@ TEST(UncoreTest, bus30ToPostEnumeratedBusICX_disabledbus30)
         .WillRepeatedly(Return(PECI_CC_SUCCESS));
 
     uint8_t returnValue[2] = {0x86, 0x80}; // 0x8086;
-    uint8_t cc = 0x94;
+    uint8_t cc = PECI_DEV_CC_FATAL_MCA_DETECTED;
     EXPECT_CALL(*crashdump.libPeciMock, peci_RdEndPointConfigPciLocal_seq)
         .WillRepeatedly(DoAll(SetArrayArgument<7>(returnValue, returnValue + 2),
                               SetArgPointee<9>(cc), Return(PECI_CC_SUCCESS)));
@@ -340,4 +424,169 @@ TEST(UncoreTest, bus30ToPostEnumeratedBusICX_disabledbus30)
         ret = logUncoreStatus(&cpuinfo, crashdump.root);
         EXPECT_EQ(ret, ACD_FAILURE);
     }
+
+    cJSON* actual =
+        cJSON_GetObjectItemCaseSensitive(crashdump.root, PCI_ABORT_MSG_KEY);
+    ASSERT_EQ(actual, nullptr);
+    actual =
+        cJSON_GetObjectItemCaseSensitive(crashdump.root, MMIO_ABORT_MSG_KEY);
+    ASSERT_EQ(actual, nullptr);
+    actual =
+        cJSON_GetObjectItemCaseSensitive(crashdump.root, RDIAMSR_ABORT_MSG_KEY);
+    ASSERT_EQ(actual, nullptr);
+}
+
+TEST(UncoreTest, logUncoreStatus_fullFlow_WithDelay)
+{
+    std::cerr
+        << "***** This test should take about 75 seconds to complete *****"
+        << std::endl;
+
+    int ret;
+    TestCrashdump crashdump(cd_spr, 700);
+
+    EXPECT_CALL(*crashdump.libPeciMock, peci_Lock)
+        .WillRepeatedly(Return(PECI_CC_SUCCESS));
+
+    crashdump.libPeciMock->DelegateForUncorePci();
+    crashdump.libPeciMock->DelegateForUncoreMmio();
+    crashdump.libPeciMock->DelegateForUncoreRdIAMSR();
+
+    uint8_t returnBusValidQuery[4] = {0x3f, 0x0f, 0x00,
+                                      0xc0}; // 0xc0000f3f; bit 30 set
+    uint8_t returnEnumeratedBus[4] = {0x00, 0x00, 0x7e, 0x7f}; // 0x7f7e0000;
+    uint8_t cc = PECI_DEV_CC_FATAL_MCA_DETECTED;
+    EXPECT_CALL(*crashdump.libPeciMock, peci_RdEndPointConfigPciLocal)
+        .WillOnce(DoAll(
+            SetArrayArgument<7>(returnBusValidQuery, returnBusValidQuery + 4),
+            SetArgPointee<8>(cc), Return(PECI_CC_SUCCESS)))
+        .WillOnce(DoAll(
+            SetArrayArgument<7>(returnEnumeratedBus, returnEnumeratedBus + 4),
+            SetArgPointee<8>(cc), Return(PECI_CC_SUCCESS)));
+
+    for (auto cpuinfo : crashdump.cpusInfo)
+    {
+        ret = logUncoreStatus(&cpuinfo, crashdump.root);
+        EXPECT_EQ(ret, ACD_SUCCESS);
+    }
+
+    cJSON* actual =
+        cJSON_GetObjectItemCaseSensitive(crashdump.root, PCI_ABORT_MSG_KEY);
+    ASSERT_NE(actual, nullptr);
+    EXPECT_THAT(actual->valuestring, HasSubstr("Max time 30 sec exceeded"));
+
+    actual =
+        cJSON_GetObjectItemCaseSensitive(crashdump.root, "B31_D30_F4_0xfc");
+    ASSERT_NE(actual, nullptr);
+    EXPECT_STREQ(actual->valuestring, UNCORE_NA);
+
+    actual =
+        cJSON_GetObjectItemCaseSensitive(crashdump.root, "B00_D00_F0_0x108");
+    ASSERT_NE(actual, nullptr);
+    EXPECT_STRNE(actual->valuestring, UNCORE_NA);
+
+    actual =
+        cJSON_GetObjectItemCaseSensitive(crashdump.root, MMIO_ABORT_MSG_KEY);
+    ASSERT_NE(actual, nullptr);
+    EXPECT_THAT(actual->valuestring, HasSubstr("Max time 30 sec exceeded"));
+
+    actual =
+        cJSON_GetObjectItemCaseSensitive(crashdump.root, "B30_D29_F0_0x23460");
+    ASSERT_NE(actual, nullptr);
+    EXPECT_STREQ(actual->valuestring, UNCORE_NA);
+
+    actual =
+        cJSON_GetObjectItemCaseSensitive(crashdump.root, "B30_D26_F0_0x20150");
+    ASSERT_NE(actual, nullptr);
+    EXPECT_STRNE(actual->valuestring, UNCORE_NA);
+
+    actual =
+        cJSON_GetObjectItemCaseSensitive(crashdump.root, RDIAMSR_ABORT_MSG_KEY);
+    ASSERT_NE(actual, nullptr);
+    EXPECT_THAT(actual->valuestring, HasSubstr("Max time 15 sec exceeded"));
+
+    actual = cJSON_GetObjectItemCaseSensitive(crashdump.root, "RDIAMSR_0xa01");
+    ASSERT_NE(actual, nullptr);
+    EXPECT_STREQ(actual->valuestring, UNCORE_NA);
+
+    actual = cJSON_GetObjectItemCaseSensitive(crashdump.root, "RDIAMSR_0x3fa");
+    ASSERT_NE(actual, nullptr);
+    EXPECT_STRNE(actual->valuestring, UNCORE_NA);
+}
+
+TEST(UncoreTest, logUncoreStatus_fullFlow_ICX_WithDelay)
+{
+    std::cerr
+        << "***** This test should take about 75 seconds to complete *****"
+        << std::endl;
+
+    int ret;
+    TestCrashdump crashdump(cd_icx, 700);
+
+    EXPECT_CALL(*crashdump.libPeciMock, peci_Lock)
+        .WillRepeatedly(Return(PECI_CC_SUCCESS));
+
+    crashdump.libPeciMock->DelegateForUncorePci();
+    crashdump.libPeciMock->DelegateForUncoreMmio();
+    crashdump.libPeciMock->DelegateForUncoreRdIAMSR();
+
+    uint8_t firstReturnEnumBus[2] = {0x00, 0x08};          // 0x0800; BIT 11 set
+    uint8_t returnBusNumber[4] = {0x00, 0x00, 0xdd, 0x00}; // bus# 0xdd [23:16]
+    uint8_t cc = PECI_DEV_CC_FATAL_MCA_DETECTED;
+    EXPECT_CALL(*crashdump.libPeciMock, peci_RdPkgConfig)
+        .WillOnce(DoAll(
+            SetArrayArgument<4>(firstReturnEnumBus, firstReturnEnumBus + 2),
+            SetArgPointee<5>(cc), Return(PECI_CC_SUCCESS)))
+        .WillOnce(
+            DoAll(SetArrayArgument<4>(returnBusNumber, returnBusNumber + 4),
+                  SetArgPointee<5>(cc), Return(PECI_CC_SUCCESS)));
+
+    for (auto cpuinfo : crashdump.cpusInfo)
+    {
+        ret = logUncoreStatus(&cpuinfo, crashdump.root);
+        EXPECT_EQ(ret, ACD_SUCCESS);
+    }
+
+    cJSON* actual =
+        cJSON_GetObjectItemCaseSensitive(crashdump.root, PCI_ABORT_MSG_KEY);
+    ASSERT_NE(actual, nullptr);
+    EXPECT_THAT(actual->valuestring, HasSubstr("Max time 30 sec exceeded"));
+
+    actual =
+        cJSON_GetObjectItemCaseSensitive(crashdump.root, "B31_D30_F4_0xFC");
+    ASSERT_NE(actual, nullptr);
+    EXPECT_STREQ(actual->valuestring, UNCORE_NA);
+
+    actual =
+        cJSON_GetObjectItemCaseSensitive(crashdump.root, "B00_D00_F0_0x108");
+    ASSERT_NE(actual, nullptr);
+    EXPECT_STRNE(actual->valuestring, UNCORE_NA);
+
+    actual =
+        cJSON_GetObjectItemCaseSensitive(crashdump.root, MMIO_ABORT_MSG_KEY);
+    ASSERT_NE(actual, nullptr);
+    EXPECT_THAT(actual->valuestring, HasSubstr("Max time 30 sec exceeded"));
+
+    actual =
+        cJSON_GetObjectItemCaseSensitive(crashdump.root, "B30_D29_F0_0x23460");
+    ASSERT_NE(actual, nullptr);
+    EXPECT_STREQ(actual->valuestring, UNCORE_NA);
+
+    actual =
+        cJSON_GetObjectItemCaseSensitive(crashdump.root, "B30_D26_F0_0x20150");
+    ASSERT_NE(actual, nullptr);
+    EXPECT_STRNE(actual->valuestring, UNCORE_NA);
+
+    actual =
+        cJSON_GetObjectItemCaseSensitive(crashdump.root, RDIAMSR_ABORT_MSG_KEY);
+    ASSERT_NE(actual, nullptr);
+    EXPECT_THAT(actual->valuestring, HasSubstr("Max time 15 sec exceeded"));
+
+    actual = cJSON_GetObjectItemCaseSensitive(crashdump.root, "RDIAMSR_0xA01");
+    ASSERT_NE(actual, nullptr);
+    EXPECT_STREQ(actual->valuestring, UNCORE_NA);
+
+    actual = cJSON_GetObjectItemCaseSensitive(crashdump.root, "RDIAMSR_0x3FA");
+    ASSERT_NE(actual, nullptr);
+    EXPECT_STRNE(actual->valuestring, UNCORE_NA);
 }

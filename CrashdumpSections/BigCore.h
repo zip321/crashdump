@@ -38,6 +38,8 @@
 #define CD_JSON_FIXED_DATA_CC_RC "0x0,CC:0x%x,RC:0x%x"
 #define CD_JSON_DATA_CC_RC ",CC:0x%x,RC:0x%x"
 #define SIZE_FAILURE 7
+#define CD_ABORT_MSG "Max time %.2u sec exceeded"
+#define CD_ABORT_MSG_KEY "_bigcore_aborted"
 
 /******************************************************************************
  *
@@ -70,14 +72,28 @@
 #define ICX_A0_CRASHDUMP_ENABLED 0
 #define SIZE_OF_0x0 3
 
-#define IERR_INTERNAL_BIT 27
+#define MSMI_MCERR_INTERNAL 18
 #define MSMI_IERR_INTERNAL 19
+#define MSMI_IERR_BIT 22
+#define MCERR_INTERNAL_BIT 26
+#define IERR_INTERNAL_BIT 27
+#define IERR_BIT 30
 
 enum BigCoreParams
 {
     bigCoreRegName,
     bigCoreRegSize
 };
+
+typedef enum
+{
+    CD_CRASH_DATA_COLLECTION_SUCCESS,
+    CD_SKIP_TO_NEXT_CORE,
+    CD_SKIP_TO_NEXT_SOCKET,
+    CD_ERROR_GET_CRASHDUMP,
+    CD_ALLOCATION_FAILURE,
+    CD_ERROR_MAX_COLLECTION_TIME_EXCEEDED
+} BigCoreCollectionStatus;
 
 /******************************************************************************
  *
@@ -117,7 +133,7 @@ typedef union
 typedef struct
 {
     Model cpuModel;
-    int (*logCrashdumpVx)(CPUInfo* cpuInfo, cJSON* pJsonChild);
+    acdStatus (*logCrashdumpVx)(CPUInfo* cpuInfo, cJSON* pJsonChild);
 } SCrashdumpVx;
 
 int logCrashdump(CPUInfo* cpuInfo, cJSON* pJsonChild);
