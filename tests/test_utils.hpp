@@ -42,3 +42,5 @@ inline void DEBUG_CC_PRINT(uint8_t cc, uint64_t val)
 #endif
 char* readTestFile(char* filename);
 char* removeQuotes(char* str);
+extern bool enableDebug;
+void Logging(cJSON* cjson, char* description);

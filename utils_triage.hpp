@@ -23,9 +23,12 @@
 
 #include <string>
 
-#define TRIAGE_STR_LEN 32
-#define TRIAGE_RC "RC:0x%x"
+#define JSON_STR_LEN 32
+#define BAFI_RC "RC:0x%x"
 #define TRIAGE_KEY "triage"
 #define TRIAGE_ERR "Error appending triage section"
+#define SUMMARY_KEY "summary"
+#define SUMMARY_ERR "Error appending summary section"
 
 void appendTriageSection(std::string& storedLogContents);
+void appendSummarySection(std::string& storedLogContents);

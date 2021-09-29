@@ -17,25 +17,41 @@
 
 from lib.Summary import Summary
 from lib.Table import Table
+from lib.SelfCheck import SelfCheck
+from lib.OutFileCompare import OutFileCompare
 from lib.Region import EndOfReport
 
 
 class Processor():
-    def __init__(self, sections, reportRegions=None):
+    def __init__(self, sections, compareSections=None,
+                 ignoreList=False, reportRegions=None):
         self.sections = sections
-        self.reportRegions = ["summary", "table"]
+
+        self.compareSections = compareSections
+        self.ignoreList = ignoreList
+        self.reportRegions = None
+        if not reportRegions:
+            self.reportRegions = ["summary", "table", "selfCheck"]
+            if compareSections:
+                self.reportRegions.append("compare")
+        else:
+            self.reportRegions = reportRegions
+            if compareSections and ("compare" not in reportRegions):
+                self.self.reportRegions.append("compare")
 
         self.report = self.fillReport()
 
     def fillReport(self):
         request = {
             "regions": None,
-            "sections": self.sections
+            "sections": self.sections,
+            "compare": self.compareSections,
+            "ignoreList": self.ignoreList
         }
         report = {}
-        handler = Table(Summary(EndOfReport))
+        handler = OutFileCompare(SelfCheck(Table(Summary(EndOfReport))))
         for region in self.reportRegions:
             request["regions"] = [region]
             handler.handle(request, report)
 
-        return(report)
+        return report

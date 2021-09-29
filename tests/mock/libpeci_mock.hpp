@@ -52,6 +52,10 @@ class LibPeciMock
                   EPECIStatus(uint8_t, uint8_t, uint8_t, uint8_t, uint8_t,
                               uint16_t, uint8_t, uint8_t*, int, uint8_t*));
 
+    MOCK_METHOD(EPECIStatus, peci_RdEndPointConfigMmio,
+                (uint8_t, uint8_t, uint8_t, uint8_t, uint8_t, uint8_t, uint8_t,
+                 uint64_t, uint8_t, uint8_t*, uint8_t*));
+
     MOCK_METHOD(EPECIStatus, peci_RdEndPointConfigMmio_seq,
                 (uint8_t, uint8_t, uint8_t, uint8_t, uint8_t, uint8_t, uint8_t,
                  uint64_t, uint8_t, uint8_t*, int, uint8_t*));
@@ -62,6 +66,22 @@ class LibPeciMock
 
     MOCK_METHOD(EPECIStatus, peci_WrPkgConfig,
                 (uint8_t, uint8_t, uint16_t, uint32_t, uint8_t, uint8_t*));
+
+    MOCK_METHOD8(peci_Telemetry_Discovery,
+                 EPECIStatus(uint8_t, uint8_t, uint8_t, uint16_t, uint8_t,
+                             uint8_t, uint8_t*, uint8_t*));
+
+    MOCK_METHOD6(peci_Telemetry_GetCrashlogSample,
+                 EPECIStatus(uint8_t, uint16_t, uint16_t, uint8_t, uint8_t*,
+                             uint8_t*));
+
+    MOCK_METHOD6(peci_Telemetry_ConfigWatcherRd,
+                 EPECIStatus(uint8_t, uint16_t, uint16_t, uint8_t, uint8_t*,
+                             uint8_t*));
+
+    MOCK_METHOD6(peci_Telemetry_ConfigWatcherWr,
+                 EPECIStatus(uint8_t, uint16_t, uint16_t, uint8_t, uint8_t*,
+                             uint8_t*));
 
     void DelegateToFakeCrashdumpDiscovery()
     {

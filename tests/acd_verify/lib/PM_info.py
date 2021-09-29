@@ -18,6 +18,8 @@
 from lib.Section import Section
 
 import warnings
+import json
+import os
 
 
 class PM_info(Section):
@@ -27,6 +29,16 @@ class PM_info(Section):
         self.verifySection()
         self.rootNodes = f"cores: {self.nCores}"
 
+    @classmethod
+    def createPM_info(cls, jOutput):
+        if "PM_info" in jOutput:
+            return cls(jOutput)
+        else:
+            warnings.warn(
+                f"PM_info section was not found in this file"
+            )
+            return None
+
     def verifySection(self):
         for key in self.sectionInfo:
             if key.startswith("core"):
@@ -35,3 +47,25 @@ class PM_info(Section):
 
         if self.nCores == 0:
             warnings.warn("No cores found in PM_info")
+
+        self.makeSelfCheck()
+
+    def getCompareInfo(self, compareSections, ignoreList=False):
+        # Load Ignore list
+        __location__ = os.path.realpath(
+            os.path.join(os.getcwd(), os.path.dirname(__file__)))
+        f = open(os.path.join(__location__, 'compareIgnore.json'))
+        jCompare = json.load(f)
+        self.ignoreList = jCompare[self.sectionName]
+
+        # sectionInfo is equal in both files
+        if compareSections.sectionInfo == self.sectionInfo:
+            pass
+        # Something is diff
+        else:
+            for key in compareSections.sectionInfo:
+                # First check key(reg) exists in both files
+                if key not in self.sectionInfo:
+                    # [file process, file compare]
+                    self.diffList[key] = ["Not present", ""]
+        return self.diffList

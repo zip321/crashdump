@@ -229,6 +229,18 @@ EPECIStatus peci_RdIAMSR(uint8_t target, uint8_t threadID, uint16_t MSRAddress,
                                                     MSRAddress, u64MsrVal, cc);
 }
 
+EPECIStatus peci_RdEndPointConfigMmio(uint8_t target, uint8_t u8Seg,
+                                      uint8_t u8Bus, uint8_t u8Device,
+                                      uint8_t u8Fcn, uint8_t u8Bar,
+                                      uint8_t u8AddrType, uint64_t u64Offset,
+                                      uint8_t u8ReadLen, uint8_t* pMmioData,
+                                      uint8_t* cc)
+{
+    return TestCrashdump::libPeciMock->peci_RdEndPointConfigMmio(
+        target, u8Seg, u8Bus, u8Device, u8Fcn, u8Bar, u8AddrType, u64Offset,
+        u8ReadLen, pMmioData, cc);
+}
+
 EPECIStatus peci_RdEndPointConfigMmio_seq(
     uint8_t target, uint8_t u8Seg, uint8_t u8Bus, uint8_t u8Device,
     uint8_t u8Fcn, uint8_t u8Bar, uint8_t u8AddrType, uint64_t u64Offset,
@@ -237,4 +249,38 @@ EPECIStatus peci_RdEndPointConfigMmio_seq(
     return TestCrashdump::libPeciMock->peci_RdEndPointConfigMmio_seq(
         target, u8Seg, u8Bus, u8Device, u8Fcn, u8Bar, u8AddrType, u64Offset,
         u8ReadLen, pMmioData, peci_fd, cc);
+}
+
+EPECIStatus peci_Telemetry_Discovery(uint8_t target, uint8_t subopcode,
+                                     uint8_t param0, uint16_t param1,
+                                     uint8_t param2, uint8_t u8ReadLen,
+                                     uint8_t* pData, uint8_t* cc)
+{
+    return TestCrashdump::libPeciMock->peci_Telemetry_Discovery(
+        target, subopcode, param0, param1, param2, u8ReadLen, pData, cc);
+}
+
+EPECIStatus peci_Telemetry_GetCrashlogSample(uint8_t target, uint16_t index,
+                                             uint16_t sampleId,
+                                             uint8_t u8ReadLen, uint8_t* pData,
+                                             uint8_t* cc)
+{
+    return TestCrashdump::libPeciMock->peci_Telemetry_GetCrashlogSample(
+        target, index, sampleId, u8ReadLen, pData, cc);
+}
+
+EPECIStatus peci_Telemetry_ConfigWatcherRd(uint8_t target, uint16_t watcher,
+                                           uint16_t offset, uint8_t u8ReadLen,
+                                           uint8_t* pData, uint8_t* cc)
+{
+    return TestCrashdump::libPeciMock->peci_Telemetry_ConfigWatcherRd(
+        target, watcher, offset, u8ReadLen, pData, cc);
+}
+
+EPECIStatus peci_Telemetry_ConfigWatcherWr(uint8_t target, uint16_t watcher,
+                                           uint16_t offset, uint8_t u8DataLen,
+                                           uint8_t* pData, uint8_t* cc)
+{
+    return TestCrashdump::libPeciMock->peci_Telemetry_ConfigWatcherWr(
+        target, watcher, offset, u8DataLen, pData, cc);
 }

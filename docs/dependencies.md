@@ -22,7 +22,7 @@
     - Tested with verison v1.7.12
 
 ## NVD (optional)
-- [nvd](https://github.com/Intel-BMC/host-memory)
+- [nvd](https://github.com/Intel-BMC/optane-memory)
 
 ## BAFI (optional)
 - [bafi](https://github.com/Intel-BMC/bafi)

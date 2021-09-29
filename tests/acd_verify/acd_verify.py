@@ -33,6 +33,12 @@ def main():
         parser.add_argument("--path",
                             type = str,
                             help = "Path to where the json output file(s) are located")
+        parser.add_argument("--compare",
+                            type = str,
+                            help = "Path to the json output file for comparison")
+        parser.add_argument("--ignoreList",
+                            action = 'store_true',
+                            help = "Use ignore list")
         args = parser.parse_args()
 
         rootPath = ""
@@ -50,11 +56,27 @@ def main():
             jOutput = json.load(f)
             acdData = jOutput["crash_data"]
 
+            # Compare
+            compareFileName = None
+            preprocessorCompare = None
+            if args.compare:
+                compareIsFile = os.path.isfile(args.compare)
+                compareIsJsonFile = args.compare.endswith('.json')
+                if compareIsFile and compareIsJsonFile:
+                    print("Comparing vs file: ", args.compare)
+                    f = open(args.compare)
+                    jCompare = json.load(f)
+                    compareData = jCompare["crash_data"]
+                    compareFileName = os.path.splitext(
+                            os.path.basename(args.compare))[0]
+                    preprocessorCompare = Preprocessor(compareData)
+
             preprocessor = Preprocessor(acdData)
-            processor = Processor(preprocessor.sections)
+            processor = Processor(preprocessor.sections,
+                                  preprocessorCompare, args.ignoreList)
             postprocessor = Postprocessor(
                 processor.report, rootPath,
-                "txt", args.verbose)
+                "txt", args.verbose, compareFileName)
             postprocessor.saveFile()
         # Path given is a directory
         elif os.path.isdir(rootPath):
@@ -66,11 +88,27 @@ def main():
                 jOutput = json.load(f)
                 acdData = jOutput["crash_data"]
 
+                # Compare
+                compareFileName = None
+                preprocessorCompare = None
+                if args.compare:
+                    compareIsFile = os.path.isfile(args.compare)
+                    compareIsJsonFile = args.compare.endswith('.json')
+                    if compareIsFile and compareIsJsonFile:
+                        print("Comparing vs file: ", args.compare)
+                        f = open(args.compare)
+                        jCompare = json.load(f)
+                        compareData = jCompare["crash_data"]
+                        compareFileName = os.path.splitext(
+                            os.path.basename(args.compare))[0]
+                        preprocessorCompare = Preprocessor(compareData)
+
                 preprocessor = Preprocessor(acdData)
-                processor = Processor(preprocessor.sections)
+                processor = Processor(preprocessor.sections,
+                                      preprocessorCompare, args.ignoreList)
                 postprocessor = Postprocessor(
                     processor.report, os.path.join(rootPath, jsonFile),
-                    "txt", args.verbose)
+                    "txt", args.verbose, compareFileName)
                 postprocessor.saveFile()
         else:
             print("The path given is not a json file" +
@@ -78,7 +116,8 @@ def main():
             raise Exception(f"Invalid path given: {rootPath}")
 
     except Exception as e:
-        print(e)
+        print(f"An error ocurred during acd_verify execution")
+        raise e
 
 
 if __name__ == "__main__":

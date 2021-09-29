@@ -638,3 +638,78 @@ TEST(CrashdumpTest, createCrashdump_SPR_no_delay_input_file_error)
         fpJson.close();
     }
 }
+
+TEST(CrashdumpTest, createCrashdump_SPR_UseSection_is_true)
+{
+    TestCrashdump crashdump(cd_spr, 0);
+    std::string crashdumpContents;
+    std::string triggerType = "UnitTest";
+    std::string timestamp = newTimestamp();
+    bool isTelemetry = false;
+
+    crashdump.libPeciMock->DelegateForCrashdumpSetUp();
+    cJSON* crash_data = cJSON_GetObjectItemCaseSensitive(
+        crashdump.cpusInfo[0].inputFile.bufferPtr, "crash_data");
+
+    // Update input file with {"UseSections": true}
+    cJSON* newItm = cJSON_CreateObject();
+    cJSON_AddTrueToObject(newItm, "UseSections");
+    cJSON_ReplaceItemInObject(crash_data, "UseSections", newItm->child);
+    char* out = NULL;
+    out = cJSON_Print(crashdump.cpusInfo[0].inputFile.bufferPtr);
+    std::string inputfile_name = crashdumpPrefix + "input_spr" + ".json";
+    const std::filesystem::path crashdumpInputDir = "/tmp/crashdump/input";
+    std::filesystem::path new_inputfile = crashdumpInputDir / inputfile_name;
+
+    std::fstream fpJson;
+    fpJson.open(new_inputfile.c_str(), std::ios::out);
+    if (fpJson)
+    {
+        fpJson << out;
+        fpJson.close();
+    }
+    EXPECT_CALL(*crashdump.libPeciMock, peci_RdEndPointConfigPciLocal)
+        .WillRepeatedly(DoAll(SetArgPointee<8>(PECI_DEV_CC_SUCCESS),
+                              Return(PECI_CC_SUCCESS)));
+
+    EXPECT_CALL(*crashdump.libPeciMock, peci_GetCPUID)
+        .WillOnce(DoAll(
+            SetArgPointee<1>((CPUModel)0x000806F0), SetArgPointee<2>(1),
+            SetArgPointee<3>(PECI_DEV_CC_SUCCESS), Return(PECI_CC_SUCCESS)));
+
+    createCrashdump(crashdump.cpusInfo, crashdumpContents, triggerType,
+                    timestamp, isTelemetry);
+
+    cJSON* processors = cJSON_GetObjectItemCaseSensitive(
+        cJSON_GetObjectItemCaseSensitive(cJSON_Parse(crashdumpContents.c_str()),
+                                         "crash_data"),
+        "PROCESSORS");
+    cJSON* uncore_section = cJSON_GetObjectItemCaseSensitive(
+        cJSON_GetObjectItemCaseSensitive(processors, "cpu0"), "uncore");
+    ASSERT_NE(uncore_section, nullptr);
+    cJSON* actual =
+        cJSON_GetObjectItemCaseSensitive(uncore_section, "cpubusno_valid");
+    ASSERT_NE(actual, nullptr);
+
+    // Create the new crashdump filename
+    std::string new_logfile_name =
+        crashdumpPrefix + "unit_test" + "-" + timestamp + ".json";
+
+    std::filesystem::path out_file = crashdumpDir / new_logfile_name;
+
+    std::error_code ec;
+    std::filesystem::create_directories(crashdumpDir, ec);
+    ASSERT_EQ(ec.value(), 0) << "failed to create " << crashdumpDir.c_str()
+                             << " : " << ec.message().c_str();
+
+    std::cerr << std::endl
+              << "Storing crashlog output file @ " << out_file << std::endl;
+
+    // open the JSON file to write the crashdump contents
+    fpJson.open(out_file.c_str(), std::ios::out);
+    if (fpJson)
+    {
+        fpJson << crashdumpContents;
+        fpJson.close();
+    }
+}

@@ -29,6 +29,14 @@ class FakePeciBase
         return PECI_CC_SUCCESS;
     }
 
+    virtual EPECIStatus peci_RdEndPointConfigMmio(
+        uint8_t target, uint8_t u8Seg, uint8_t u8Bus, uint8_t u8Device,
+        uint8_t u8Fcn, uint8_t u8Bar, uint8_t u8AddrType, uint64_t u64Offset,
+        uint8_t u8ReadLen, uint8_t* pMmioData, uint8_t* cc)
+    {
+        return PECI_CC_SUCCESS;
+    }
+
     virtual EPECIStatus peci_RdEndPointConfigMmio_seq(
         uint8_t target, uint8_t u8Seg, uint8_t u8Bus, uint8_t u8Device,
         uint8_t u8Fcn, uint8_t u8Bar, uint8_t u8AddrType, uint64_t u64Offset,

@@ -2,6 +2,16 @@
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.6] - 09/20/2021
+
+### New
+
+- Add "useSections" key to input file to allow user to run uncore test flow
+  using "Sections/Uncore*" or use old "uncore" section from the input file without
+  recompiling the code.
+- Add support for PCH crashlog extraction flow.
+- Add optional BAFI summary output.
+- Use optane-memory repo for NVD feature.
 
 ## [0.5] - 06/30/2021
 

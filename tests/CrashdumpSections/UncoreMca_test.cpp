@@ -162,7 +162,7 @@ TEST(UncoreMcaTestFixture, logUncoreMca_fullFlow)
     EXPECT_STREQ(actual->valuestring, "0xaabbccddeeffabac");
     actual = cJSON_GetObjectItemCaseSensitive(CBO1_actual, "cbo1_ctl");
     EXPECT_STREQ(actual->valuestring, "0xaabbccddeeffabac");
-    actual = cJSON_GetObjectItemCaseSensitive(CBO1_actual, "cbo1_ctl2");
+    actual = cJSON_GetObjectItemCaseSensitive(CBO1_actual, "cbo1_misc4");
     EXPECT_STREQ(actual->valuestring, "0xaabbccddeeffabac");
 }
 
@@ -271,7 +271,7 @@ TEST(UncoreMcaTestFixture, logUncoreMca_fullFlow_cc_0x80_ret_0x00)
     EXPECT_STREQ(actual->valuestring, "N/A");
     actual = cJSON_GetObjectItemCaseSensitive(CBO1_actual, "cbo1_ctl");
     EXPECT_STREQ(actual->valuestring, "N/A");
-    actual = cJSON_GetObjectItemCaseSensitive(CBO1_actual, "cbo1_ctl2");
+    actual = cJSON_GetObjectItemCaseSensitive(CBO1_actual, "cbo1_misc4");
     EXPECT_STREQ(actual->valuestring, "N/A");
 }
 
@@ -380,6 +380,6 @@ TEST(UncoreMcaTestFixture, logUncoreMca_fullFlow_cc_0x80_ret_0x06)
     EXPECT_STREQ(actual->valuestring, "N/A");
     actual = cJSON_GetObjectItemCaseSensitive(CBO1_actual, "cbo1_ctl");
     EXPECT_STREQ(actual->valuestring, "N/A");
-    actual = cJSON_GetObjectItemCaseSensitive(CBO1_actual, "cbo1_ctl2");
+    actual = cJSON_GetObjectItemCaseSensitive(CBO1_actual, "cbo1_misc4");
     EXPECT_STREQ(actual->valuestring, "N/A");
 }

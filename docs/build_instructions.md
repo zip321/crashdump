@@ -99,6 +99,18 @@ to use the `crashdump` from the source code.
     bitbake intel-platforms
     ```
 
+## New Input File Format (NIFF)
+
+Follow below steps to enable NIFF test flow:
+
+1. Copy input file to /tmp/crashdump/input directory
+
+```example
+cp /usr/share/crashdump/input/crashdump_input_spr.json /tmp/crashdump/input
+```
+
+2. Set input file "UseSections" value to "true"
+
 ## Enabling optional features
 
 ### NVD
@@ -122,24 +134,34 @@ to use the `crashdump` from the source code.
 3. For non-Yocto build only
 
    ```shell
-   git clone git@github.com:Intel-BMC/host-memory.git
-   cd host-memory\fis
+   git clone git@github.com:Intel-BMC/optane-memory.git
+   cd optane-memory\fis
    mkdir build && cd build
    cmake ..
    sudo make install
    ```
 
-### TRIAGE
+### BAFI (BMC assisted FRU Isolation)
 
 1. Ask Intel representative for `Intel System Crashdump BMC assisted FRU Isolation`
    access and follow repo instruction to setup .bb file.
 
    [Github](https://github.com/Intel-BMC/bafi)
 
-2. Change `TRIAGE_SECTION` flag to ON in CMakeList.txt
+2. Select one of below BAFI options:
+
+   a) Change `TRIAGE_SECTION` flag to ON in CMakeList.txt to enable BAFI triage output (no NDA required):
 
    ```
    option (TRIAGE_SECTION "Add triage section to the crashdump contents." ON)
+   ```
+
+   b) Change `BAFI_NDA_OUTPUT` flag to ON in CMakeList.txt to enable BAFI full output:
+
+   Notes: NDA (Non Disclosure Agreement) is required to see output. Keep this flag OFF when users of crashdump do not have an Intel NDA.
+
+   ```
+   option (BAFI_NDA_OUTPUT "Add summary section to the crashdump contents." ON)
    ```
 
 3. For Non-Yocto build only
@@ -184,8 +206,10 @@ The following are possible issues and the corresponding solutions.
 ### PECI lib failure
 - EagleStream/Whitley supports PECI 4.0, please make sure the PECI driver
 supports 4.0
-- Some definitions may be missing in peci-ioctl.h. If you encounter this
-problem, please contact Intel to provide specific peci-ioctl.h
+- Telemetry Watcher Config commands may not yet be released and can be found in
+the repository containing the peci patches. The repository location is
+[meta-restricted](https://github.com/Intel-BMC/meta-restricted/tree/master/recipes-core/libpeci/libpeci).
+This may require contacting Intel for access to the repository.
 
 ### safec fail
 - This is the lib which provides bounds checking to make existing standard C

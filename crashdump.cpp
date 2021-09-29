@@ -34,6 +34,7 @@
 #include <time.h>
 #include <unistd.h>
 
+#include <chrono>
 #include <fstream>
 #include <future>
 #include <regex>
@@ -53,6 +54,11 @@ extern "C" {
 #include "CrashdumpSections/UncoreMca.h"
 #include "CrashdumpSections/crashdump.h"
 #include "CrashdumpSections/nvd.h"
+#include "engine/cmdprocessor.h"
+#include "engine/flow.h"
+#include "engine/inputparser.h"
+#include "engine/logger.h"
+#include "engine/validator.h"
 #ifdef OEMDATA_SECTION
 #include "CrashdumpSections/OemData.h"
 #endif
@@ -875,6 +881,10 @@ void createCrashdump(std::vector<CPUInfo>& cpuInfo,
     // Fill in the Crashdump data in the correct order (uncore to core) for
     // each CPU
     struct timespec sectionStart;
+    cJSON* useSections = cJSON_GetObjectItemCaseSensitive(
+        cJSON_GetObjectItemCaseSensitive(cpuInfo[0].inputFile.bufferPtr,
+                                         "crash_data"),
+        "UseSections");
 
     clock_gettime(CLOCK_MONOTONIC, &sectionStart);
     clock_gettime(CLOCK_MONOTONIC, &crashdumpStart);
@@ -902,6 +912,63 @@ void createCrashdump(std::vector<CPUInfo>& cpuInfo,
                 {
                     switch ((int)sectionNames[i].section)
                     {
+                        case MCA_UNCORE:
+                            if (cJSON_IsTrue(useSections))
+                            {
+                                fillNewSection(root, &cpuInfo[j], j,
+                                               "MCA_UNCORE", &sectionStart,
+                                               timeStr);
+                                fillNewSection(root, &cpuInfo[j], j, "MCA_CBO",
+                                               &sectionStart, timeStr);
+                            }
+                            else
+                            {
+                                fillSection(cpu, &cpuInfo[j], sectionNames[i],
+                                            sectionNames[i].fptr, &sectionStart,
+                                            timeStr);
+                            }
+                            break;
+                        case MCA_CORE:
+                            if (cJSON_IsTrue(useSections))
+                            {
+                                fillNewSection(root, &cpuInfo[j], j, "MCA_CORE",
+                                               &sectionStart, timeStr);
+                            }
+                            else
+                            {
+                                fillSection(cpu, &cpuInfo[j], sectionNames[i],
+                                            sectionNames[i].fptr, &sectionStart,
+                                            timeStr);
+                            }
+                            break;
+                        case UNCORE:
+                            // Notes: cp
+                            // /usr/share/crashdump/input/crashdump_input_xxx.json
+                            // to /tmp/crashdump/input and modify UseSection:
+                            // true in the file to enable peci engine flow.
+                            if (cJSON_IsTrue(useSections))
+                            {
+
+                                fillNewSection(root, &cpuInfo[j], j,
+                                               "Uncore_PCI", &sectionStart,
+                                               timeStr);
+                                fillNewSection(root, &cpuInfo[j], j,
+                                               "Uncore_MMIO", &sectionStart,
+                                               timeStr);
+                                fillNewSection(root, &cpuInfo[j], j,
+                                               "Uncore_RdIAMSR", &sectionStart,
+                                               timeStr);
+                                fillNewSection(root, &cpuInfo[j], j,
+                                               "Uncore_RdIAMSR_CHA",
+                                               &sectionStart, timeStr);
+                            }
+                            else
+                            {
+                                fillSection(cpu, &cpuInfo[j], sectionNames[i],
+                                            sectionNames[i].fptr, &sectionStart,
+                                            timeStr);
+                            }
+                            break;
                         case BIG_CORE:
                             fillSection(cpu, &cpuInfo[j], sectionNames[i],
                                         sectionNames[i].fptr, &sectionStart,
@@ -995,6 +1062,9 @@ void createCrashdump(std::vector<CPUInfo>& cpuInfo,
         crashdumpContents = out;
 #ifdef TRIAGE_SECTION
         appendTriageSection(crashdumpContents);
+#endif
+#ifdef BAFI_NDA_OUTPUT
+        appendSummarySection(crashdumpContents);
 #endif
         cJSON_free(out);
         CRASHDUMP_PRINT(INFO, stderr, "Completed!\n");
@@ -1603,24 +1673,37 @@ int main()
     // Send a Raw PECI command
     ifaceRawPeci->register_method(
         "SendRawPeci", [](const std::vector<std::vector<uint8_t>>& rawCmds) {
+            // D-Bus will time out after too long, so set a deadline for when to
+            // abort the PECI commands (at 25s, it mostly times out, at 24s it
+            // doesn't, so use 23s to be safe)
+            constexpr int peciTimeout = 23;
+            std::chrono::steady_clock::time_point peciDeadline =
+                std::chrono::steady_clock::now() +
+                std::chrono::duration<int>(peciTimeout);
             std::vector<std::vector<uint8_t>> rawResp;
-            for (auto const& rawCmd : rawCmds)
+            rawResp.resize(rawCmds.size());
+            for (size_t i = 0; i < rawCmds.size(); i++)
             {
+                const std::vector<uint8_t>& rawCmd = rawCmds[i];
+                // If the commands are taking too long, return early to avoid a
+                // D-Bus timeout
+                if (std::chrono::steady_clock::now() > peciDeadline)
+                {
+                    CRASHDUMP_PRINT(
+                        ERR, stderr,
+                        "%d second deadline reached.  Aborting PECI commands "
+                        "to avoid a timeout\n",
+                        peciTimeout);
+                    break;
+                }
+
                 if (rawCmd.size() < 3)
                 {
                     throw std::invalid_argument("Command Length too short");
                 }
-                std::vector<uint8_t> resp(rawCmd[2]);
-                EPECIStatus rc = peci_raw(rawCmd[0], rawCmd[2], &rawCmd[3],
-                                          rawCmd[1], resp.data(), resp.size());
-                if (rc == PECI_CC_SUCCESS || rc == PECI_CC_TIMEOUT)
-                {
-                    rawResp.push_back(resp);
-                }
-                else
-                {
-                    rawResp.push_back({0});
-                }
+                rawResp[i].resize(rawCmd[2]);
+                peci_raw(rawCmd[0], rawCmd[2], &rawCmd[3], rawCmd[1],
+                         rawResp[i].data(), rawResp[i].size());
             }
             return rawResp;
         });

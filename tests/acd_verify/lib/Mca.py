@@ -19,6 +19,8 @@ from lib.Section import Section
 
 import collections
 import warnings
+import json
+import os
 
 
 class Mca(Section):
@@ -30,6 +32,16 @@ class Mca(Section):
         self.nRegsUncore = 0
         self.verifySection()
         self.rootNodes = f"cores: {self.nCores}"
+
+    @classmethod
+    def createMCA(cls, jOutput):
+        if "MCA" in jOutput:
+            return cls(jOutput)
+        else:
+            warnings.warn(
+                f"MCA section was not found in this file"
+            )
+            return None
 
     def searchCore(self, key, value):
         if type(value) == dict:
@@ -66,6 +78,7 @@ class Mca(Section):
             #  for the MCA region of the output file
             elif not key.startswith('_'):
                 warnings.warn(f"Key {key}, not expected in {self.sectionName}")
+        self.makeSelfCheck()
 
     def getTableInfoCore(self):
         tableInfo = {
@@ -114,3 +127,23 @@ class Mca(Section):
             uncoreErrors = self.eHandler.errors["uncore"]
 
         return [coreErrors, uncoreErrors]
+
+    def getCompareInfo(self, compareSections, ignoreList=False):
+        # Load Ignore list
+        __location__ = os.path.realpath(
+            os.path.join(os.getcwd(), os.path.dirname(__file__)))
+        f = open(os.path.join(__location__, 'compareIgnore.json'))
+        jCompare = json.load(f)
+        self.ignoreList = jCompare[self.sectionName]
+
+        # sectionInfo is equal in both files
+        if compareSections.sectionInfo == self.sectionInfo:
+            pass
+        # Something is diff
+        else:
+            for key in compareSections.sectionInfo:
+                # First check key(reg) exists in both files
+                if key not in self.sectionInfo:
+                    # [file process, file compare]
+                    self.diffList[key] = ["Not present", ""]
+        return self.diffList

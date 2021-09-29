@@ -17,6 +17,8 @@
 
 from lib.Section import Section
 
+import warnings
+
 
 class Address_map(Section):
     def __init__(self, jOutput):
@@ -24,3 +26,13 @@ class Address_map(Section):
 
         self.verifySection()
         self.rootNodes = ""
+
+    @classmethod
+    def createAdress_map(cls, jOutput):
+        if "address_map" in jOutput:
+            return cls(jOutput)
+        else:
+            warnings.warn(
+                f"Address_map section was not found in this file"
+            )
+            return None

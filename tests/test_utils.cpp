@@ -25,6 +25,25 @@
 #include <cstdlib>
 #include <cstring>
 
+bool enableDebug = false;
+void Logging(cJSON* cjson, char* description)
+{
+    if (enableDebug)
+    {
+        char* jsonStr = NULL;
+        if (cjson != NULL)
+        {
+            jsonStr = cJSON_Print(cjson);
+            printf("%s%s\n", description, jsonStr);
+        }
+        else
+        {
+            printf("%s(NULL)\n", description);
+        }
+        free(jsonStr);
+    }
+}
+
 char* readTestFile(char* filename)
 {
     char* buffer = NULL;

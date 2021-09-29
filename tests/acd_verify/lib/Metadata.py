@@ -28,6 +28,16 @@ class Metadata(Section):
         self.verifySection()
         self.rootNodes = f"sockets: {len(self.cpus)}"
 
+    @classmethod
+    def createMetadata(cls, jOutput):
+        if "METADATA" in jOutput:
+            return cls(jOutput)
+        else:
+            warnings.warn(
+                f"Metadata section was not found in this file"
+            )
+            return None
+
     def verifyCpuID(self):
         # Obtain all cpuIDs
         cpuIDs = [self.sectionInfo[cpu].get('cpuid') for cpu in self.cpus]
@@ -36,7 +46,7 @@ class Metadata(Section):
         if len(cpuIDs) > 1:   # More than 1 cpuID found
             tmp = {}
             for cpu in self.cpus:
-                tmp[cpu] = self.sectionInfo[cpu]["cpuid"]
+                tmp[cpu] = self.sectionInfo[cpu]["cpuid"] if "cpuid" in self.sectionInfo[cpu] else "Not present"
             return tmp
         return cpuIDs
 
@@ -63,6 +73,8 @@ class Metadata(Section):
 
             if key.startswith("cpu"):
                 self.cpus.append(key)
+                # Self checking
+                self.makeSelfCheck(key)
             # Considering cpuXXs as the valid sections
             #  for the METADATA region of the output file
             elif not underScoreReg and regValueNotStr:
@@ -71,3 +83,94 @@ class Metadata(Section):
             self.search(key, self.sectionInfo[key])
         if len(self.cpus) == 0:
             warnings.warn("No cpus found in METADATA")
+
+        # Version Check
+        self.verifyVersion()
+
+    def search(self, key, value, regName=None):
+        # Want to seach 4 a register value
+        if regName:
+            if key == regName:
+                if type(value) is not str:
+                    return value
+                else:
+                    containsError = self.eHandler.isError(value)
+                    if not containsError:
+                        return value
+            else:
+                if type(value) == dict:
+                    result = None
+                    for vKey in value:
+                        result = self.search(vKey, value[vKey], regName)
+                        if result:
+                            break
+                    return result
+                # key doesn't match with regName
+                elif type(value) == str:
+                    return None
+
+        # Normal search()
+        else:
+            if type(value) == dict:
+                for vKey in value:
+                    self.search(f"{key}.{vKey}", value[vKey])
+            elif (type(value) == str) and not value.startswith('_'):
+                self.nRegs += 1  # count regs
+                if self.eHandler.isError(value):
+                    error = self.eHandler.extractError(value)
+                    self.eHandler.errors[key] = error
+
+    def makeSelfCheck(self, cpu):
+        lErrors = []
+        cpuInfo = self.sectionInfo[cpu]
+        # cpuid
+        self.checkCpuID(cpu)
+        # core_mask
+        self.checkCoreMask(cpu)
+        # cha_count
+        self.checkChaCount(cpu)
+
+    def checkCpuID(self, cpu):
+        cpuID = self.search(cpu, self.sectionInfo[cpu], "cpuid")
+        if cpuID:
+            cpuID = cpuID.upper()
+            # ICX
+            icxValidVal = ((cpuID == "0X606A6") or (cpuID == "0XFFFFFFF0"))
+            # SPR
+            sprValidVal = ((cpuID == "0X806F1") or (cpuID == "0XFFFFFFF0")
+                           or (cpuID == "0X806F2"))
+            if (not icxValidVal) and (not sprValidVal):
+                errMessage = f"{cpu} has CPUID invalid value {cpuID}"
+                self.healthCheckErrors.append(errMessage)
+        else:
+            errMessage = f"{cpu} cpuid key not present in METADATA"
+            self.healthCheckErrors.append(errMessage)
+
+    def checkCoreMask(self, cpu):
+        coreMask = self.search(cpu, self.sectionInfo[cpu], "core_mask")
+        if coreMask:
+            if coreMask == '0x0':
+                errMessage = f"{cpu} has core_mask invalid value {coreMask}"
+                self.healthCheckErrors.append(errMessage)
+        else:
+            errMessage = f"{cpu} core_mask key not present in METADATA"
+            self.healthCheckErrors.append(errMessage)
+
+    def checkChaCount(self, cpu):
+        chaCount = self.search(cpu, self.sectionInfo[cpu], "cha_count")
+        if chaCount:
+            if chaCount == '0x0':
+                errMessage = f"{cpu} has cha_count invalid value {chaCount}"
+                self.healthCheckErrors.append(errMessage)
+        else:
+            errMessage = f"{cpu} cha_count key not present in METADATA"
+            self.healthCheckErrors.append(errMessage)
+
+    def verifyVersion(self):
+        if "_version" in self.sectionInfo:
+            version = self.sectionInfo["_version"]
+            if not self.eHandler.isError(version):
+                self.checkVersion(version)
+        else:
+            errMessage = f"_version key not present in {self.sectionName}"
+            self.healthCheckErrors.append(errMessage)

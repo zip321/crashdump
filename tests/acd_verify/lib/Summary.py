@@ -21,5 +21,8 @@ from lib.Region import Region
 class Summary(Region):
     def processRequest(self, request, report):
         if "summary" in request["regions"]:
-            report["summary"] = request["sections"]["metadata"].getSummaryInfo()
+            metadataObj = request["sections"]["metadata"]
+            if metadataObj:
+                if hasattr(metadataObj, 'getSummaryInfo'):
+                    report["summary"] = metadataObj.getSummaryInfo()
             return True

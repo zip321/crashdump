@@ -27,7 +27,7 @@ from lib.Big_core import Big_core
 class Preprocessor():
     def __init__(self, outputData):
         self.sections = {
-            "metadata": Metadata(outputData)
+            "metadata": Metadata.createMetadata(outputData)
         }
 
         cpus = self.getCPUs(outputData)
@@ -35,20 +35,20 @@ class Preprocessor():
         for cpu in cpus:
             if "address_map" in cpus[cpu]:
                 self.sections[cpu] = {
-                    "tor": Tor(cpus[cpu]),
-                    "uncore": Uncore(cpus[cpu]),
-                    "mca": Mca(cpus[cpu]),
-                    "pm_info": PM_info(cpus[cpu]),
-                    "address_map": Address_map(cpus[cpu]),
-                    "big_core": Big_core(cpus[cpu])
+                    "tor": Tor.createTor(cpus[cpu]),
+                    "uncore": Uncore.createUncore(cpus[cpu]),
+                    "mca": Mca.createMCA(cpus[cpu]),
+                    "pm_info": PM_info.createPM_info(cpus[cpu]),
+                    "address_map": Address_map.createAdress_map(cpus[cpu]),
+                    "big_core": Big_core.createBig_core(cpus[cpu])
                 }
             else:
                 self.sections[cpu] = {
-                    "tor": Tor(cpus[cpu]),
-                    "uncore": Uncore(cpus[cpu]),
-                    "mca": Mca(cpus[cpu]),
-                    "pm_info": PM_info(cpus[cpu]),
-                    "big_core": Big_core(cpus[cpu])
+                    "tor": Tor.createTor(cpus[cpu]),
+                    "uncore": Uncore.createUncore(cpus[cpu]),
+                    "mca": Mca.createMCA(cpus[cpu]),
+                    "pm_info": PM_info.createPM_info(cpus[cpu]),
+                    "big_core": Big_core.createBig_core(cpus[cpu])
             }
 
     def getCPUs(self, outputData):

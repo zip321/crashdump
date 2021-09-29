@@ -33,6 +33,7 @@
 
 #define CRASHDUMP_PRINT(level, fmt, ...) fprintf(fmt, __VA_ARGS__)
 #define CRASHDUMP_VALUE_LEN 6
+#define JSON_VAL_LEN 64
 #define RESET_DETECTED_NAME "cpu%d.%s"
 
 #define SPR_MODEL 0x000806F0
@@ -78,7 +79,20 @@ typedef enum
     ACD_INVALID_OBJECT,
     ACD_ALLOCATE_FAILURE,
     ACD_SECTION_DISABLE,
-    ACD_INPUT_FILE_ERROR
+    ACD_INPUT_FILE_ERROR,
+    ACD_FAILURE_CMD_TABLE,
+    ACD_FAILURE_UPDATE_PARAMS,
+    ACD_INVALID_CMD,
+    ACD_INVALID_CRASHDUMP_DISCOVERY_PARAMS,
+    ACD_INVALID_CRASHDUMP_GETFRAME_PARAMS,
+    ACD_INVALID_GETCPUID_PARAMS,
+    ACD_INVALID_PING_PARAMS,
+    ACD_INVALID_RDENDPOINTCONFIGMMIO_PARAMS,
+    ACD_INVALID_RDENDPOINTCONFIGPCILOCAL_PARAMS,
+    ACD_INVALID_RDIAMSR_PARAMS,
+    ACD_INVALID_RDPKGCONFIG_PARAMS,
+    ACD_INVALID_RDPOSTENUMBUS_PARAMS,
+    ACD_INVALID_RDCHACOUNT_PARAMS,
 } acdStatus;
 
 typedef enum
@@ -106,6 +120,7 @@ typedef enum
     BIG_CORE,
     MCA_CORE,
     METADATA,
+    CRASHLOG,
     NUMBER_OF_SECTIONS,
 } Section;
 
@@ -165,7 +180,7 @@ typedef struct
     Model model;
     uint64_t coreMask;
     uint64_t crashedCoreMask;
-    uint8_t sectionMask;
+    uint16_t sectionMask;
     size_t chaCount;
     pwState initialPeciWake;
     JSONInfo inputFile;

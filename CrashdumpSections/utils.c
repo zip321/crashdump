@@ -222,7 +222,8 @@ bool isBigCoreRegVersionMatch(cJSON* root, uint32_t version)
                     cJSON_ArrayForEach(versionItem, versionArray)
                     {
                         int mismatch = 1;
-                        strcmp_s(versionItem->valuestring, strlen(jsonItemName),
+                        strcmp_s(versionItem->valuestring,
+                                 strnlen_s(jsonItemName, NAME_STR_LEN),
                                  jsonItemName, &mismatch);
                         if (0 == mismatch)
                         {
@@ -255,8 +256,8 @@ cJSON* getValidBigCoreMap(cJSON* decodeArray, char* version)
             cJSON_ArrayForEach(versionItem, versionArray)
             {
                 int mismatch = 1;
-                strcmp_s(versionItem->valuestring, strlen(version), version,
-                         &mismatch);
+                strcmp_s(versionItem->valuestring,
+                         strnlen_s(version, NAME_STR_LEN), version, &mismatch);
                 if (0 == mismatch)
                 {
                     return mapItem;
@@ -424,7 +425,7 @@ cJSON* getPeciAccessType(cJSON* root)
 
 uint64_t tsToNanosecond(struct timespec* ts)
 {
-    return (ts->tv_sec * (uint64_t)1e9 + ts->tv_nsec);
+    return ((ts->tv_sec * (uint64_t)1e9) + ts->tv_nsec);
 }
 
 inline struct timespec
@@ -528,12 +529,29 @@ void updateMcaRunTime(cJSON* root, struct timespec* start)
     clock_gettime(CLOCK_MONOTONIC, start);
 }
 
+uint8_t getBus(Model model, uint8_t u8index)
+{
+    if (model == cd_icx || model == cd_icx2 || model == cd_icxd)
+    {
+        if (sPciReg[u8index].u8Bus == 30)
+        {
+            return 13;
+        }
+        if (sPciReg[u8index].u8Bus == 31)
+        {
+            return 14;
+        }
+    }
+    return sPciReg[u8index].u8Bus;
+}
+
 int getPciRegister(CPUInfo* cpuInfo, SRegRawData* sRegData, uint8_t u8index)
 {
     int peci_fd = -1;
     int ret = 0;
     uint16_t u16Offset = 0;
     uint8_t u8Size = 0;
+    uint8_t u8Bus = getBus(cpuInfo->model, u8index);
     ret = peci_Lock(&peci_fd, PECI_WAIT_FOREVER);
     if (ret != PECI_CC_SUCCESS)
     {
@@ -544,11 +562,10 @@ int getPciRegister(CPUInfo* cpuInfo, SRegRawData* sRegData, uint8_t u8index)
     {
         case UT_REG_DWORD:
             ret = peci_RdEndPointConfigPciLocal_seq(
-                cpuInfo->clientAddr, sPciReg[u8index].u8Seg,
-                sPciReg[u8index].u8Bus, sPciReg[u8index].u8Dev,
-                sPciReg[u8index].u8Func, sPciReg[u8index].u16Reg,
-                sPciReg[u8index].u8Size, (uint8_t*)&sRegData->uValue.u64,
-                peci_fd, &sRegData->cc);
+                cpuInfo->clientAddr, sPciReg[u8index].u8Seg, u8Bus,
+                sPciReg[u8index].u8Dev, sPciReg[u8index].u8Func,
+                sPciReg[u8index].u16Reg, sPciReg[u8index].u8Size,
+                (uint8_t*)&sRegData->uValue.u64, peci_fd, &sRegData->cc);
             sRegData->ret = ret;
             if (ret != PECI_CC_SUCCESS)
             {
@@ -563,10 +580,9 @@ int getPciRegister(CPUInfo* cpuInfo, SRegRawData* sRegData, uint8_t u8index)
                 u16Offset = ((sPciReg[u8index].u16Reg) >> (u8Dword * 8)) & 0xFF;
                 u8Size = sPciReg[u8index].u8Size / 2;
                 ret = peci_RdEndPointConfigPciLocal_seq(
-                    cpuInfo->clientAddr, sPciReg[u8index].u8Seg,
-                    sPciReg[u8index].u8Bus, sPciReg[u8index].u8Dev,
-                    sPciReg[u8index].u8Func, u16Offset, u8Size,
-                    (uint8_t*)&sRegData->uValue.u32[u8Dword], peci_fd,
+                    cpuInfo->clientAddr, sPciReg[u8index].u8Seg, u8Bus,
+                    sPciReg[u8index].u8Dev, sPciReg[u8index].u8Func, u16Offset,
+                    u8Size, (uint8_t*)&sRegData->uValue.u32[u8Dword], peci_fd,
                     &sRegData->cc);
                 sRegData->ret = ret;
                 if (ret != PECI_CC_SUCCESS)

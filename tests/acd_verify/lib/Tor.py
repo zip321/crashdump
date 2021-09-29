@@ -28,6 +28,16 @@ class Tor(Section):
         self.verifySection()
         self.rootNodes = f"chas: {self.chas}"
 
+    @classmethod
+    def createTor(cls, jOutput):
+        if "TOR" in jOutput:
+            return cls(jOutput)
+        else:
+            warnings.warn(
+                f"Tor section was not found in this file"
+            )
+            return None
+
     def verifySection(self):
         for key in self.sectionInfo:
             if key.startswith("cha"):
@@ -38,3 +48,8 @@ class Tor(Section):
 
         if self.chas == 0:
             warnings.warn("No chas found in TOR")
+
+        self.makeSelfCheck()
+
+    def getCompareInfo(self, compareSections, ignoreList=False):
+        return {}

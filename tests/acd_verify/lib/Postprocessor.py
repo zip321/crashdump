@@ -19,7 +19,8 @@ import os
 
 
 class Postprocessor():
-    def __init__(self, reportObj, filePath, fileType, verbose=False):
+    def __init__(self, reportObj, filePath, fileType, verbose=False,
+                 compareFileName=None):
         self.fileType = fileType
         baseFileName = os.path.splitext(os.path.basename(filePath))[0]
         self.fileName = f"{baseFileName}_report.{fileType}"
@@ -27,6 +28,7 @@ class Postprocessor():
         self.filePath = os.path.join(baseFilePath, self.fileName)
         self.report = reportObj
         self.verbose = verbose
+        self.compareFileName = compareFileName
 
     def formatTXT(self):
         sReport = ""
@@ -34,15 +36,21 @@ class Postprocessor():
             if region == "summary":
                 sReport = sReport + self.txtSummary(self.report[region])
             elif region == "table":
-                sReport = sReport + "\n\n"+self.txtTable(self.report[region])
+                sReport = sReport + "\n\n"+self.txtErrorsTable(self.report[region])
             elif region == "tableInfo":
                 sReport = sReport + "\n" + \
                     self.txtTableDetails(self.report[region])
+            elif region == "selfCheck":
+                sReport = sReport + "\n" + \
+                    self.txtSelfCheck(self.report[region])
+            elif region == "missCompares":
+                sReport = sReport + "\n" + \
+                    self.txtCompareInfo(self.report[region])
         try:
             f = open(self.filePath, "w")
             f.write(sReport)
             f.close()
-            print(f"Report saved: \n{self.filePath}")
+            print(f"Report saved: {self.filePath}\n")
         except Exception as e:
             eMessage = "An error ocurred while trying to save " +\
                          "the file {self.filePath}"
@@ -85,7 +93,7 @@ class Postprocessor():
             sCounts = sCounts+sCPU
         return sCounts
 
-    def txtTable(self, table):
+    def txtErrorsTable(self, table):
         tInfo = {}
         sTable = ""
 
@@ -120,34 +128,8 @@ class Postprocessor():
                         else:
                             tInfo[header].append("")
 
-        for column in tInfo:
-            tInfo[column].insert(0, column)
-
-            # Get longest string in column
-            maxWidth = len(max(tInfo[column], key=len))
-            for i in range(len(tInfo[column])):
-                element = tInfo[column][i]
-                tInfo[column][i] = element.rjust(maxWidth + 1)
-
-        nRows = len(tInfo['Section'])
-
-        # Iterate through all columns in the same row
-        #  and form the string for each row
-        for row in range(nRows):
-            sRow = '|'
-            for column in tInfo:
-                sRow += tInfo[column][row]+'|'
-            # Configure headers
-            if row == 0:
-                sRow = '='*(len(sRow)) + '\n' + sRow + '\n' +\
-                         '='*(len(sRow)) + '\n'
-            # Configure rest of the rows
-            else:
-                sRow += '\n' + '-'*(len(sRow)) + '\n'
-            # Append row
-            sTable += sRow
-
-        return sTable
+        columns = [tInfo[x] for x in tInfo]
+        return self.txtTable(headers, columns)
 
     def txtTableDetails(self, errorList):
         regsList = "\t"
@@ -214,3 +196,163 @@ class Postprocessor():
                         if header not in headers:
                             headers.append(header)
         return headers
+
+    def txtSelfCheck(self, errorList):
+        sErrors = "\nSelf-check:\t"
+        errors = 0
+
+        if self.verbose:
+            sErrors += "All errors found"
+        else:
+            sErrors += "First 3 errors of each record are:" +\
+                        "    (use –-verbose for all)"
+
+        for key in errorList:
+            if key == "metadata":
+                count = 3
+                for error in errorList[key]:
+                    if count and not self.verbose:
+                        sErrors += f"\n\t\t{key}: {error}"
+                        count -= 1
+                        errors += 1
+                    elif not count and not self.verbose:
+                        break
+                    else:
+                        sErrors += f"\n\t\t{key}: {error}"
+                        errors += 1
+            if key.startswith("cpu"):
+                for section in errorList[key]:
+                    count = 3
+                    for error in errorList[key][section]:
+                        if count and not self.verbose:
+                            sErrors += f"\n\t\t{key}.{section}: {error}"
+                            count -= 1
+                            errors += 1
+                        elif not count and not self.verbose:
+                            break
+                        else:
+                            sErrors += f"\n\t\t{key}.{section}: {error}"
+                            errors += 1
+        if errors == 0:
+            sErrors += "\n\t\tPASS"
+
+        return sErrors
+
+    def txtCompareInfo(self, missCompares):
+        sErrors = "\nCompare Data:\t"
+
+        nDiffsTable, specialSections = self.txtNDiffsTable()
+        if len(specialSections) > 0:
+            sErrors += "\n Comments:\n  - Not comparing data for: " +\
+                ', '.join([x for x in specialSections]) +\
+                " at this time"
+        sErrors += "\n\n" + nDiffsTable + "\n"
+        if self.verbose:
+            sErrors += "All errors found:\n\n"
+        else:
+            sErrors += "Showing first 3 errors of each record:" +\
+                        "    (use –-verbose for all)\n\n"
+        sErrors += self.txtDiffsTable(missCompares)
+
+        return sErrors
+
+    def txtTable(self, headers, columns):
+        sTable = ""
+        for column in range(len(columns)):
+            # Add headers row to columns
+            columns[column].insert(0, headers[column])
+
+            # Get longest string in column
+            maxWidth = len(max(columns[column], key=len))
+            for i in range(len(columns[column])):
+                element = columns[column][i]
+                columns[column][i] = element.rjust(maxWidth + 1)
+
+        nRows = len(columns[0])
+
+        # Iterate through all columns in the same row
+        #  and form the string for each row
+        for row in range(nRows):
+            sRow = '|'
+            for column in range(len(columns)):
+                sRow += columns[column][row]+'|'
+            # Configure headers
+            if row == 0:
+                sRow = '='*(len(sRow)) + '\n' + sRow + '\n' +\
+                         '='*(len(sRow)) + '\n'
+            # Configure rest of the rows
+            else:
+                sRow += '\n' + '-'*(len(sRow)) + '\n'
+            # Append row
+            sTable += sRow
+        return sTable
+
+    def txtDiffsTable(self, lDiffs):
+        lDiff = {
+            "Section": [],
+            "fProcess": [],
+            "fCompare": []
+        }
+
+        headers = ["Section", "fProcess", "fCompare"]
+
+        for key in lDiffs:
+            if key == "metadata":
+                sectionInfo = lDiffs["metadata"]
+                if self.verbose:
+                    for reg in sectionInfo:
+                        lDiff["Section"].append(f"{key}.{reg}")
+                        lDiff["fProcess"].append(sectionInfo[reg][0])
+                        lDiff["fCompare"].append(sectionInfo[reg][1])
+                else:
+                    sectionInfo = {k: sectionInfo[k] for k in list(sectionInfo)[:3]}
+                    for reg in sectionInfo:
+                        lDiff["Section"].append(f"{key}.{reg}")
+                        lDiff["fProcess"].append(sectionInfo[reg][0])
+                        lDiff["fCompare"].append(sectionInfo[reg][1])
+            if key.startswith("cpu"):
+                for section in lDiffs[key]:
+                    sectionInfo = lDiffs[key][section]
+                    if self.verbose:
+                        for reg in sectionInfo:
+                            lDiff["Section"].append(f"{key}.{section}.{reg}")
+                            lDiff["fProcess"].append(sectionInfo[reg][0])
+                            lDiff["fCompare"].append(sectionInfo[reg][1])
+                    else:
+                        sectionInfo = {k: sectionInfo[k] for k in list(sectionInfo)[:3]}
+                        for reg in sectionInfo:
+                            lDiff["Section"].append(f"{key}.{section}.{reg}")
+                            lDiff["fProcess"].append(sectionInfo[reg][0])
+                            lDiff["fCompare"].append(sectionInfo[reg][1])
+
+        columns = [lDiff[x] for x in lDiff]
+
+        # Names of files
+        fProcessed = os.path.splitext(self.fileName)[0].rstrip("_report")
+
+        tableHeaders = ["Item", fProcessed[:20], self.compareFileName[:20]]
+
+        return self.txtTable(tableHeaders, columns)
+
+    def txtNDiffsTable(self):
+        lDiffs = (self.report["nDiffs"])
+        lDiff = {
+            "Section": [],
+            "nDiffs": [],
+        }
+
+        foundSpecialSections = []
+
+        for key in lDiffs:
+            if key == "metadata":
+                lDiff["Section"].append(key)
+                lDiff["nDiffs"].append(str(lDiffs[key]))
+            if key.startswith("cpu"):
+                for section in lDiffs[key]:
+                    lDiff["Section"].append(f"{key}.{section}")
+                    lDiff["nDiffs"].append(str(lDiffs[key][section]))
+
+        columns = [lDiff[x] for x in lDiff]
+        headers = ["Section", "Differences"]
+
+        return self.txtTable(headers, columns), self.report["specialCompSections"]

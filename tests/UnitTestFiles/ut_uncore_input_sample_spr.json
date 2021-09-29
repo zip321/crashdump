@@ -1,0 +1,91 @@
+{
+  "crash_data": {
+    "cpu": "spr",
+    "AccessMethod":  "/dev/peci-wire",
+    "Version": "release",
+    "ServiceName": "crashdump",
+    "PECIHeaders": {
+      "Ping": ["Target"],
+      "GetCPUID": ["Target"],
+      "RdPkgConfig": ["Target", "Index", "Parameter"],
+      "RdEndpointConfigPCILocal": ["Target", "Bus", "Dev", "Func", "Offset","Size"],
+      "RdEndPointConfigMmio": ["Target", "Seg", "Bus", "Dev", "Func", "Offset","Addr_type", "Size"],
+      "RdIAMSR": ["Target", "Address", "Thread_id", "Size"]
+      },
+    "DefaultState": "Enable",
+    "MCA": {},
+    "METADATA": {},
+    "PM_info": {},
+    "TOR": {},
+    "big_core": {},
+    "Sections": [
+      {
+        "Uncore": {
+          "RecordEnable": true,
+          "RecordType": "0x08",
+          "ProductType": "0x1C",
+          "Revision": "0x16",
+          "SkipOnFail": true,
+          "LoopOnCPU": true,
+          "MaxTimeSec": 30,
+          "OutputPath": "crash_data/PROCESSORS/cpu%d/uncore",
+          "CPU": "spr",
+          "PreReq": {
+            "PECICmds": [
+              {
+                "RdEndpointConfigPCILocal": [
+                  {"Params": ["Target", 0, 8, 3, 0, "0x1A0", 4],"Output": {"Name": ["cpubusno_valid"]}, "InternalVar": "CPUBusNumValid"},
+                  {"Params": ["Target", 0, 8, 3, 0, "0x1CC", 4],"Output": {"Name": ["cpubusno7"]}, "InternalVar": "CPUBusNum7"}
+                ]
+              },
+              {
+                "RdPostEnumBus": [
+                  {"Params": ["CPUBusNumValid", "CPUBusNum7", 30],"Output": {"Name": ["post_enum_bus"]}, "InternalVar": "PostEnumBus",
+                    "comment": "if CPUBusNumValid bit 30 is 1, then PostEnumBus = ((CPUBusNum7 >> 16) & 0xff)"
+                  }
+                ]
+              }
+            ]
+          },
+          "PECICmds": [{
+            "RdEndpointConfigPCILocal": [
+              {"Params": [48, 0, 0, 0, 0, 0, 2], "Output": {"Name": ["B00_D00_F0_0x0"]}},
+              {"Params": ["Target", 0, 0, 0, 0, "0x2", 8], "Output": {"Name": ["B00_D00_F0_0x2"]}}
+            ]
+          },
+          {
+            "RdEndpointConfigMMIO": [
+              {"Params": [48, 0, 0, 30, 26, 0, 131408, 6, 4], "Output": {"Name": ["B30_D26_F0_0x20150"]}},
+              {"Params": ["Target", 0, 0, "PostEnumBus", 26, 0, "0x201A4", 6, 4], "Output": {"Name": ["B30_D26_F0_0x20164"]}}
+            ]
+          },
+          {
+            "RdIAMSR": [
+              {"Params": [48, 404, 0], "Output": {"Size": 8,"Name": ["RDIAMSR_0x194"]}},
+              {"Params": ["Target", 0, "0x1a1"], "Output": {"Size": 4,"Name": ["RDIAMSR_0x1a1"]}}
+          ]}]
+        },
+        "Uncore_RdIAMSR_CHA": {
+          "RecordEnable": true,
+          "SkipOnFail": true,
+          "LoopOnCHA": true,
+          "MaxTimeSec": 30,
+          "OutputPath": "crash_data/PROCESSORS/cpu%d/uncore/",
+          "PreReq": {
+            "PECICmds": []
+          },
+          "PECICmds": [
+            {
+              "RdIAMSR": [
+                {"Params": ["Target", "CHA", "0x8000"], "Output": {"Size": 8, "Name": ["RDIAMSR_cha%d_0x8000"]}},
+                {"Params": ["Target", "CHA", "0x8002"], "Output": {"Size": 8, "Name": ["RDIAMSR_cha%d_0x8002"]}},
+                {"Params": ["Target", "CHA", "0x8003"], "Output": {"Size": 8, "Name": ["RDIAMSR_cha%d_0x8003"]}},
+                {"Params": ["Target", "CHA", "0x8004"], "Output": {"Size": 8, "Name": ["RDIAMSR_cha%d_0x8004"]}},
+                {"Params": ["Target", "CHA", "0x8005"], "Output": {"Size": 8, "Name": ["RDIAMSR_cha%d_0x8005"]}}
+              ]}]
+        }
+      }
+    ]
+  },
+  "NVD": {}
+}

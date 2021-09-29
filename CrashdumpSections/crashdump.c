@@ -22,6 +22,7 @@
 #include "CrashdumpSections/AddressMap.h"
 #include "CrashdumpSections/BigCore.h"
 #include "CrashdumpSections/CoreMca.h"
+#include "CrashdumpSections/PchCrashlog.h"
 #include "CrashdumpSections/PowerManagement.h"
 #include "CrashdumpSections/TorDump.h"
 #include "CrashdumpSections/Uncore.h"
@@ -36,7 +37,8 @@ const CrashdumpSection sectionNames[NUMBER_OF_SECTIONS] = {
     {"address_map", ADDRESS_MAP, RECORD_TYPE_ADDRESSMAP, logAddressMap},
     {"big_core", BIG_CORE, RECORD_TYPE_CORECRASHLOG, logCrashdump},
     {"MCA", MCA_CORE, RECORD_TYPE_MCALOG, logCoreMca},
-    {"METADATA", METADATA, RECORD_TYPE_METADATA}};
+    {"METADATA", METADATA, RECORD_TYPE_METADATA},
+    {"crashlog", CRASHLOG, RECORD_TYPE_METADATA, logPCHCrashlog}};
 
 int revision_uncore = 0;
 bool commonMetaDataEnabled = true;

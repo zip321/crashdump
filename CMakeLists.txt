@@ -20,6 +20,9 @@ option (CRASHDUMP_BUILD_UT "Enable Building Unit tests" OFF)
 # optional features
 option (NVD_SECTION "Add NVD section to the crashdump contents." OFF)
 option (TRIAGE_SECTION "Add triage section to the crashdump contents." OFF)
+option (BAFI_NDA_OUTPUT
+        "See docs/build_instructions.md before using this feature." OFF
+)
 
 project (crashdump)
 include (ExternalProject)
@@ -51,8 +54,8 @@ if (NOT ${YOCTO_DEPENDENCIES})
 
     externalproject_add (
         Boost
-        URL https://dl.bintray.com/boostorg/release/1.73.0/source/boost_1_73_0.tar.gz
-        URL_MD5 4036cd27ef7548b8d29c30ea10956196
+        URL https://downloads.yoctoproject.org/mirror/sources/boost_1_73_0.tar.bz2
+        URL_MD5 9273c8c4576423562bbe84574b07b2bd
         CONFIGURE_COMMAND ""
         BUILD_COMMAND ""
         INSTALL_COMMAND ""
@@ -106,8 +109,13 @@ if (NOT ${YOCTO_DEPENDENCIES})
         libpeci-project
         PREFIX ${CMAKE_BINARY_DIR}/libpeci-project
         GIT_REPOSITORY https://github.com/openbmc/libpeci.git
-        GIT_TAG bc641112abc99b4a972665aa984023a6713a21ac
+        GIT_TAG ff44e549c44c7658ec11e0c19c13c4c45900cfe4
         INSTALL_COMMAND ""
+        PATCH_COMMAND
+            git apply
+            ${CMAKE_BINARY_DIR}/../../../../../openbmc-meta-intel/meta-egs/recipes-core/libpeci/libpeci//0001-Add-SPR-CPUID.patch
+            && git apply
+            ${CMAKE_BINARY_DIR}/../../../../../openbmc-meta-intel/meta-egs/recipes-core/libpeci/libpeci/0003-Add-PECI-Telemetry-command.patch
         LOG_DOWNLOAD ON
     )
     externalproject_get_property (libpeci-project SOURCE_DIR)
@@ -199,6 +207,13 @@ set (
     CrashdumpSections/OemData.c
     CrashdumpSections/utils.c
     CrashdumpSections/crashdump.c
+    engine/cmdprocessor.c
+    engine/logger.c
+    engine/inputparser.c
+    engine/validator.c
+    engine/flow.c
+    CrashdumpSections/PchCrashlog.c
+    CrashdumpSections/base64Encode.c
 )
 
 if (${NVD_SECTION})
@@ -207,9 +222,14 @@ if (${NVD_SECTION})
     set (NVD_LIB fis)
 endif ()
 
-if (${TRIAGE_SECTION})
+if (${TRIAGE_SECTION} OR ${BAFI_NDA_OUTPUT})
     set (SRC_FILES ${SRC_FILES} utils_triage.cpp)
-    add_definitions (-DTRIAGE_SECTION)
+    if (${TRIAGE_SECTION})
+        add_definitions (-DTRIAGE_SECTION)
+    endif ()
+    if (${BAFI_NDA_OUTPUT})
+        add_definitions (-DBAFI_NDA_OUTPUT)
+    endif ()
 endif ()
 
 if (NOT ${CRASHDUMP_BUILD_UT})
@@ -317,9 +337,9 @@ if (NOT ${YOCTO_DEPENDENCIES})
         set (
             UT_FILES
             tests/mock/test_crashdump.cpp
-            tests/CrashdumpSections/BigCore_test.cpp
             tests/test_utils.cpp
             tests/test_main.cpp
+            tests/CrashdumpSections/BigCore_test.cpp
             tests/CrashdumpSections/Uncore_test.cpp
             tests/CrashdumpSections/AddressMap_test.cpp
             tests/CrashdumpSections/MetaData_test.cpp
@@ -328,6 +348,12 @@ if (NOT ${YOCTO_DEPENDENCIES})
             tests/CrashdumpSections/PowerManagement_test.cpp
             tests/CrashdumpSections/UncoreMca_test.cpp
             tests/CrashdumpSections/utils_test.cpp
+            tests/engine/cmdprocessor_test.cpp
+            tests/engine/logger_test.cpp
+            tests/engine/inputparser_test.cpp
+            tests/engine/validator_test.cpp
+            tests/engine/flow_test.cpp
+            tests/CrashdumpSections/PchCrashlog_test.cpp
         )
 
         add_definitions (-DCOMPILE_UNIT_TESTS)
