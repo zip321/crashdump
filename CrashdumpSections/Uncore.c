@@ -828,10 +828,9 @@ int logUncoreStatusSPR(CPUInfo* cpuInfo, cJSON* pJsonChild)
 }
 
 static const SUncoreStatusLogVx sUncoreStatusLogVx[] = {
-    {cd_icx, logUncoreStatusICX},
-    {cd_icx2, logUncoreStatusICX},
-    {cd_icxd, logUncoreStatusICX},
-    {cd_spr, logUncoreStatusSPR},
+    {cd_icx, logUncoreStatusICX},    {cd_icx2, logUncoreStatusICX},
+    {cd_icxd, logUncoreStatusICX},   {cd_spr, logUncoreStatusSPR},
+    {cd_sprhbm, logUncoreStatusSPR},
 };
 
 /******************************************************************************

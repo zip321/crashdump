@@ -22,8 +22,8 @@
 #include <fstream>
 
 extern "C" {
-#include "CrashdumpSections/PchCrashlog.h"
-#include "CrashdumpSections/PchCrashlogInternal.h"
+#include "CrashdumpSections/Crashlog.h"
+#include "CrashdumpSections/CrashlogInternal.h"
 #include "CrashdumpSections/base64Encode.h"
 }
 
@@ -33,31 +33,7 @@ extern "C" {
 using namespace ::testing;
 using ::testing::Return;
 
-TEST(PchCrashlogTest, PchCrashlog_NULL_JsonPtr)
-{
-    int ret;
-
-    TestCrashdump crashdump(cd_spr);
-    for (auto cpuinfo : crashdump.cpusInfo)
-    {
-        ret = logPCHCrashlog(&cpuinfo, NULL);
-        EXPECT_EQ(ret, ACD_INVALID_OBJECT);
-    }
-}
-
-TEST(PchCrashlogTest, PchCrashlog_NoValidPCH)
-{
-    int ret;
-
-    TestCrashdump crashdump(cd_spr);
-    for (auto cpuinfo : crashdump.cpusInfo)
-    {
-        ret = logPCHCrashlog(&cpuinfo, crashdump.root);
-        EXPECT_EQ(ret, ACD_FAILURE);
-    }
-}
-
-TEST(PchCrashlogTest, PchCrashlog_TelemetrySupported)
+TEST(CrashlogTest, Crashlog_TelemetrySupported)
 {
     CPUInfo cpuInfo = {.clientAddr = 48,
                        .model = cd_spr,
@@ -85,7 +61,7 @@ TEST(PchCrashlogTest, PchCrashlog_TelemetrySupported)
     EXPECT_EQ(supported, true);
 }
 
-TEST(PchCrashlogTest, PchCrashlog_TelemetryNotSupported)
+TEST(CrashlogTest, Crashlog_TelemetryNotSupported)
 {
     CPUInfo cpuInfo = {.clientAddr = 48,
                        .model = cd_spr,
@@ -113,7 +89,7 @@ TEST(PchCrashlogTest, PchCrashlog_TelemetryNotSupported)
     EXPECT_EQ(supported, false);
 }
 
-TEST(PchCrashlogTest, PchCrashlog_TelemetryErrorReturn)
+TEST(CrashlogTest, Crashlog_TelemetryErrorReturn)
 {
     CPUInfo cpuInfo = {.clientAddr = 48,
                        .model = cd_spr,
@@ -142,7 +118,7 @@ TEST(PchCrashlogTest, PchCrashlog_TelemetryErrorReturn)
     EXPECT_EQ(supported, false);
 }
 
-TEST(PchCrashlogTest, PchCrashlog_TelemetryErrorCC)
+TEST(CrashlogTest, Crashlog_TelemetryErrorCC)
 {
     CPUInfo cpuInfo = {.clientAddr = 48,
                        .model = cd_spr,
@@ -170,7 +146,7 @@ TEST(PchCrashlogTest, PchCrashlog_TelemetryErrorCC)
     EXPECT_EQ(supported, false);
 }
 
-TEST(PchCrashlogTest, PchCrashlog_getNumberOfCrashlogAgents_ErrorReturn)
+TEST(CrashlogTest, Crashlog_getNumberOfCrashlogAgents_ErrorReturn)
 {
     CPUInfo cpuInfo = {.clientAddr = 48,
                        .model = cd_spr,
@@ -199,7 +175,7 @@ TEST(PchCrashlogTest, PchCrashlog_getNumberOfCrashlogAgents_ErrorReturn)
     EXPECT_EQ(crashlogAgents, NO_CRASHLOG_AGENTS);
 }
 
-TEST(PchCrashlogTest, PchCrashlog_getNumberOfCrashlogAgents_ErrorCC)
+TEST(CrashlogTest, Crashlog_getNumberOfCrashlogAgents_ErrorCC)
 {
     CPUInfo cpuInfo = {.clientAddr = 48,
                        .model = cd_spr,
@@ -227,7 +203,7 @@ TEST(PchCrashlogTest, PchCrashlog_getNumberOfCrashlogAgents_ErrorCC)
     EXPECT_EQ(crashlogAgents, NO_CRASHLOG_AGENTS);
 }
 
-TEST(PchCrashlogTest, PchCrashlog_getNumberOfCrashlogAgents)
+TEST(CrashlogTest, Crashlog_getNumberOfCrashlogAgents)
 {
     CPUInfo cpuInfo = {.clientAddr = 48,
                        .model = cd_spr,
@@ -255,7 +231,7 @@ TEST(PchCrashlogTest, PchCrashlog_getNumberOfCrashlogAgents)
     EXPECT_EQ(crashlogAgents, 3);
 }
 
-TEST(PchCrashlogTest, PchCrashlog_getCrashlogSizeForPMCAgent_ErrorReturn)
+TEST(CrashlogTest, Crashlog_getCrashlogSizeForPMCAgent_ErrorReturn)
 {
     CPUInfo cpuInfo = {.clientAddr = 48,
                        .model = cd_spr,
@@ -279,12 +255,11 @@ TEST(PchCrashlogTest, PchCrashlog_getCrashlogSizeForPMCAgent_ErrorReturn)
                               SetArgPointee<7>(cc),
                               Return(PECI_CC_DRIVER_ERR)));
 
-    crashlogAgentDetails agentDetails =
-        getCrashlogDetailsForPMCAgent(&cpuInfo, 0);
+    crashlogAgentDetails agentDetails = getCrashlogDetailsForAgent(&cpuInfo, 0);
     EXPECT_EQ(agentDetails.crashSpace, 0);
 }
 
-TEST(PchCrashlogTest, PchCrashlog_getCrashlogSizeForPMCAgent_ErrorCC)
+TEST(CrashlogTest, Crashlog_getCrashlogSizeForPMCAgent_ErrorCC)
 {
     CPUInfo cpuInfo = {.clientAddr = 48,
                        .model = cd_spr,
@@ -307,12 +282,11 @@ TEST(PchCrashlogTest, PchCrashlog_getCrashlogSizeForPMCAgent_ErrorCC)
         .WillRepeatedly(DoAll(SetArrayArgument<6>(returnValue, returnValue + 8),
                               SetArgPointee<7>(cc), Return(PECI_CC_SUCCESS)));
 
-    crashlogAgentDetails agentDetails =
-        getCrashlogDetailsForPMCAgent(&cpuInfo, 0);
+    crashlogAgentDetails agentDetails = getCrashlogDetailsForAgent(&cpuInfo, 0);
     EXPECT_EQ(agentDetails.crashSpace, 0);
 }
 
-TEST(PchCrashlogTest, PchCrashlog_getCrashlogSizeForPMCAgent)
+TEST(CrashlogTest, Crashlog_getCrashlogSizeForPMCAgent)
 {
     CPUInfo cpuInfo = {.clientAddr = 48,
                        .model = cd_spr,
@@ -336,46 +310,45 @@ TEST(PchCrashlogTest, PchCrashlog_getCrashlogSizeForPMCAgent)
         .WillRepeatedly(DoAll(SetArrayArgument<6>(returnValue, returnValue + 8),
                               SetArgPointee<7>(cc), Return(PECI_CC_SUCCESS)));
 
-    crashlogAgentDetails agentDetails =
-        getCrashlogDetailsForPMCAgent(&cpuInfo, 0);
+    crashlogAgentDetails agentDetails = getCrashlogDetailsForAgent(&cpuInfo, 0);
     EXPECT_EQ(agentDetails.crashSpace, 0xeeff);
 }
 
-TEST(PchCrashlogTest, PchCrashlog_collectCrashlogForPMCAgent_PointerError)
+TEST(CrashlogTest, Crashlog_collectCrashlogForAgent_PointerError)
 {
     CPUInfo cpuInfo = {};
     crashlogAgentDetails agentDetails = {};
     uint8_t agent = 0;
     acdStatus status =
-        collectCrashlogForPMCAgent(&cpuInfo, agent, &agentDetails, NULL);
+        collectCrashlogForAgent(&cpuInfo, agent, &agentDetails, NULL);
 
     EXPECT_EQ(status, ACD_INVALID_OBJECT);
 }
 
-TEST(PchCrashlogTest, PchCrashlog_collectCrashlogForPMCAgent_PointerError2)
+TEST(CrashlogTest, Crashlog_collectCrashlogForAgent_PointerError2)
 {
     crashlogAgentDetails agentDetails = {};
     uint64_t* rawCrashlog = (uint64_t*)(calloc(1, sizeof(uint32_t)));
     uint8_t agent = 0;
     acdStatus status =
-        collectCrashlogForPMCAgent(NULL, agent, &agentDetails, rawCrashlog);
+        collectCrashlogForAgent(NULL, agent, &agentDetails, rawCrashlog);
 
     EXPECT_EQ(status, ACD_INVALID_OBJECT);
 }
 
-TEST(PchCrashlogTest, PchCrashlog_collectCrashlogForPMCAgent_PointerError3)
+TEST(CrashlogTest, Crashlog_collectCrashlogForAgent_PointerError3)
 {
     CPUInfo cpuInfo = {};
     uint64_t* rawCrashlog = (uint64_t*)(calloc(1, sizeof(uint32_t)));
 
     uint8_t agent = 0;
     acdStatus status =
-        collectCrashlogForPMCAgent(&cpuInfo, agent, NULL, rawCrashlog);
+        collectCrashlogForAgent(&cpuInfo, agent, NULL, rawCrashlog);
 
     EXPECT_EQ(status, ACD_INVALID_OBJECT);
 }
 
-TEST(PchCrashlogTest, PchCrashlog_collectCrashlogForPMCAgent_ErrorReturn)
+TEST(CrashlogTest, Crashlog_collectCrashlogForAgent_ErrorReturn)
 {
     CPUInfo cpuInfo = {.clientAddr = 48,
                        .model = cd_spr,
@@ -407,13 +380,13 @@ TEST(PchCrashlogTest, PchCrashlog_collectCrashlogForPMCAgent_ErrorReturn)
                                          .crashSpace = crashlogSize};
 
     uint8_t agent = 0;
-    collectCrashlogForPMCAgent(&cpuInfo, agent, &agentDetails, rawCrashlog);
+    collectCrashlogForAgent(&cpuInfo, agent, &agentDetails, rawCrashlog);
 
     uint64_t* expected = (uint64_t*)returnValue;
     EXPECT_FALSE(std::is_permutation(rawCrashlog, rawCrashlog + 1, expected));
 }
 
-TEST(PchCrashlogTest, PchCrashlog_collectCrashlogForPMCAgent_ErrorCC)
+TEST(CrashlogTest, Crashlog_collectCrashlogForAgent_ErrorCC)
 {
     CPUInfo cpuInfo = {.clientAddr = 48,
                        .model = cd_spr,
@@ -444,13 +417,13 @@ TEST(PchCrashlogTest, PchCrashlog_collectCrashlogForPMCAgent_ErrorCC)
                                          .crashSpace = crashlogSize};
 
     uint8_t agent = 0;
-    collectCrashlogForPMCAgent(&cpuInfo, agent, &agentDetails, rawCrashlog);
+    collectCrashlogForAgent(&cpuInfo, agent, &agentDetails, rawCrashlog);
 
     uint64_t* expected = (uint64_t*)returnValue;
     EXPECT_FALSE(std::is_permutation(rawCrashlog, rawCrashlog + 1, expected));
 }
 
-TEST(PchCrashlogTest, PchCrashlog_collectCrashlogForPMCAgent)
+TEST(CrashlogTest, Crashlog_collectCrashlogForAgent)
 {
     CPUInfo cpuInfo = {.clientAddr = 48,
                        .model = cd_spr,
@@ -490,7 +463,7 @@ TEST(PchCrashlogTest, PchCrashlog_collectCrashlogForPMCAgent)
                                          .crashSpace = crashlogSize};
 
     uint8_t agent = 0;
-    collectCrashlogForPMCAgent(&cpuInfo, agent, &agentDetails, rawCrashlog);
+    collectCrashlogForAgent(&cpuInfo, agent, &agentDetails, rawCrashlog);
 
     uint64_t* expected = (uint64_t*)returnValue;
     EXPECT_TRUE(std::is_permutation(rawCrashlog, rawCrashlog + 1, expected));
@@ -504,7 +477,7 @@ TEST(PchCrashlogTest, PchCrashlog_collectCrashlogForPMCAgent)
         std::is_permutation(rawCrashlog + 2, rawCrashlog + 3, expected2));
 }
 
-TEST(PchCrashlogTest, PchCrashlog_storeCrashlog)
+TEST(CrashlogTest, Crashlog_storeCrashlog)
 {
     CPUInfo cpuInfo = {.clientAddr = 48,
                        .model = cd_spr,
@@ -532,9 +505,12 @@ TEST(PchCrashlogTest, PchCrashlog_storeCrashlog)
                                          .uniqueId = 0x284b9c1f,
                                          .crashSpace = crashlogSize};
 
+    guidCrashlogSectionMapping agentMap = {0x284b9c1f, "PMC_TRACE_INDEX", true};
+    agentsInfoInputFile agentsInfo = {&agentMap, 1};
+
     uint8_t agent = 5;
-    acdStatus ret =
-        storeCrashlog(crashdump.root, agent, &agentDetails, rawCrashlog);
+    acdStatus ret = storeCrashlog(crashdump.root, agent, &agentDetails,
+                                  rawCrashlog, &agentsInfo);
     EXPECT_EQ(ret, ACD_SUCCESS);
     EXPECT_STREQ(crashdump.root->child->string, "agent_id_0x284b9c1f");
     EXPECT_STREQ(crashdump.root->child->child->string, "#data_PMC_TRACE_INDEX");
@@ -542,44 +518,7 @@ TEST(PchCrashlogTest, PchCrashlog_storeCrashlog)
                  "AAECAwQFBgcQERITFBUWFyAhIiMkJSYn");
 }
 
-TEST(PchCrashlogTest, PchCrashlog_storeCrashlog_bufferSmall)
-{
-    CPUInfo cpuInfo = {.clientAddr = 48,
-                       .model = cd_spr,
-                       .coreMask = 0x0000db7e,
-                       .crashedCoreMask = 0x0,
-                       .sectionMask = 0,
-                       .chaCount = 0,
-                       .initialPeciWake = ON,
-                       .inputFile = {},
-                       .cpuidRead = {},
-                       .chaCountRead = {},
-                       .coreMaskRead = {},
-                       .dimmMask = 0};
-    std::vector<CPUInfo> cpusInfo = {cpuInfo};
-    TestCrashdump crashdump(cpusInfo);
-
-    uint8_t returnValue[24] = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
-                               0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
-                               0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27};
-
-    uint16_t crashlogSize = 0x1fff; // max size allowed is 5k
-    uint64_t* rawCrashlog = (uint64_t*)(returnValue);
-    crashlogAgentDetails agentDetails = {.entryType = 0x01,
-                                         .crashType = 0x02,
-                                         .uniqueId = 0x284b9c1f,
-                                         .crashSpace = crashlogSize};
-    uint8_t agent = 0;
-    acdStatus ret =
-        storeCrashlog(crashdump.root, agent, &agentDetails, rawCrashlog);
-    EXPECT_EQ(ret, ACD_FAILURE);
-    EXPECT_STREQ(crashdump.root->child->string, "agent_id_0x284b9c1f");
-    EXPECT_STREQ(crashdump.root->child->child->string, "_error");
-    EXPECT_STREQ(crashdump.root->child->child->valuestring,
-                 "String buffer too small");
-}
-
-TEST(PchCrashlogTest, base64Encode_base64Encode_1Byte)
+TEST(CrashlogTest, base64Encode_base64Encode_1Byte)
 {
     uint8_t src[1] = {0x41};
     char encodedString[4];
@@ -588,7 +527,7 @@ TEST(PchCrashlogTest, base64Encode_base64Encode_1Byte)
     EXPECT_STREQ(encodedString, "QQ==");
 }
 
-TEST(PchCrashlogTest, base64Encode_base64Encode_2Byte)
+TEST(CrashlogTest, base64Encode_base64Encode_2Byte)
 {
     uint8_t src[2] = {0x41, 0x7A};
     char encodedString[4] = {0, 0, 0, 0};
@@ -597,7 +536,7 @@ TEST(PchCrashlogTest, base64Encode_base64Encode_2Byte)
     EXPECT_STREQ(encodedString, "QXo=");
 }
 
-TEST(PchCrashlogTest, base64Encode_base64Encode_3Byte)
+TEST(CrashlogTest, base64Encode_base64Encode_3Byte)
 {
     uint8_t src[3] = {0x41, 0x7A, 0x35};
     char encodedString[4];
@@ -606,7 +545,7 @@ TEST(PchCrashlogTest, base64Encode_base64Encode_3Byte)
     EXPECT_STREQ(encodedString, "QXo1");
 }
 
-TEST(PchCrashlogTest, base64Encode_base64Encode_4Byte)
+TEST(CrashlogTest, base64Encode_base64Encode_4Byte)
 {
     uint8_t src[4] = {0x41, 0x7A, 0x7B, 0x2B};
     char encodedString[8];
@@ -615,7 +554,7 @@ TEST(PchCrashlogTest, base64Encode_base64Encode_4Byte)
     EXPECT_STREQ(encodedString, "QXp7Kw==");
 }
 
-TEST(PchCrashlogTest, base64Encode_base64Encode_CrashlogFile)
+TEST(CrashlogTest, base64Encode_base64Encode_CrashlogFile)
 {
     std::ostringstream buf;
     std::filesystem::path path = std::filesystem::current_path() / ".." /
@@ -694,7 +633,7 @@ TEST(PchCrashlogTest, base64Encode_base64Encode_CrashlogFile)
         "AAAA");
 }
 
-TEST(PchCrashlogTest, PchCrashlog_logError)
+TEST(CrashlogTest, Crashlog_logError)
 {
     cJSON* root = cJSON_CreateObject();
     logError(root, "this is error check");
@@ -702,7 +641,7 @@ TEST(PchCrashlogTest, PchCrashlog_logError)
     EXPECT_STREQ(root->child->valuestring, "this is error check");
 }
 
-TEST(PchCrashlogTest, PchCrashlog_logCrashlogEBG)
+TEST(CrashlogTest, Crashlog_logCrashlogEBG)
 {
     CPUInfo cpuInfo = {.clientAddr = 48,
                        .model = cd_spr,
@@ -719,8 +658,6 @@ TEST(PchCrashlogTest, PchCrashlog_logCrashlogEBG)
     std::vector<CPUInfo> cpusInfo = {cpuInfo};
     TestCrashdump crashdump(cpusInfo);
 
-    uint8_t returnTelemetrySupported[1] = {0x01};
-    uint8_t returnNoOfCrashlogAgents[1] = {0x07};
     uint8_t returnCrashlogDetails0[8] = {
         0x66, 0x55, 0x44, 0x33,
         0x22, 0x11, 0x06, 0x00}; // size = 0x06,agent_id = 0x11223344,
@@ -739,11 +676,8 @@ TEST(PchCrashlogTest, PchCrashlog_logCrashlogEBG)
                                  // 0x0006212223245566
     uint8_t cc = 0x40;
     EXPECT_CALL(*crashdump.libPeciMock, peci_Telemetry_Discovery)
-        .WillOnce(DoAll(SetArrayArgument<6>(returnTelemetrySupported,
-                                            returnTelemetrySupported + 1),
-                        SetArgPointee<7>(cc), Return(PECI_CC_SUCCESS)))
-        .WillOnce(DoAll(SetArrayArgument<6>(returnNoOfCrashlogAgents,
-                                            returnNoOfCrashlogAgents + 1),
+        .WillOnce(DoAll(SetArrayArgument<6>(returnCrashlogDetails0,
+                                            returnCrashlogDetails0 + 8),
                         SetArgPointee<7>(cc), Return(PECI_CC_SUCCESS)))
         .WillOnce(DoAll(SetArrayArgument<6>(returnCrashlogDetails0,
                                             returnCrashlogDetails0 + 8),
@@ -801,9 +735,12 @@ TEST(PchCrashlogTest, PchCrashlog_logCrashlogEBG)
         .WillRepeatedly(DoAll(SetArrayArgument<4>(returnValue, returnValue + 1),
                               SetArgPointee<5>(cc), Return(PECI_CC_SUCCESS)));
 
-    acdStatus ret = logCrashlogEBG(&cpuInfo, crashdump.root);
+    for (auto cpuinfo : crashdump.cpusInfo)
+    {
+        acdStatus ret = logCrashlogEBG(&cpuinfo, crashdump.root, 8);
+        EXPECT_EQ(ret, ACD_SUCCESS);
+    }
 
-    EXPECT_EQ(ret, ACD_SUCCESS);
     EXPECT_STREQ(crashdump.root->child->string, "agent_id_0x258e3c90");
     EXPECT_STREQ(crashdump.root->child->child->string, "#data_PMC_CRASH_INDEX");
     EXPECT_STREQ(crashdump.root->child->child->valuestring,
@@ -823,8 +760,9 @@ TEST(PchCrashlogTest, PchCrashlog_logCrashlogEBG)
                  "AAECAwQFBgcQERITFBUWFyAhIiMkJSYn");
 }
 
-TEST(PchCrashlogTest, PchCrashlog_isValidPCHAgent_AllValidGUIDs)
+TEST(CrashlogTest, Crashlog_isValidPCHAgent_AllValidGUIDs)
 {
+    CPUInfo cpuInfo = {};
     crashlogAgentDetails agentDetails[] = {{
                                                .entryType = 0,
                                                .crashType = 0,
@@ -844,15 +782,23 @@ TEST(PchCrashlogTest, PchCrashlog_isValidPCHAgent_AllValidGUIDs)
                                                .crashSpace = 0,
                                            }};
 
+    guidCrashlogSectionMapping agentMap[3] = {
+        {0x284b9c1f, "PMC_TRACE_INDEX", true},
+        {0x8899069f, "PMC_RESET_INDEX", true},
+        {0x258e3c90, "PMC_CRASH_INDEX", true}};
+    agentsInfoInputFile agentsInfo = {agentMap, 3};
+
     for (uint8_t i = 0; i < sizeof(agentDetails) / sizeof(*agentDetails); i++)
     {
-        acdStatus status = isValidPCHAgent(&agentDetails[i]);
+        acdStatus status =
+            isValidAgent(&cpuInfo, &agentDetails[i], &agentsInfo);
         EXPECT_EQ(status, ACD_SUCCESS);
     }
 }
 
-TEST(PchCrashlogTest, PchCrashlog_isValidPCHAgent_SomeValidSomeInValidGUIDs)
+TEST(CrashlogTest, Crashlog_isValidPCHAgent_SomeValidSomeInValidGUIDs)
 {
+    CPUInfo cpuInfo = {};
     crashlogAgentDetails agentDetails[] = {{
                                                .entryType = 0,
                                                .crashType = 0,
@@ -878,9 +824,15 @@ TEST(PchCrashlogTest, PchCrashlog_isValidPCHAgent_SomeValidSomeInValidGUIDs)
                                                .crashSpace = 0,
                                            }};
 
+    guidCrashlogSectionMapping agentMap[2] = {
+        {0x8899069f, "PMC_TRACE_INDEX", true},
+        {0x258e3c90, "PMC_CRASH_INDEX", true}};
+    agentsInfoInputFile agentsInfo = {agentMap, 2};
+
     for (uint8_t i = 0; i < sizeof(agentDetails) / sizeof(*agentDetails); i++)
     {
-        acdStatus status = isValidPCHAgent(&agentDetails[i]);
+        acdStatus status =
+            isValidAgent(&cpuInfo, &agentDetails[i], &agentsInfo);
         if (0 == i || 1 == i)
         {
             EXPECT_EQ(status, ACD_FAILURE);
@@ -892,7 +844,7 @@ TEST(PchCrashlogTest, PchCrashlog_isValidPCHAgent_SomeValidSomeInValidGUIDs)
     }
 }
 
-TEST(PchCrashlogTest, PchCrashlog_ReArmReadErrorReturn)
+TEST(CrashlogTest, Crashlog_ReArmReadErrorReturn)
 {
     CPUInfo cpuInfo = {.clientAddr = 48,
                        .model = cd_spr,
@@ -921,7 +873,7 @@ TEST(PchCrashlogTest, PchCrashlog_ReArmReadErrorReturn)
     EXPECT_EQ(error, ACD_FAILURE);
 }
 
-TEST(PchCrashlogTest, PchCrashlog_ReArmReadErrorCC)
+TEST(CrashlogTest, Crashlog_ReArmReadErrorCC)
 {
     CPUInfo cpuInfo = {.clientAddr = 48,
                        .model = cd_spr,
@@ -949,7 +901,7 @@ TEST(PchCrashlogTest, PchCrashlog_ReArmReadErrorCC)
     EXPECT_EQ(error, ACD_FAILURE);
 }
 
-TEST(PchCrashlogTest, PchCrashlog_ReArmWriteErrorReturn)
+TEST(CrashlogTest, Crashlog_ReArmWriteErrorReturn)
 {
     CPUInfo cpuInfo = {.clientAddr = 48,
                        .model = cd_spr,
@@ -982,7 +934,7 @@ TEST(PchCrashlogTest, PchCrashlog_ReArmWriteErrorReturn)
     EXPECT_EQ(error, ACD_FAILURE);
 }
 
-TEST(PchCrashlogTest, PchCrashlog_ReArmWriteErrorCC)
+TEST(CrashlogTest, Crashlog_ReArmWriteErrorCC)
 {
     CPUInfo cpuInfo = {.clientAddr = 48,
                        .model = cd_spr,
@@ -1015,7 +967,7 @@ TEST(PchCrashlogTest, PchCrashlog_ReArmWriteErrorCC)
     EXPECT_EQ(error, ACD_FAILURE);
 }
 
-TEST(PchCrashlogTest, PchCrashlog_ReArmReadWriteSuccess)
+TEST(CrashlogTest, Crashlog_ReArmReadWriteSuccess)
 {
     CPUInfo cpuInfo = {.clientAddr = 48,
                        .model = cd_spr,

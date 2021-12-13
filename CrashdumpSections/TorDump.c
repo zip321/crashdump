@@ -250,10 +250,9 @@ int logTorDumpICXSPR(CPUInfo* cpuInfo, cJSON* pJsonChild)
 }
 
 static const STorDumpVx sTorDumpVx[] = {
-    {cd_icx, logTorDumpICX1},
-    {cd_icx2, logTorDumpICXSPR},
-    {cd_icxd, logTorDumpICXSPR},
-    {cd_spr, logTorDumpICXSPR},
+    {cd_icx, logTorDumpICX1},      {cd_icx2, logTorDumpICXSPR},
+    {cd_icxd, logTorDumpICXSPR},   {cd_spr, logTorDumpICXSPR},
+    {cd_sprhbm, logTorDumpICXSPR},
 };
 
 /******************************************************************************
@@ -276,6 +275,107 @@ int logTorDump(CPUInfo* cpuInfo, cJSON* pJsonChild)
         if (cpuInfo->model == sTorDumpVx[i].cpuModel)
         {
             return sTorDumpVx[i].logTorDumpVx(cpuInfo, pJsonChild);
+        }
+    }
+
+    CRASHDUMP_PRINT(ERR, stderr, "Cannot find version for %s\n", __FUNCTION__);
+    return ACD_FAILURE;
+}
+
+int logTorSectionICX1(CPUInfo* cpuInfo, cJSON* pJsonChild,
+                      uint8_t u8PayloadBytes)
+{
+    (void)cpuInfo;
+    (void)pJsonChild;
+    (void)u8PayloadBytes;
+    // Not supported in A0
+    return ACD_SUCCESS;
+}
+
+int logTorSectionICXSPR(CPUInfo* cpuInfo, cJSON* outputNode,
+                        uint8_t u8PayloadBytes)
+{
+    int ret = 0;
+    uint8_t cc = 0;
+
+    bool skipCha = false;
+    bool skipFromInputFile =
+        getSkipFromNewInputFile(cpuInfo, sectionNames[TOR].name);
+
+    // Crashdump Get Frames
+    for (size_t cha = 0; cha < cpuInfo->chaCount; cha++)
+    {
+        for (uint32_t u32TorIndex = 0; u32TorIndex < TD_TORS_PER_CHA_ICX1;
+             u32TorIndex++)
+        {
+            for (uint32_t u32TorSubIndex = 0;
+                 u32TorSubIndex < TD_SUBINDEX_PER_TOR_ICX1; u32TorSubIndex++)
+            {
+                uint8_t* pu8TorCrashdumpData =
+                    (uint8_t*)(calloc(u8PayloadBytes, sizeof(uint8_t)));
+                bool bInvalid = false;
+                if (pu8TorCrashdumpData == NULL)
+                {
+                    CRASHDUMP_PRINT(ERR, stderr,
+                                    "Error allocating memory (size:%u)\n",
+                                    u8PayloadBytes);
+                    return ACD_ALLOCATE_FAILURE;
+                }
+                if (!skipCha)
+                {
+                    ret = peci_CrashDump_GetFrame(
+                        cpuInfo->clientAddr, PECI_CRASHDUMP_TOR, cha,
+                        (u32TorIndex | (u32TorSubIndex << 8)), u8PayloadBytes,
+                        pu8TorCrashdumpData, &cc);
+
+                    if (ret != PECI_CC_SUCCESS)
+                    {
+                        bInvalid = true;
+                        CRASHDUMP_PRINT(ERR, stderr,
+                                        "Error (%d) during GetFrame"
+                                        "(cha:%d index:%d sub-index:%d)\n",
+                                        ret, (int)cha, u32TorIndex,
+                                        u32TorSubIndex);
+                    }
+                }
+                torDumpJsonICXSPR(cha, u32TorIndex, u32TorSubIndex,
+                                  u8PayloadBytes, pu8TorCrashdumpData,
+                                  outputNode, bInvalid, cc, ret, skipCha);
+                free(pu8TorCrashdumpData);
+                if (PECI_CC_UA(cc) && !skipCha)
+                {
+                    if (skipFromInputFile)
+                    {
+                        skipCha = true;
+                    }
+                }
+            }
+        }
+        skipCha = false;
+    }
+    return ACD_SUCCESS;
+}
+
+static const STorSectionVx sTorSectionVx[] = {
+    {cd_icx, logTorSectionICX1},      {cd_icx2, logTorSectionICXSPR},
+    {cd_icxd, logTorSectionICXSPR},   {cd_spr, logTorSectionICXSPR},
+    {cd_sprhbm, logTorSectionICXSPR},
+};
+
+int logTorSection(CPUInfo* cpuInfo, cJSON* outputNode, uint8_t u8PayloadBytes)
+{
+    if (outputNode == NULL)
+    {
+        return ACD_INVALID_OBJECT;
+    }
+
+    for (uint32_t i = 0; i < (sizeof(sTorSectionVx) / sizeof(STorSectionVx));
+         i++)
+    {
+        if (cpuInfo->model == sTorSectionVx[i].cpuModel)
+        {
+            return sTorSectionVx[i].logTorSectionVx(cpuInfo, outputNode,
+                                                    u8PayloadBytes);
         }
     }
 

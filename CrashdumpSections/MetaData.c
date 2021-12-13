@@ -561,10 +561,9 @@ int getPpinDataICX1(CPUInfo* cpuInfo, char* cSectionName, cJSON* pJsonChild)
 }
 
 static const SPpinVx sSPpinVx[] = {
-    {cd_icx, getPpinDataICX1},
-    {cd_icx2, getPpinDataICX1},
-    {cd_icxd, getPpinDataICX1},
-    {cd_spr, getPpinDataICX1},
+    {cd_icx, getPpinDataICX1},    {cd_icx2, getPpinDataICX1},
+    {cd_icxd, getPpinDataICX1},   {cd_spr, getPpinDataICX1},
+    {cd_sprhbm, getPpinDataICX1},
 };
 
 /******************************************************************************

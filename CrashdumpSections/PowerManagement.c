@@ -423,10 +423,9 @@ acdStatus logPowerManagementSPRICX(CPUInfo* cpuInfo, cJSON* pJsonChild)
 }
 
 static const SPowerManagementVx sPowerManagementVx[] = {
-    {cd_icx, logPowerManagementSPRICX},
-    {cd_icx2, logPowerManagementSPRICX},
-    {cd_icxd, logPowerManagementSPRICX},
-    {cd_spr, logPowerManagementSPRICX},
+    {cd_icx, logPowerManagementSPRICX},    {cd_icx2, logPowerManagementSPRICX},
+    {cd_icxd, logPowerManagementSPRICX},   {cd_spr, logPowerManagementSPRICX},
+    {cd_sprhbm, logPowerManagementSPRICX},
 };
 
 /******************************************************************************

@@ -346,6 +346,7 @@ static bool getCoreMasks(std::vector<CPUInfo>& cpuInfo, cpuidState cpuState)
                 cpu.coreMaskRead.coreMaskValid = true;
                 break;
             case cd_spr:
+            case cd_sprhbm:
                 // RESOLVED_CORES EP Local PCI B31:D30:F6 Reg 0x80 and 0x84
                 retval = peci_RdEndPointConfigPciLocal(
                     cpu.clientAddr, 0, 31, 30, 6, 0x80, sizeof(coreMask0),
@@ -435,6 +436,7 @@ static bool getCHACounts(std::vector<CPUInfo>& cpuInfo, cpuidState cpuState)
                 cpu.chaCountRead.chaCountValid = true;
                 break;
             case cd_spr:
+            case cd_sprhbm:
                 // LLC_SLICE_EN EP Local PCI B31:D30:F3 Reg 0x9C and 0xA0
                 retval = peci_RdEndPointConfigPciLocal(
                     cpu.clientAddr, 0, 31, 30, 3, 0x9c, sizeof(chaMask0),
@@ -519,10 +521,20 @@ static void parseCPUInfo(CPUInfo& cpuInfo, cpuidState cpuState)
             cpuInfo.cpuidRead.source = cpuState;
             break;
         case SPR_MODEL:
-            CRASHDUMP_PRINT(INFO, stderr, "SPR detected (CPUID 0x%x)\n",
-                            cpuInfo.cpuidRead.cpuModel |
-                                cpuInfo.cpuidRead.stepping);
-            cpuInfo.model = cd_spr;
+            if (isSprHbm(&cpuInfo))
+            {
+                CRASHDUMP_PRINT(INFO, stderr, "SPR-HBM detected (CPUID 0x%x)\n",
+                                cpuInfo.cpuidRead.cpuModel |
+                                    cpuInfo.cpuidRead.stepping);
+                cpuInfo.model = cd_sprhbm;
+            }
+            else
+            {
+                CRASHDUMP_PRINT(INFO, stderr, "SPR detected (CPUID 0x%x)\n",
+                                cpuInfo.cpuidRead.cpuModel |
+                                    cpuInfo.cpuidRead.stepping);
+                cpuInfo.model = cd_spr;
+            }
             cpuInfo.cpuidRead.cpuidValid = true;
             cpuInfo.cpuidRead.source = cpuState;
             break;
@@ -647,12 +659,24 @@ static void logPlatformName(cJSON* parent)
     cJSON_AddStringToObject(parent, "platform_name", getUuid().c_str());
 }
 
+static void logCrashdumpVersion(cJSON* parent)
+{
+    cJSON_AddStringToObject(parent, "crashdump_ver", SI_CRASHDUMP_VER);
+}
+
+static void logMEVersion(cJSON* parent)
+{
+    cJSON_AddStringToObject(parent, "me_fw_ver", MD_NA);
+}
+
 static void logMetaDataCommon(cJSON* parent, std::string& logTime,
                               const std::string& triggerType)
 {
+    logMEVersion(parent);
     logTimestamp(parent, logTime);
     logTriggerType(parent, triggerType);
     logPlatformName(parent);
+    logCrashdumpVersion(parent);
 }
 
 static cJSON* addSectionLog(
@@ -791,20 +815,18 @@ void fillMetaDataCommon(cJSON* metaData, CPUInfo cpuInfo,
     {
         updateCurrentSection(sectionNames[Section::METADATA], &cpuInfo);
 
-        // Fill in common System Info
-        logSysInfoCommon(metaData);
-
         if (metaData != NULL)
         {
+            fillBmcVersion("bmc_fw_ver", metaData);
+            fillBiosId("bios_id", metaData);
             logMetaDataCommon(metaData, timestamp, triggerType);
-            logCrashdumpVersion(metaData, &cpuInfo, RECORD_TYPE_METADATA);
             logInputFileVersion(metaData, cpuInfo, inputFileInfo);
             if (inputFileInfo->unique)
             {
                 logSysInfoInputfile(&cpuInfo, metaData, inputFileInfo);
             }
-            logRunTime(metaData, sectionStart, timeStr);
-            logRunTime(metaData, crashdumpStart, "_total_time");
+            logSectionRunTime(metaData, sectionStart, timeStr);
+            logSectionRunTime(metaData, crashdumpStart, "_total_time");
         }
     }
     else
@@ -961,6 +983,22 @@ void createCrashdump(std::vector<CPUInfo>& cpuInfo,
                                 fillNewSection(root, &cpuInfo[j], j,
                                                "Uncore_RdIAMSR_CHA",
                                                &sectionStart, timeStr);
+                                fillNewSection(root, &cpuInfo[j], j,
+                                               "Uncore_RdTAD", &sectionStart,
+                                               timeStr);
+                            }
+                            else
+                            {
+                                fillSection(cpu, &cpuInfo[j], sectionNames[i],
+                                            sectionNames[i].fptr, &sectionStart,
+                                            timeStr);
+                            }
+                            break;
+                        case TOR:
+                            if (cJSON_IsTrue(useSections))
+                            {
+                                fillNewSection(root, &cpuInfo[j], j, "TOR",
+                                               &sectionStart, timeStr);
                             }
                             else
                             {
@@ -970,20 +1008,71 @@ void createCrashdump(std::vector<CPUInfo>& cpuInfo,
                             }
                             break;
                         case BIG_CORE:
-                            fillSection(cpu, &cpuInfo[j], sectionNames[i],
-                                        sectionNames[i].fptr, &sectionStart,
-                                        timeStr);
+                            fillNewSection(root, &cpuInfo[j], j,
+                                           BIG_CORE_SECTION_NAME, &sectionStart,
+                                           timeStr);
                             break;
                         case METADATA:
-                            fillMetaDataCPU(crashlogData, cpuInfo[j],
-                                            &inputFileInfo);
+                            if (cJSON_IsTrue(useSections))
+                            {
+                                fillNewSection(root, &cpuInfo[j], j,
+                                               "Metadata_Cpu", &sectionStart,
+                                               timeStr);
+                            }
+                            else
+                            {
+                                fillMetaDataCPU(crashlogData, cpuInfo[j],
+                                                &inputFileInfo);
+                            }
                             break;
                         case ADDRESS_MAP:
-                            if (cd_spr != cpuInfo[j].model)
+                            if ((cd_spr != cpuInfo[j].model) &&
+                                (cd_sprhbm != cpuInfo[j].model))
+                            {
+                                if (cJSON_IsTrue(useSections))
+                                {
+                                    fillNewSection(root, &cpuInfo[j], j,
+                                                   "Address_Map", &sectionStart,
+                                                   timeStr);
+                                }
+                                else
+                                {
+                                    fillSection(cpu, &cpuInfo[j],
+                                                sectionNames[i],
+                                                sectionNames[i].fptr,
+                                                &sectionStart, timeStr);
+                                }
+                            }
+                            break;
+                        case PM_INFO:
+                            if (cJSON_IsTrue(useSections))
+                            {
+
+                                fillNewSection(root, &cpuInfo[j], j,
+                                               "PowerManagement_PCI",
+                                               &sectionStart, timeStr);
+                                fillNewSection(root, &cpuInfo[j], j,
+                                               "PowerManagement_PCI_core",
+                                               &sectionStart, timeStr);
+                                fillNewSection(root, &cpuInfo[j], j,
+                                               "PowerManagement_Pll",
+                                               &sectionStart, timeStr);
+                                fillNewSection(root, &cpuInfo[j], j,
+                                               "PowerManagement_Dispatcher",
+                                               &sectionStart, timeStr);
+                            }
+                            else
                             {
                                 fillSection(cpu, &cpuInfo[j], sectionNames[i],
                                             sectionNames[i].fptr, &sectionStart,
                                             timeStr);
+                            }
+                            break;
+                        case CRASHLOG:
+                            if (cd_icx != cpuInfo[j].model)
+                            {
+                                fillNewSection(root, &cpuInfo[j], j, "crashlog",
+                                               &sectionStart, timeStr);
                             }
                             break;
                         default:

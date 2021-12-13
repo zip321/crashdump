@@ -19,8 +19,228 @@
 
 #include "nvd.h"
 
+#include "device_mgmt.h"
+#include "fis.h"
 #include "smbus_peci.h"
 #include "utils.h"
+
+static void logErrLogStatusAndEntries(uint32_t status, char* logName,
+                                      uint8_t logType, error_log_info* errorLog,
+                                      uint16_t numEntries, uint16_t seqNum,
+                                      cJSON* jsonChild)
+{
+    char jsonItemString[NVD_JSON_STRING_LEN];
+    cJSON* jsonLogType = cJSON_CreateObject();
+
+    // Add status object
+    if (status == RETURN_SUCCESS)
+    {
+        cd_snprintf_s(jsonItemString, NVD_JSON_STRING_LEN, NVD_UINT32_FMT,
+                      NVD_MB_SUCCESS);
+    }
+    else
+    {
+        cd_snprintf_s(jsonItemString, NVD_JSON_STRING_LEN, NVD_UINT32_FMT,
+                      NVD_MB_FAIL);
+    }
+    cJSON_AddStringToObject(jsonLogType, "status", jsonItemString);
+
+    // Determine entry size
+    uint8_t entrySize;
+    switch (logType)
+    {
+        case error_log_type_media:
+            entrySize = PMEM_MEDIA_LOG_ENTRY_SIZE;
+            break;
+        case error_log_type_thermal:
+        default:
+            entrySize = PMEM_THERMAL_LOG_ENTRY_SIZE;
+            break;
+    }
+
+    // Build payloads
+    char buf[MAX_PAYLOAD_STR];
+    for (int k = 0; k < numEntries; k++)
+    {
+        strcpy_s(buf, sizeof("0x"), "0x");
+
+        // Build single entry to buf, output_data start from the 9th byte of
+        // the error log entry
+        for (int i = entrySize - 9; i >= 0; i--)
+        {
+            cd_snprintf_s(jsonItemString, sizeof(jsonItemString), "%02x",
+                          errorLog[k].output_data[i]);
+            strcat_s(buf, sizeof(buf), jsonItemString);
+        }
+
+        // Add timestamp to buf
+        cd_snprintf_s(jsonItemString, sizeof(jsonItemString), "%016" PRIx64 "",
+                      errorLog[k].system_timestamp);
+        strcat_s(buf, sizeof(buf), jsonItemString);
+
+        // Add buf to payload# object
+        char strPayload[NVD_JSON_STRING_LEN];
+        cd_snprintf_s(strPayload, sizeof(strPayload), "payload%d", k);
+        cJSON_AddStringToObject(jsonLogType, strPayload, buf);
+    }
+
+    // Add sequence number
+    char strSeq[NVD_JSON_STRING_LEN];
+    cd_snprintf_s(strSeq, sizeof(strSeq), "seq%d", seqNum);
+    cJSON* jsonSeq = cJSON_CreateObject();
+    cJSON_AddItemToObject(jsonSeq, strSeq, jsonLogType);
+
+    // Add log name
+    cJSON_AddItemToObject(jsonChild, logName, jsonSeq);
+}
+
+static acdStatus readErrLogUsingInputFile(cJSON** logList,
+                                          const CPUInfo* const cpuInfo,
+                                          const uint8_t dimm, cJSON* jsonChild,
+                                          bool* const enable)
+{
+    *logList = getPMEMSectionErrLogList(cpuInfo->inputFile.bufferPtr,
+                                        "error_log", enable);
+    if (*logList == NULL)
+    {
+        if (cJSON_GetObjectItemCaseSensitive(jsonChild,
+                                             PMEM_FILE_ERR_LOG_KEY) == NULL)
+        {
+            cJSON_AddStringToObject(jsonChild, PMEM_FILE_ERR_LOG_KEY,
+                                    PMEM_FILE_ERR_LOG_ERR);
+        }
+        return ACD_INVALID_OBJECT;
+    }
+
+    if (*enable == false)
+    {
+        if (cJSON_GetObjectItemCaseSensitive(jsonChild, RECORD_ENABLE) == NULL)
+        {
+            cJSON_AddFalseToObject(jsonChild, RECORD_ENABLE);
+        }
+        return ACD_SECTION_DISABLE;
+    }
+
+    cJSON* itRegs = NULL;
+    cJSON* itParams = NULL;
+    inputErrLog errLog = {0};
+
+    cJSON_ArrayForEach(itRegs, *logList)
+    {
+        int position = 0;
+        cJSON_ArrayForEach(itParams, itRegs)
+        {
+            switch (position)
+            {
+                case PMEM_ERRLOG_NAME:
+                    errLog.name = itParams->valuestring;
+                    break;
+                case PMEM_ERRLOG_TYPE:
+                    errLog.type = (uint8_t)itParams->valueint;
+                    break;
+                case PMEM_ERRLOG_LEVEL:
+                    errLog.level = (uint8_t)itParams->valueint;
+                    break;
+                case PMEM_ERRLOG_MAX_SEQ_NUM:
+                    errLog.maxSeqNum = (uint16_t)itParams->valueint;
+                    break;
+                default:
+                    break;
+            }
+            position++;
+        }
+
+        RETURN_STATUS returnCode;
+        uint32_t numEntries;
+        error_log_info errLogs[255] = {0};
+        device_info_t device = {0};
+        device.device_addr.peci_address.peci_addr = cpuInfo->clientAddr;
+        device.device_addr.peci_address.slot = dimm;
+        device.device_addr.interface.iface = interface_peci;
+
+        for (int i = 0; i < errLog.maxSeqNum; i++)
+        {
+            returnCode = get_fw_error_logs(&device, errLog.level, errLog.type,
+                                           i, &errLogs[0], &numEntries);
+            logErrLogStatusAndEntries(returnCode, errLog.name, errLog.type,
+                                      &errLogs[0], numEntries, i, jsonChild);
+        }
+    }
+
+    return ACD_SUCCESS;
+}
+
+acdStatus logErrLogSection(const CPUInfo* const cpuInfo, const uint8_t dimm,
+                           cJSON* jsonChild)
+{
+    cJSON* regList = NULL;
+    cJSON* errLogSection = NULL;
+    bool enable = true;
+
+    CRASHDUMP_PRINT(INFO, stderr, "Logging %s on PECI address %d\n",
+                    "NVD Error Log", cpuInfo->clientAddr);
+
+    cJSON_AddItemToObject(jsonChild, "error_log",
+                          errLogSection = cJSON_CreateObject());
+    return readErrLogUsingInputFile(&regList, cpuInfo, dimm, errLogSection,
+                                    &enable);
+}
+
+static void logStatusAndPayload(uint32_t status, const void* payload,
+                                size_t payloadSize, cJSON* jsonChild)
+{
+    char jsonItemString[NVD_JSON_STRING_LEN];
+    const unsigned char* byte;
+    char buf[MAX_PAYLOAD_STR];
+
+    // Add status object
+    if (status == RETURN_SUCCESS)
+    {
+        cd_snprintf_s(jsonItemString, NVD_JSON_STRING_LEN, NVD_UINT32_FMT,
+                      NVD_MB_SUCCESS);
+    }
+    else
+    {
+        cd_snprintf_s(jsonItemString, NVD_JSON_STRING_LEN, NVD_UINT32_FMT,
+                      NVD_MB_FAIL);
+    }
+    cJSON_AddStringToObject(jsonChild, "status", jsonItemString);
+
+    // Add payload object
+    strcpy_s(buf, sizeof("0x"), "0x");
+    for (byte = payload; payloadSize--; --byte)
+    {
+        cd_snprintf_s(jsonItemString, sizeof(jsonItemString), "%02x", *byte);
+        strcat_s(buf, sizeof(buf), jsonItemString);
+    }
+    cJSON_AddStringToObject(jsonChild, "payload", buf);
+}
+
+static acdStatus logIdentifyDimm(const CPUInfo* const cpuInfo,
+                                 const uint8_t dimm, cJSON* jsonChild)
+{
+    device_addr_t device = {0};
+    fis_id_device_payload_t payload = {0};
+    RETURN_STATUS fisRet;
+
+    device.peci_address.peci_addr = cpuInfo->clientAddr;
+    device.interface.iface = interface_peci;
+    device.peci_address.slot = dimm;
+
+    fisRet = fw_cmd_device_id(&device, &payload);
+    if (fisRet == RETURN_SUCCESS)
+    {
+        cJSON* section = NULL;
+        cJSON_AddItemToObject(jsonChild, "identify_dimm",
+                              section = cJSON_CreateObject());
+
+        // payload json output start from last byte first
+        unsigned char* ptr = (unsigned char*)&payload.reserved4[48];
+        logStatusAndPayload(fisRet, ptr, sizeof(payload), section);
+    }
+
+    return ACD_SUCCESS;
+}
 
 static acdStatus readCSRUsingInputFile(cJSON** regList,
                                        const CPUInfo* const cpuInfo,
@@ -130,7 +350,9 @@ acdStatus fillNVDSection(const CPUInfo* const cpuInfo, const uint8_t cpuNum,
         cd_snprintf_s(jsonStr, sizeof(jsonStr), dimmMap[dimm], cpuNum);
         cJSON_AddItemToObject(jsonChild, jsonStr,
                               dimmSection = cJSON_CreateObject());
-        status = logCSRSection(cpuInfo, dimm, dimmSection);
+        logCSRSection(cpuInfo, dimm, dimmSection);
+        logIdentifyDimm(cpuInfo, dimm, dimmSection);
+        logErrLogSection(cpuInfo, dimm, dimmSection);
     }
     return status;
 }

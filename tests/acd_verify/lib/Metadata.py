@@ -111,10 +111,12 @@ class Metadata(Section):
 
         # Normal search()
         else:
+            valueIsValidType = ((type(value) == str) or (type(value) == bool) or
+                            (type(value) == int))
             if type(value) == dict:
                 for vKey in value:
                     self.search(f"{key}.{vKey}", value[vKey])
-            elif (type(value) == str) and not value.startswith('_'):
+            elif (valueIsValidType and not value.startswith('_')):
                 self.nRegs += 1  # count regs
                 if self.eHandler.isError(value):
                     error = self.eHandler.extractError(value)
@@ -135,10 +137,9 @@ class Metadata(Section):
         if cpuID:
             cpuID = cpuID.upper()
             # ICX
-            icxValidVal = ((cpuID == "0X606A6") or (cpuID == "0XFFFFFFF0"))
+            icxValidVal = (cpuID[:-1] == "0X606A")
             # SPR
-            sprValidVal = ((cpuID == "0X806F1") or (cpuID == "0XFFFFFFF0")
-                           or (cpuID == "0X806F2"))
+            sprValidVal = (cpuID[:-1] == "0X806F")
             if (not icxValidVal) and (not sprValidVal):
                 errMessage = f"{cpu} has CPUID invalid value {cpuID}"
                 self.healthCheckErrors.append(errMessage)

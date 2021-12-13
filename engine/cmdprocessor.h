@@ -23,8 +23,21 @@
 #include <search.h>
 
 #include "../CrashdumpSections/crashdump.h"
+#include "logger_internal.h"
 
-#define CD_NUM_OF_PECI_CMDS 10
+#define CD_NUM_OF_PECI_CMDS 19
+#define CMD_ERROR_VALUE "PECI_RETURN_ERROR"
+
+#define peci_addr "peci_addr"
+#define cpuid "cpuid"
+#define cpuid_source "cpuid_source"
+#define coremask_source "coremask_source"
+#define chacount_source "chacount_source"
+#define coremask "coremask"
+#define chacount "chacount"
+#define corecount "corecount"
+#define crashcorecount "crashcorecount"
+#define crashcoremask "crashcoremask"
 
 typedef struct
 {
@@ -36,6 +49,7 @@ typedef struct
 {
     cJSON* params;
     cJSON* outputPath;
+    cJSON* repeats;
 } PECICmdInput;
 
 typedef union
@@ -49,6 +63,8 @@ typedef struct
     EPECIStatus ret;
     uint8_t cc;
     RegVal val;
+    char* stringVal;  // contains the string that will be printed
+    bool printString; // if set it logger will print stringVal.
     uint8_t size;
     PECICPUID cpuID;
 } PECICmdOutput;
@@ -60,6 +76,9 @@ typedef struct
     cJSON* paramsTracker;
     cJSON* internalVarsTracker;
     char* internalVarName;
+    CPUInfo* cpuInfo;
+    cJSON* root;
+    LoggerStruct* logger;
 } CmdInOut;
 
 typedef struct
@@ -67,6 +86,7 @@ typedef struct
     uint32_t cpubusno_valid;
     uint32_t cpubusno;
     int bitToCheck;
+    uint8_t shift;
 } PostEnumBus;
 
 typedef struct

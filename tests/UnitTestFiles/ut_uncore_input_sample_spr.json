@@ -83,6 +83,106 @@
                 {"Params": ["Target", "CHA", "0x8004"], "Output": {"Size": 8, "Name": ["RDIAMSR_cha%d_0x8004"]}},
                 {"Params": ["Target", "CHA", "0x8005"], "Output": {"Size": 8, "Name": ["RDIAMSR_cha%d_0x8005"]}}
               ]}]
+        },
+        "crashlog": {
+          "RecordEnable": true,
+          "OutputPath": "crash_data/PROCESSORS/cpu%d/crashlog/",
+          "PreReq": {
+            "PECICmds": [
+              {
+                "Telemetry_Discovery" : [
+                  {
+                    "Params" : ["Target", 0, 0, 0, 0, 1],
+                    "InternalVar": "IsEnable",
+                    "Comment" :"Check and return if PCH crashlog is enabled"
+                  }, {
+                    "Params" : ["Target", 1, 4, 0, 0, 2],
+                    "InternalVar": "NumAgents",
+                    "Comment" : "Get number of supported crashlog agents"
+                  }
+                ]
+              }
+            ]
+          },
+          "PECICmds": [
+            {
+              "LogCrashlog": [
+                {"Params": ["IsEnable", "NumAgents"]}
+              ]
+            }
+          ],
+          "Agent" : {
+            "0x84ba0b36" : {
+              "Name" : "PCODE_CRASH_INDEX",
+              "Enabled" : true
+            },
+            "0x9956f43f" : {
+              "Name" : "PUNIT_CRASH_INDEX",
+              "Enabled" : true
+            },
+            "0xd5323b09" : {
+              "Name" : "OOBMSM_CRASH_INDEX",
+              "Enabled" : true
+            },
+            "0xf26d1478" : {
+              "Name" : "TOR_CRASH_INDEX",
+              "Enabled" : true
+            },
+            "0x258e3c90" : {
+              "Name" : "PMC_CRASH_INDEX",
+              "Enabled" : true
+            },
+            "0x8899069f" : {
+              "Name" : "PMC_RESET_INDEX",
+              "Enabled" : true
+            },
+            "0x284b9c1f" : {
+              "Name" : "PMC_TRACE_INDEX",
+              "Enabled" : true
+            },
+            "0x57c9bf20" : {
+              "Name" : "SUSRAM_INDEX",
+              "Enabled" : true
+            }
+          },
+          "ExcludeAgentIDs" : []
+        },
+        "TOR": {
+          "RecordEnable": true,
+          "RecordType": "0x09",
+          "ProductType": "0x1C",
+          "_skip_on_fail": true,
+          "OutputPath": "crash_data/PROCESSORS/cpu%d/TOR/",
+          "PreReq": {
+            "PECICmds": [
+              {
+                "CrashDump_Discovery" : [
+                  {
+                    "Params" : ["Target", 0, 0, 0, 0, 1],
+                    "InternalVar": "IsCrashdumpEnable",
+                    "Comment" : "Check and return if big core related crashdump is enabled"
+                  }, {
+                    "Params" : ["Target", 1, 0, 0, 0, 2],
+                    "InternalVar": "NumCrashdumpAgents",
+                    "Comment" : "Get number of supported crash agents"
+                  }, {
+                    "Params" : ["Target", 2, 0, 0, 0, 8],
+                    "InternalVar": "CrashdumpGUID",
+                    "Comment" : "Get the unique ID (GUID)"
+                  }, {
+                    "Params" : ["Target", 2, 1, 0, 0, 8],
+                    "InternalVar": "CrashdumpPayloadSize",
+                    "Comment" : "Get the payload size"
+                  }
+                ]
+              }
+            ]
+          },
+          "PECICmds": [
+            {
+              "LogTor": {"Params": ["IsEnable", "Agent", "GUID", "PayloadSize"]}
+            }
+          ]
         }
       }
     ]

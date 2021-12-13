@@ -41,6 +41,9 @@ static int readBigCoreInputRegs(SCrashdumpRegICX1* reg, cJSON* itItem)
             case bigCoreRegSize:
                 reg->size = itParams->valueint;
                 break;
+            case bigCoreRegIsLogged:
+                reg->isLogged = cJSON_IsTrue(itParams);
+                break;
             default:
                 break;
         }
@@ -207,6 +210,19 @@ static void logSqDataRaw(cJSON* sqDump, uint32_t u32CrashSize,
     cJSON_AddStringToObject(sqDump, jsonItemName, jsonItemString);
 }
 
+static bool inline isRegisterLogged(const bool limitedOutput, bool isLogged)
+{
+    if (limitedOutput)
+    {
+        if (isLogged)
+        {
+            return true;
+        }
+        return false;
+    }
+    return true;
+}
+
 /******************************************************************************
  *
  *  registerDump
@@ -218,7 +234,8 @@ static uint32_t registerDump(CPUInfo* cpuInfo, uint32_t u32CoreNum,
                              uint32_t u32ThreadNum, uint32_t u32CrashSize,
                              uint32_t u32NumReads, uint8_t* pu8Crashdump,
                              cJSON* pJsonChild, uint8_t cc, int retval,
-                             uint32_t version, cJSON** ppcore, cJSON** ppthread)
+                             uint32_t version, cJSON** ppcore, cJSON** ppthread,
+                             bool limitedOutput)
 {
     char jsonItemName[CD_JSON_STRING_LEN] = {0};
     char jsonItemString[CD_JSON_STRING_LEN] = {0};
@@ -267,25 +284,32 @@ static uint32_t registerDump(CPUInfo* cpuInfo, uint32_t u32CoreNum,
             return u32CrashSize;
         }
         u32DataIndex += ret;
-        if (u32NumReads < u32DataIndex)
+
+        if (isRegisterLogged(limitedOutput, reg.isLogged))
         {
-            if (retval != PECI_CC_SUCCESS)
+            if (u32NumReads < u32DataIndex)
             {
-                cd_snprintf_s(jsonItemString, CD_JSON_STRING_LEN,
-                              CD_JSON_FIXED_DATA_CC_RC, cc, retval);
-                cJSON_AddStringToObject(*ppthread, reg.name, jsonItemString);
-                return u32CrashSize;
+                if (retval != PECI_CC_SUCCESS)
+                {
+                    cd_snprintf_s(jsonItemString, CD_JSON_STRING_LEN,
+                                  CD_JSON_FIXED_DATA_CC_RC, cc, retval);
+                    cJSON_AddStringToObject(*ppthread, reg.name,
+                                            jsonItemString);
+                    return u32CrashSize;
+                }
+                else if (PECI_CC_UA(cc))
+                {
+                    cd_snprintf_s(jsonErrorString, CD_JSON_STRING_LEN,
+                                  CD_JSON_DATA_CC_RC, cc, retval);
+                    strcat_s(jsonItemString, CD_JSON_STRING_LEN,
+                             jsonErrorString);
+                    cJSON_AddStringToObject(*ppthread, reg.name,
+                                            jsonItemString);
+                    return u32CrashSize;
+                }
             }
-            else if (PECI_CC_UA(cc))
-            {
-                cd_snprintf_s(jsonErrorString, CD_JSON_STRING_LEN,
-                              CD_JSON_DATA_CC_RC, cc, retval);
-                strcat_s(jsonItemString, CD_JSON_STRING_LEN, jsonErrorString);
-                cJSON_AddStringToObject(*ppthread, reg.name, jsonItemString);
-                return u32CrashSize;
-            }
+            cJSON_AddStringToObject(*ppthread, reg.name, jsonItemString);
         }
-        cJSON_AddStringToObject(*ppthread, reg.name, jsonItemString);
     }
 
     return u32DataIndex;
@@ -295,7 +319,7 @@ static void crashdumpJsonICX(CPUInfo* cpuInfo, uint32_t u32CoreNum,
                              uint32_t u32ThreadNum, uint32_t u32CrashSize,
                              uint32_t u32NumReads, uint8_t* pu8Crashdump,
                              cJSON* pJsonChild, uint8_t cc, int retval,
-                             uint32_t version)
+                             uint32_t version, bool limitedOutput)
 {
     cJSON* core = NULL;
     cJSON* thread = NULL;
@@ -305,9 +329,10 @@ static void crashdumpJsonICX(CPUInfo* cpuInfo, uint32_t u32CoreNum,
     u32NumReads = (u32NumReads * 8) + 8;
 
     // get the registers section
-    uint32_t u32DataIndex = registerDump(
-        cpuInfo, u32CoreNum, u32ThreadNum, u32CrashSize, u32NumReads,
-        pu8Crashdump, pJsonChild, cc, retval, version, &core, &thread);
+    uint32_t u32DataIndex =
+        registerDump(cpuInfo, u32CoreNum, u32ThreadNum, u32CrashSize,
+                     u32NumReads, pu8Crashdump, pJsonChild, cc, retval, version,
+                     &core, &thread, limitedOutput);
 
     // if the # of bytes processed is greater or equal to # of bytes
     // remaining then return
@@ -315,36 +340,42 @@ static void crashdumpJsonICX(CPUInfo* cpuInfo, uint32_t u32CoreNum,
     {
         return;
     }
-    uint32_t sqDataSize = (u32CrashSize - u32DataIndex);
 
-    if (CD_JSON_NUM_SQ_ENTRIES * 8 == sqDataSize)
+    if (!limitedOutput)
     {
-        // if there is still data, it's the SQ data, so dump it
-        // Add the SQ Dump item to the Crashdump JSON structure
-        cJSON* sqDump;
-        cJSON_AddItemToObject(core, "SQ", sqDump = cJSON_CreateObject());
-        // Add the SQ data
-        for (uint32_t i = 0; i < sqDataSize; i++)
+        uint32_t sqDataSize = (u32CrashSize - u32DataIndex);
+
+        if (CD_JSON_NUM_SQ_ENTRIES * 8 == sqDataSize)
         {
-            logSqData(sqDump, thread, u32CrashSize, pu8Crashdump, &u32DataIndex,
-                      u32NumReads, cc, retval, i);
+            // if there is still data, it's the SQ data, so dump it
+            // Add the SQ Dump item to the Crashdump JSON structure
+            cJSON* sqDump;
+            cJSON_AddItemToObject(core, "SQ", sqDump = cJSON_CreateObject());
+            // Add the SQ data
+            for (uint32_t i = 0; i < sqDataSize; i++)
+            {
+                logSqData(sqDump, thread, u32CrashSize, pu8Crashdump,
+                          &u32DataIndex, u32NumReads, cc, retval, i);
+            }
         }
-    }
-    else
-    {
-        // log raw since amount of data remaining does not match the expected
-        // entries
-        cJSON* sqDump;
-        cJSON_AddItemToObject(core, "SQ", sqDump = cJSON_CreateObject());
-
-        char jsonItemString[CD_JSON_STRING_LEN] = {0};
-        cd_snprintf_s(jsonItemString, CD_JSON_STRING_LEN, "0x%x", sqDataSize);
-        cJSON_AddStringToObject(sqDump, "_error_unexpected_size",
-                                jsonItemString);
-        // Add the SQ data
-        for (uint32_t i = 0; i < sqDataSize; i++)
+        else
         {
-            logSqDataRaw(sqDump, u32CrashSize, pu8Crashdump, &u32DataIndex, i);
+            // log raw since amount of data remaining does not match the
+            // expected entries
+            cJSON* sqDump;
+            cJSON_AddItemToObject(core, "SQ", sqDump = cJSON_CreateObject());
+
+            char jsonItemString[CD_JSON_STRING_LEN] = {0};
+            cd_snprintf_s(jsonItemString, CD_JSON_STRING_LEN, "0x%x",
+                          sqDataSize);
+            cJSON_AddStringToObject(sqDump, "_error_unexpected_size",
+                                    jsonItemString);
+            // Add the SQ data
+            for (uint32_t i = 0; i < sqDataSize; i++)
+            {
+                logSqDataRaw(sqDump, u32CrashSize, pu8Crashdump, &u32DataIndex,
+                             i);
+            }
         }
     }
 }
@@ -353,7 +384,7 @@ static void crashdumpJsonSPR(CPUInfo* cpuInfo, uint32_t u32CoreNum,
                              uint32_t u32ThreadNum, uint32_t u32CrashSize,
                              uint32_t u32NumReads, uint8_t* pu8Crashdump,
                              cJSON* pJsonChild, uint8_t cc, int retval,
-                             uint32_t version)
+                             uint32_t version, bool limitedOutput)
 {
     cJSON* core = NULL;
     cJSON* thread = NULL;
@@ -363,9 +394,10 @@ static void crashdumpJsonSPR(CPUInfo* cpuInfo, uint32_t u32CoreNum,
     u32NumReads = (u32NumReads * 8) + 8;
 
     // get the registers section
-    uint32_t u32DataIndex = registerDump(
-        cpuInfo, u32CoreNum, u32ThreadNum, u32CrashSize, u32NumReads,
-        pu8Crashdump, pJsonChild, cc, retval, version, &core, &thread);
+    uint32_t u32DataIndex =
+        registerDump(cpuInfo, u32CoreNum, u32ThreadNum, u32CrashSize,
+                     u32NumReads, pu8Crashdump, pJsonChild, cc, retval, version,
+                     &core, &thread, limitedOutput);
 
     // if the # of bytes processed is greater or equal to # of bytes
     // remaining then return
@@ -374,44 +406,49 @@ static void crashdumpJsonSPR(CPUInfo* cpuInfo, uint32_t u32CoreNum,
         return;
     }
 
-    uint32_t sqDataSize = (u32CrashSize - u32DataIndex);
-    if ((CD_JSON_NUM_SPR_SQD_ENTRIES + CD_JSON_NUM_SPR_SQS_ENTRIES) * 8 ==
-        sqDataSize)
+    if (!limitedOutput)
     {
-        // if there is still data, it's the SQ data, so dump it
-        // Add the SQ Dump item to the Crashdump JSON structure
-        cJSON* sqDump;
-        // Add the SQD data
-        cJSON_AddItemToObject(core, "SQD", sqDump = cJSON_CreateObject());
-        for (uint32_t i = 0; i < CD_JSON_NUM_SPR_SQD_ENTRIES; i++)
+        uint32_t sqDataSize = (u32CrashSize - u32DataIndex);
+        if ((CD_JSON_NUM_SPR_SQD_ENTRIES + CD_JSON_NUM_SPR_SQS_ENTRIES) * 8 ==
+            sqDataSize)
         {
-            logSqData(sqDump, thread, u32CrashSize, pu8Crashdump, &u32DataIndex,
-                      u32NumReads, cc, retval, i);
-        }
+            // if there is still data, it's the SQ data, so dump it
+            // Add the SQ Dump item to the Crashdump JSON structure
+            cJSON* sqDump;
+            // Add the SQD data
+            cJSON_AddItemToObject(core, "SQD", sqDump = cJSON_CreateObject());
+            for (uint32_t i = 0; i < CD_JSON_NUM_SPR_SQD_ENTRIES; i++)
+            {
+                logSqData(sqDump, thread, u32CrashSize, pu8Crashdump,
+                          &u32DataIndex, u32NumReads, cc, retval, i);
+            }
 
-        // Add the SQS data
-        cJSON_AddItemToObject(core, "SQS", sqDump = cJSON_CreateObject());
-        for (uint32_t i = 0; i < CD_JSON_NUM_SPR_SQS_ENTRIES; i++)
-        {
-            logSqData(sqDump, thread, u32CrashSize, pu8Crashdump, &u32DataIndex,
-                      u32NumReads, cc, retval, i);
+            // Add the SQS data
+            cJSON_AddItemToObject(core, "SQS", sqDump = cJSON_CreateObject());
+            for (uint32_t i = 0; i < CD_JSON_NUM_SPR_SQS_ENTRIES; i++)
+            {
+                logSqData(sqDump, thread, u32CrashSize, pu8Crashdump,
+                          &u32DataIndex, u32NumReads, cc, retval, i);
+            }
         }
-    }
-    else
-    {
-        // log raw since amount of data remaining does not match the expected
-        // entries
-        cJSON* sqDump;
-        cJSON_AddItemToObject(core, "SQD", sqDump = cJSON_CreateObject());
-
-        char jsonItemString[CD_JSON_STRING_LEN] = {0};
-        cd_snprintf_s(jsonItemString, CD_JSON_STRING_LEN, "0x%x", sqDataSize);
-        cJSON_AddStringToObject(sqDump, "_error_unexpected_size",
-                                jsonItemString);
-        // Add the SQ data
-        for (uint32_t i = 0; i < sqDataSize; i++)
+        else
         {
-            logSqDataRaw(sqDump, u32CrashSize, pu8Crashdump, &u32DataIndex, i);
+            // log raw since amount of data remaining does not match the
+            // expected entries
+            cJSON* sqDump;
+            cJSON_AddItemToObject(core, "SQD", sqDump = cJSON_CreateObject());
+
+            char jsonItemString[CD_JSON_STRING_LEN] = {0};
+            cd_snprintf_s(jsonItemString, CD_JSON_STRING_LEN, "0x%x",
+                          sqDataSize);
+            cJSON_AddStringToObject(sqDump, "_error_unexpected_size",
+                                    jsonItemString);
+            // Add the SQ data
+            for (uint32_t i = 0; i < sqDataSize; i++)
+            {
+                logSqDataRaw(sqDump, u32CrashSize, pu8Crashdump, &u32DataIndex,
+                             i);
+            }
         }
     }
 }
@@ -510,7 +547,7 @@ void calculateWaitTimeInBigCore(cJSON* pJsonChild,
 bool isMaxTimeElapsed(CPUInfo* cpuInfo)
 {
     struct timespec timeRemaining = calculateTimeRemaining(
-        getDelayFromInputFile(cpuInfo, sectionNames[BIG_CORE].name));
+        getDelayFromInputFile(cpuInfo, BIG_CORE_SECTION_NAME));
 
     if (0 == tsToNanosecond(&timeRemaining))
     {
@@ -524,7 +561,7 @@ BigCoreCollectionStatus queryForCrashDataForThread(
     CPUInfo* cpuInfo, cJSON* pJsonChild, bool* waitForCoreCrashdump,
     uint32_t u32CoreNum, uint32_t u32ThreadNum, uint32_t* u32Threads,
     struct timespec bigCoreStartTime, executionStatus execStatus,
-    uint32_t maxCollectionTime)
+    uint32_t maxCollectionTime, bool limitedOutput)
 {
     uint32_t u32NumReads = 0;
     uint8_t cc = 0;
@@ -667,13 +704,14 @@ BigCoreCollectionStatus queryForCrashDataForThread(
                 crashdumpJsonICX(cpuInfo, u32CoreNum, threadId,
                                  u32CrashdumpSize, u32NumReads,
                                  (uint8_t*)pu64Crashdump, pJsonChild, cc, ret,
-                                 u32version);
+                                 u32version, limitedOutput);
                 break;
             case cd_spr:
+            case cd_sprhbm:
                 crashdumpJsonSPR(cpuInfo, u32CoreNum, threadId,
                                  u32CrashdumpSize, u32NumReads,
                                  (uint8_t*)pu64Crashdump, pJsonChild, cc, ret,
-                                 u32version);
+                                 u32version, limitedOutput);
                 break;
             default:
                 break;
@@ -681,12 +719,15 @@ BigCoreCollectionStatus queryForCrashDataForThread(
     }
     else
     {
-        if ((u32CrashdumpSize > CRASHDUMP_MAX_SIZE))
+        if (!limitedOutput)
         {
-            u32CrashdumpSize = CRASHDUMP_MAX_SIZE;
+            if ((u32CrashdumpSize > CRASHDUMP_MAX_SIZE))
+            {
+                u32CrashdumpSize = CRASHDUMP_MAX_SIZE;
+            }
+            rawdumpJsonICXSPR(u32CoreNum, threadId, u32CrashdumpSize,
+                              (uint8_t*)pu64Crashdump, pJsonChild, 0);
         }
-        rawdumpJsonICXSPR(u32CoreNum, threadId, u32CrashdumpSize,
-                          (uint8_t*)pu64Crashdump, pJsonChild, 0);
     }
 
     FREE(pu64Crashdump);
@@ -730,8 +771,7 @@ bool isIerrPresent(CPUInfo* cpuInfo)
         return false;
     }
 
-    if (FLAG_ENABLE == getFlagValueFromInputFile(cpuInfo,
-                                                 sectionNames[BIG_CORE].name,
+    if (FLAG_ENABLE == getFlagValueFromInputFile(cpuInfo, BIG_CORE_SECTION_NAME,
                                                  "_wait_on_mcerr"))
     {
         if (CHECK_BIT(mcaErrSrcLogRegData.uValue.u64, MCERR_INTERNAL_BIT))
@@ -749,9 +789,8 @@ bool isIerrPresent(CPUInfo* cpuInfo)
         }
     }
 
-    if (FLAG_DISABLE != getFlagValueFromInputFile(cpuInfo,
-                                                  sectionNames[BIG_CORE].name,
-                                                  "_wait_on_int_ierr"))
+    if (FLAG_DISABLE != getFlagValueFromInputFile(
+                            cpuInfo, BIG_CORE_SECTION_NAME, "WaitOnIntIerr"))
     {
         if (CHECK_BIT(mcaErrSrcLogRegData.uValue.u64, MSMI_IERR_INTERNAL))
         {
@@ -768,9 +807,8 @@ bool isIerrPresent(CPUInfo* cpuInfo)
         }
     }
 
-    if (FLAG_DISABLE != getFlagValueFromInputFile(cpuInfo,
-                                                  sectionNames[BIG_CORE].name,
-                                                  "_wait_on_ext_ierr"))
+    if (FLAG_DISABLE != getFlagValueFromInputFile(
+                            cpuInfo, BIG_CORE_SECTION_NAME, "WaitOnExtIerr"))
     {
         if (CHECK_BIT(mcaErrSrcLogRegData.uValue.u64, IERR_BIT))
         {
@@ -803,76 +841,36 @@ bool isIerrPresent(CPUInfo* cpuInfo)
  ******************************************************************************/
 acdStatus logCrashdumpICXSPR(CPUInfo* cpuInfo, cJSON* pJsonChild)
 {
-    int ret = 0;
-    uint8_t cc = 0;
-
-    // Crashdump Discovery
-    uint8_t u8CrashdumpDisabled = ICX_A0_CRASHDUMP_DISABLED;
-    ret = peci_CrashDump_Discovery(cpuInfo->clientAddr, PECI_CRASHDUMP_ENABLED,
-                                   0, 0, 0, sizeof(uint8_t),
-                                   &u8CrashdumpDisabled, &cc);
-    if (ret != PECI_CC_SUCCESS ||
-        u8CrashdumpDisabled == ICX_A0_CRASHDUMP_DISABLED)
-    {
-        CRASHDUMP_PRINT(ERR, stderr,
-                        "Crashdump is disabled (%d) during discovery "
-                        "(disabled:%d)\n",
-                        ret, u8CrashdumpDisabled);
-        return ACD_SUCCESS;
-    }
-
-    // Crashdump Number of Agents
-    uint16_t u16CrashdumpNumAgents;
-    ret = peci_CrashDump_Discovery(
-        cpuInfo->clientAddr, PECI_CRASHDUMP_NUM_AGENTS, 0, 0, 0,
-        sizeof(uint16_t), (uint8_t*)&u16CrashdumpNumAgents, &cc);
-    if (ret != PECI_CC_SUCCESS || u16CrashdumpNumAgents <= PECI_CRASHDUMP_CORE)
-    {
-        CRASHDUMP_PRINT(
-            ERR, stderr,
-            "Error occurred (%d) during discovery (num of agents:%d)\n", ret,
-            u16CrashdumpNumAgents);
-        return ACD_SUCCESS;
-    }
-
-    // Crashdump Agent Data
-    // Agent Unique ID
-    uint64_t u64UniqueId;
-    ret = peci_CrashDump_Discovery(
-        cpuInfo->clientAddr, PECI_CRASHDUMP_AGENT_DATA, PECI_CRASHDUMP_AGENT_ID,
-        PECI_CRASHDUMP_CORE, 0, sizeof(uint64_t), (uint8_t*)&u64UniqueId, &cc);
-    if (ret != PECI_CC_SUCCESS)
-    {
-        CRASHDUMP_PRINT(ERR, stderr,
-                        "Error occurred (%d) during discovery (id:0x%" PRIx64
-                        ")\n",
-                        ret, u64UniqueId);
-        return ACD_SUCCESS;
-    }
-
-    // Agent Payload Size
-    uint64_t u64PayloadExp;
-    ret = peci_CrashDump_Discovery(
-        cpuInfo->clientAddr, PECI_CRASHDUMP_AGENT_DATA,
-        PECI_CRASHDUMP_AGENT_PARAM, PECI_CRASHDUMP_CORE,
-        PECI_CRASHDUMP_PAYLOAD_SIZE, sizeof(uint64_t), (uint8_t*)&u64PayloadExp,
-        &cc);
-    if (ret != PECI_CC_SUCCESS)
-    {
-        CRASHDUMP_PRINT(
-            ERR, stderr,
-            "Error occurred (%d) during discovery (payload size:0x%" PRIx64
-            ")\n",
-            ret, u64PayloadExp);
-        return ACD_SUCCESS;
-    }
-
     bool waitForCoreCrashdump = false;
     struct timespec bigCoreStartTime = {0, 0};
     clock_gettime(CLOCK_MONOTONIC, &bigCoreStartTime);
     if (isIerrPresent(cpuInfo))
     {
         waitForCoreCrashdump = true;
+    }
+
+    bool isLimitedOutput;
+    if (FLAG_ENABLE == getFlagValueFromInputFile(cpuInfo, BIG_CORE_SECTION_NAME,
+                                                 "UseRegEnable"))
+    {
+        isLimitedOutput = true;
+        CRASHDUMP_PRINT(ERR, stderr,
+                        "\"UseRegEnable\" is set to true. Limiting output for "
+                        "Big Core section\n");
+    }
+    else
+    {
+        isLimitedOutput = false;
+    }
+
+    int8_t maxCollectionCores = getMaxCollectionCoresFromInputFile(cpuInfo);
+    if (maxCollectionCores <= 0)
+    {
+        CRASHDUMP_PRINT(ERR, stderr,
+                        "MaxCollectionCores field in the input file is set to "
+                        "%d, aborting big core execution.\n",
+                        maxCollectionCores);
+        return ACD_SUCCESS;
     }
 
     uint32_t maxCollectionTime;
@@ -897,7 +895,7 @@ acdStatus logCrashdumpICXSPR(CPUInfo* cpuInfo, cJSON* pJsonChild)
                 BigCoreCollectionStatus status = queryForCrashDataForThread(
                     cpuInfo, pJsonChild, &waitForCoreCrashdump, u32CoreNum,
                     u32ThreadNum, &u32Threads, bigCoreStartTime, execStatus,
-                    maxCollectionTime);
+                    maxCollectionTime, isLimitedOutput);
 
                 if (CD_SKIP_TO_NEXT_CORE == status)
                 {
@@ -912,6 +910,18 @@ acdStatus logCrashdumpICXSPR(CPUInfo* cpuInfo, cJSON* pJsonChild)
                 {
                     return ACD_ALLOCATE_FAILURE;
                 }
+
+                // only decrement for successful collection on a particular core
+                if ((0 == u32ThreadNum) &&
+                    (CD_CRASH_DATA_COLLECTION_SUCCESS == status))
+                {
+                    maxCollectionCores--;
+                }
+            }
+
+            if (maxCollectionCores <= 0)
+            {
+                break;
             }
         }
     } while (waitForCoreCrashdump & !(isMaxTimeElapsed(cpuInfo)));
@@ -919,11 +929,16 @@ acdStatus logCrashdumpICXSPR(CPUInfo* cpuInfo, cJSON* pJsonChild)
     return ACD_SUCCESS;
 }
 
+acdStatus logBigCoreSection(CPUInfo* cpuInfo, cJSON* pJsonChild)
+{
+    logCrashdumpICXSPR(cpuInfo, pJsonChild);
+    return ACD_SUCCESS;
+}
+
 static const SCrashdumpVx sCrashdumpVx[] = {
-    {cd_icx, logCrashdumpICXSPR},
-    {cd_icx2, logCrashdumpICXSPR},
-    {cd_icxd, logCrashdumpICXSPR},
-    {cd_spr, logCrashdumpICXSPR},
+    {cd_icx, logCrashdumpICXSPR},    {cd_icx2, logCrashdumpICXSPR},
+    {cd_icxd, logCrashdumpICXSPR},   {cd_spr, logCrashdumpICXSPR},
+    {cd_sprhbm, logCrashdumpICXSPR},
 };
 
 /******************************************************************************

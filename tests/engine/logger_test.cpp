@@ -127,13 +127,13 @@ TEST_F(ProcessLoggerTestFixture, LoggerCpuCycleTest)
     cmdInOut.out.cc = PECI_DEV_CC_SUCCESS;
     loggerStruct.nameProcessing.size = 4;
     loggerStruct.contextLogger.skipFlag = false;
+    cmdInOut.out.printString = false;
     cmdInOut.out.val.u64 = 0xdeadbeef;
     for (int cpu = 0; cpu < 2; cpu++)
     {
         loggerStruct.contextLogger.cpu = cpu;
-        status = Logger(&cmdInOut, outRoot, &loggerStruct);
+        Logger(&cmdInOut, outRoot, &loggerStruct);
     }
-    EXPECT_EQ(ACD_SUCCESS, status);
     cJSON* Object1 = cJSON_GetObjectItemCaseSensitive(outRoot, "cpu0");
     EXPECT_FALSE(Object1 == NULL);
     cJSON* Object2 = cJSON_GetObjectItemCaseSensitive(outRoot, "cpu1");
@@ -160,13 +160,13 @@ TEST_F(ProcessLoggerTestFixture, LoggerChaCycleTest)
     cmdInOut.out.cc = PECI_DEV_CC_SUCCESS;
     loggerStruct.nameProcessing.size = 4;
     loggerStruct.contextLogger.skipFlag = false;
+    cmdInOut.out.printString = false;
     cmdInOut.out.val.u64 = 0xdeadbeef;
     for (int cha = 0; cha < 2; cha++)
     {
         loggerStruct.contextLogger.cha = cha;
-        status = Logger(&cmdInOut, outRoot, &loggerStruct);
+        Logger(&cmdInOut, outRoot, &loggerStruct);
     }
-    EXPECT_EQ(ACD_SUCCESS, status);
     cJSON* Object1 = cJSON_GetObjectItemCaseSensitive(outRoot, "cbo0");
     EXPECT_FALSE(Object1 == NULL);
     cJSON* Object2 = cJSON_GetObjectItemCaseSensitive(outRoot, "cbo1");
@@ -193,13 +193,13 @@ TEST_F(ProcessLoggerTestFixture, LoggerCoreCycleTest)
     cmdInOut.out.cc = PECI_DEV_CC_SUCCESS;
     loggerStruct.nameProcessing.size = 4;
     loggerStruct.contextLogger.skipFlag = false;
+    cmdInOut.out.printString = false;
     cmdInOut.out.val.u64 = 0xdeadbeef;
     for (int core = 0; core < 2; core++)
     {
         loggerStruct.contextLogger.core = core;
-        status = Logger(&cmdInOut, outRoot, &loggerStruct);
+        Logger(&cmdInOut, outRoot, &loggerStruct);
     }
-    EXPECT_EQ(ACD_SUCCESS, status);
     cJSON* Object1 = cJSON_GetObjectItemCaseSensitive(outRoot, "core0");
     EXPECT_FALSE(Object1 == NULL);
     cJSON* Object2 = cJSON_GetObjectItemCaseSensitive(outRoot, "core1");
@@ -225,13 +225,13 @@ TEST_F(ProcessLoggerTestFixture, LoggerThreadCycleTest)
     cmdInOut.out.ret = PECI_CC_SUCCESS;
     cmdInOut.out.cc = PECI_DEV_CC_SUCCESS;
     loggerStruct.contextLogger.skipFlag = false;
+    cmdInOut.out.printString = false;
     cmdInOut.out.val.u64 = 0xdeadbeef;
     for (int thread = 0; thread < 2; thread++)
     {
         loggerStruct.contextLogger.thread = thread;
-        status = Logger(&cmdInOut, outRoot, &loggerStruct);
+        Logger(&cmdInOut, outRoot, &loggerStruct);
     }
-    EXPECT_EQ(ACD_SUCCESS, status);
     cJSON* Object1 = cJSON_GetObjectItemCaseSensitive(outRoot, "thread0");
     EXPECT_FALSE(Object1 == NULL);
     cJSON* Object2 = cJSON_GetObjectItemCaseSensitive(outRoot, "thread1");
@@ -250,9 +250,9 @@ TEST_F(ProcessLoggerTestFixture, LoggerPrintSkip)
     loggerStruct.nameProcessing.size = 4;
     loggerStruct.nameProcessing.sizeFromOutput = true;
     loggerStruct.contextLogger.skipFlag = true;
+    cmdInOut.out.printString = false;
     cmdInOut.out.val.u64 = 0xdeadbeef;
-    status = Logger(&cmdInOut, outRoot, &loggerStruct);
-    EXPECT_EQ(ACD_SUCCESS, status);
+    Logger(&cmdInOut, outRoot, &loggerStruct);
     cJSON* Object1 = cJSON_GetObjectItemCaseSensitive(outRoot, "RegisterName");
     EXPECT_FALSE(Object1 == NULL);
     EXPECT_STREQ(Object1->valuestring, "N/A");
@@ -270,9 +270,9 @@ TEST_F(ProcessLoggerTestFixture, LoggerPrintBadRet)
     loggerStruct.nameProcessing.size = 4;
     loggerStruct.nameProcessing.sizeFromOutput = true;
     loggerStruct.contextLogger.skipFlag = false;
+    cmdInOut.out.printString = false;
     cmdInOut.out.val.u64 = 0xdeadbeef;
-    status = Logger(&cmdInOut, outRoot, &loggerStruct);
-    EXPECT_EQ(ACD_SUCCESS, status);
+    Logger(&cmdInOut, outRoot, &loggerStruct);
     cJSON* Object1 = cJSON_GetObjectItemCaseSensitive(outRoot, "RegisterName");
     EXPECT_FALSE(Object1 == NULL);
     EXPECT_STREQ(Object1->valuestring, "0x0,CC:0x91,RC:0x3");
@@ -290,9 +290,9 @@ TEST_F(ProcessLoggerTestFixture, LoggerBadCC)
     loggerStruct.nameProcessing.size = 4;
     loggerStruct.nameProcessing.sizeFromOutput = true;
     loggerStruct.contextLogger.skipFlag = false;
+    cmdInOut.out.printString = false;
     cmdInOut.out.val.u64 = 0xdeadbeefdeadbeef;
-    status = Logger(&cmdInOut, outRoot, &loggerStruct);
-    EXPECT_EQ(ACD_SUCCESS, status);
+    Logger(&cmdInOut, outRoot, &loggerStruct);
     cJSON* Object1 = cJSON_GetObjectItemCaseSensitive(outRoot, "RegisterName");
     EXPECT_FALSE(Object1 == NULL);
     EXPECT_STREQ(Object1->valuestring, "0xdeadbeef,CC:0x90,RC:0x0");
@@ -310,9 +310,9 @@ TEST_F(ProcessLoggerTestFixture, LoggerGoodSize)
     loggerStruct.contextLogger.skipFlag = false;
     loggerStruct.nameProcessing.registerName = "RegisterName32";
     loggerStruct.nameProcessing.size = 4;
+    cmdInOut.out.printString = false;
     cmdInOut.out.val.u64 = 0xdeadbeef;
-    status = Logger(&cmdInOut, outRoot, &loggerStruct);
-    EXPECT_EQ(ACD_SUCCESS, status);
+    Logger(&cmdInOut, outRoot, &loggerStruct);
     cJSON* Object1 =
         cJSON_GetObjectItemCaseSensitive(outRoot, "RegisterName32");
     EXPECT_FALSE(Object1 == NULL);
@@ -320,8 +320,7 @@ TEST_F(ProcessLoggerTestFixture, LoggerGoodSize)
     loggerStruct.nameProcessing.registerName = "RegisterName64";
     cmdInOut.out.val.u64 = 0xdeadbeefdeadbeef;
     loggerStruct.nameProcessing.size = 8;
-    status = Logger(&cmdInOut, outRoot, &loggerStruct);
-    EXPECT_EQ(ACD_SUCCESS, status);
+    Logger(&cmdInOut, outRoot, &loggerStruct);
     cJSON* Object2 =
         cJSON_GetObjectItemCaseSensitive(outRoot, "RegisterName64");
     EXPECT_FALSE(Object2 == NULL);
@@ -329,8 +328,7 @@ TEST_F(ProcessLoggerTestFixture, LoggerGoodSize)
     loggerStruct.nameProcessing.registerName = "RegisterName16";
     cmdInOut.out.val.u64 = 0xbeef;
     loggerStruct.nameProcessing.size = 2;
-    status = Logger(&cmdInOut, outRoot, &loggerStruct);
-    EXPECT_EQ(ACD_SUCCESS, status);
+    Logger(&cmdInOut, outRoot, &loggerStruct);
     cJSON* Object3 =
         cJSON_GetObjectItemCaseSensitive(outRoot, "RegisterName16");
     EXPECT_FALSE(Object3 == NULL);
@@ -338,9 +336,28 @@ TEST_F(ProcessLoggerTestFixture, LoggerGoodSize)
     loggerStruct.nameProcessing.registerName = "RegisterName8";
     cmdInOut.out.val.u64 = 0xef;
     loggerStruct.nameProcessing.size = 1;
-    status = Logger(&cmdInOut, outRoot, &loggerStruct);
-    EXPECT_EQ(ACD_SUCCESS, status);
+    Logger(&cmdInOut, outRoot, &loggerStruct);
     cJSON* Object4 = cJSON_GetObjectItemCaseSensitive(outRoot, "RegisterName8");
     EXPECT_FALSE(Object4 == NULL);
     EXPECT_STREQ(Object4->valuestring, "0xef");
+}
+
+TEST_F(ProcessLoggerTestFixture, LoggingTest)
+{
+    LoggerStruct loggerStruct;
+    CmdInOut cmdInOut;
+    loggerStruct.pathParsing.numberOfTokens = 0;
+    loggerStruct.nameProcessing.extraLevel = false;
+    cmdInOut.out.ret = PECI_CC_SUCCESS;
+    cmdInOut.out.cc = PECI_DEV_CC_SUCCESS;
+    loggerStruct.nameProcessing.sizeFromOutput = true;
+    loggerStruct.contextLogger.skipFlag = false;
+    loggerStruct.nameProcessing.registerName = "String";
+    loggerStruct.nameProcessing.size = 4;
+    cmdInOut.out.printString = true;
+    cmdInOut.out.stringVal = "Testing";
+    Logger(&cmdInOut, outRoot, &loggerStruct);
+    cJSON* Object1 = cJSON_GetObjectItemCaseSensitive(outRoot, "String");
+    EXPECT_FALSE(Object1 == NULL);
+    EXPECT_STREQ(Object1->valuestring, "Testing");
 }

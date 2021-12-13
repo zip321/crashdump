@@ -29,10 +29,16 @@ bool IsGetCPUIDParamsValid(cJSON* params);
 bool IsPingParamsValid(cJSON* params);
 bool IsRdEndPointConfigMmioParamsValid(cJSON* params);
 bool IsRdEndPointConfigPciLocalParamsValid(cJSON* params);
+bool IsWrEndPointConfigPciLocalParamsValid(cJSON* params);
 bool IsRdIAMSRParamsValid(cJSON* params);
 bool IsRdPkgConfigParamsValid(cJSON* params);
+bool IsRdPkgConfigCoreParamsValid(cJSON* params);
 bool IsRdPostEnumBusParamsValid(cJSON* params);
 bool IsRdChaCountParamsValid(cJSON* params);
 bool IsValidHexString(char* str);
+bool IsTelemetry_DiscoveryParamsValid(cJSON* params);
+bool IsRdAndConcatenateParamsValid(cJSON* params);
+bool IsRdGlobalVarsValid(cJSON* params);
+bool IsSaveStrVarsValid(cJSON* params);
 
 #endif // CRASHDUMP_VALIDATOR_H

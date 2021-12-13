@@ -342,10 +342,9 @@ int logUncoreMcaSPRICX(CPUInfo* cpuInfo, cJSON* pJsonChild)
 }
 
 static const SUncoreMcaLogVx sUncoreMcaLogVx[] = {
-    {cd_icx, logUncoreMcaSPRICX},
-    {cd_icx2, logUncoreMcaSPRICX},
-    {cd_spr, logUncoreMcaSPRICX},
-    {cd_icxd, logUncoreMcaSPRICX},
+    {cd_icx, logUncoreMcaSPRICX},    {cd_icx2, logUncoreMcaSPRICX},
+    {cd_icxd, logUncoreMcaSPRICX},   {cd_spr, logUncoreMcaSPRICX},
+    {cd_sprhbm, logUncoreMcaSPRICX},
 };
 
 /******************************************************************************

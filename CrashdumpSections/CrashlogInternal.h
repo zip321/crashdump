@@ -17,26 +17,30 @@
  *
  ******************************************************************************/
 
-#ifndef PCHCRASHLOG_INTERNAL_H
-#define PCHCRASHLOG_INTERNAL_H
+#ifndef CRASHLOG_INTERNAL_H
+#define CRASHLOG_INTERNAL_H
 
 acdStatus initiateCrashlogTriggerRearm(const CPUInfo* const cpuInfo);
 acdStatus storeCrashlog(cJSON* const pJsonChild, const uint16_t agent,
                         const crashlogAgentDetails* const agentDetails,
-                        const uint64_t* const rawCrashlog);
+                        const uint64_t* const rawCrashlog,
+                        const agentsInfoInputFile* const agentsInfo);
 acdStatus
-    collectCrashlogForPMCAgent(const CPUInfo* const cpuInfo,
-                               const uint16_t agent,
-                               const crashlogAgentDetails* const agentDetails,
-                               uint64_t* const rawCrashlog);
-crashlogAgentDetails getCrashlogDetailsForPMCAgent(const CPUInfo* const cpuInfo,
-                                                   const uint16_t agent);
+    collectCrashlogForAgent(const CPUInfo* const cpuInfo, const uint16_t agent,
+                            const crashlogAgentDetails* const agentDetails,
+                            uint64_t* const rawCrashlog);
+crashlogAgentDetails getCrashlogDetailsForAgent(const CPUInfo* const cpuInfo,
+                                                const uint16_t agent);
 uint16_t getNumberOfCrashlogAgents(const CPUInfo* const cpuInfo);
 bool isTelemetrySupported(const CPUInfo* const cpuInfo);
 void logError(cJSON* const pJsonChild, const char* errorString);
-acdStatus logCrashlogEBG(const CPUInfo* const cpuInfo, cJSON* const pJsonChild);
-acdStatus isValidPCHAgent(const crashlogAgentDetails* const agentDetails);
+acdStatus logCrashlogEBG(const CPUInfo* const cpuInfo, cJSON* const pJsonChild,
+                         const uint16_t agentsNum);
+acdStatus isValidAgent(const CPUInfo* const cpuInfo,
+                       const crashlogAgentDetails* const agentDetails,
+                       const agentsInfoInputFile* const agentsInfo);
 acdStatus getAgentName(const crashlogAgentDetails* const agentDetails,
-                       char* sectionNameString, const uint16_t length);
+                       char* sectionNameString, const uint16_t length,
+                       const agentsInfoInputFile* const agentsInfo);
 
-#endif // PCHCRASHLOG_INTERNAL_H
+#endif // CRASHLOG_INTERNAL_H

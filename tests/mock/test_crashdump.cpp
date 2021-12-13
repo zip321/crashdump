@@ -140,9 +140,13 @@ void TestCrashdump::copyInputFilesToDefaultLocation(
 {
     try
     {
-        std::filesystem::create_directories(targetPath);
-        std::filesystem::copy(sourceFile, targetPath,
-                              std::filesystem::copy_options::recursive);
+        bool status = std::filesystem::create_directories(targetPath);
+
+        if (status)
+        {
+            std::filesystem::copy(sourceFile, targetPath,
+                                  std::filesystem::copy_options::recursive);
+        }
     }
     catch (std::exception& e)
     {

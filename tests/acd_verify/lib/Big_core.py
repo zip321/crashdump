@@ -40,10 +40,12 @@ class Big_core(Section):
             return None
 
     def search(self, key, value):
+        valueIsValidType = ((type(value) == str) or (type(value) == bool) or
+                            (type(value) == int))
         if type(value) == dict:
             for vKey in value:
                 self.search(f"{key}.{vKey}", value[vKey])
-        elif (type(value) == str) and not value.startswith('_'):
+        elif (valueIsValidType and not value.startswith('_')):
             self.nRegs += 1  # count regs
             lastKey = (key.split(".")[-1]) if ("." in key) else key
             if self.eHandler.isError(value):

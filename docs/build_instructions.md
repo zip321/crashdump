@@ -115,10 +115,10 @@ cp /usr/share/crashdump/input/crashdump_input_spr.json /tmp/crashdump/input
 
 ### NVD
 
-1. Ask Intel representative for host-memory repo access and follow repo
+1. Ask Intel representative for optane-memory repo access and follow repo
    instruction to setup .bb file.
 
-   [Github](https://github.com/Intel-BMC/host-memory)
+   [Github](https://github.com/Intel-BMC/optane-memory)
 
 2. Change `NVD_SECTION` flag to ON in CMakeList.txt
 
@@ -146,7 +146,7 @@ cp /usr/share/crashdump/input/crashdump_input_spr.json /tmp/crashdump/input
 1. Ask Intel representative for `Intel System Crashdump BMC assisted FRU Isolation`
    access and follow repo instruction to setup .bb file.
 
-   [Github](https://github.com/Intel-BMC/bafi)
+   [Intel Developer Zone](https://www.intel.com/content/www/us/en/secure/design/confidential/software-kits/kit-details.html?kitId=686344)
 
 2. Select one of below BAFI options:
 
@@ -166,13 +166,17 @@ cp /usr/share/crashdump/input/crashdump_input_spr.json /tmp/crashdump/input
 
 3. For Non-Yocto build only
 
+   Notes: Current BAFI source code is not fully compatible with -Werror flag.
+
    ```shell
-   git clone -b library git@github.com:Intel-BMC/bafi.git
+   # unzip BAFI source code inside crashdump source directory and named bafi
    cd bafi
    mv include bafi
 
    # Add the following line to CMakeList.txt
    include_directories (${BAFI_SOURCE_DIR})
+
+   Remove "-Werror" flag in CMakeList.txt
    ```
 
 ## Building and running Crashdump Unit tests

@@ -46,6 +46,15 @@ class Table(Region):
 
                                 errorList[key]["mca_core"] = errors[0]
                                 errorList[key]["mca_uncore"] = errors[1]
+                        elif section == "uncore":
+                            if hasattr(sectionObj, 'getTableInfo'):
+                                tables = sectionObj.getTableInfo()
+                                if type(tables) == list:
+                                    for bdf in tables:
+                                        bdfName = bdf['Section']
+                                        if 'regsWE' in bdf:
+                                            bdf.pop('regsWE')
+                                        tableInfo[key][bdfName] = bdf
                         else:
                             if hasattr(sectionObj, 'getTableInfo'):
                                 tableInfo[key][section] = sectionObj.getTableInfo()

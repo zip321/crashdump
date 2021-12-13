@@ -254,3 +254,54 @@ TEST_F(FlowTestFixture, fillNewSectionBadCCNodeTest)
         EXPECT_STREQ(postNodeTransaction->valuestring, "0x1122334455667788");
     }
 }
+
+TEST_F(FlowTestFixture, logTorDump_icx2_basicFlow)
+{
+    CPUInfo cpuInfo = {.clientAddr = 48,
+                       .model = cd_icx2,
+                       .coreMask = 0x0000db7e,
+                       .crashedCoreMask = 0,
+                       .sectionMask = 0,
+                       .chaCount = 2,
+                       .initialPeciWake = ON,
+                       .inputFile = {},
+                       .cpuidRead = {},
+                       .chaCountRead = {},
+                       .coreMaskRead = {},
+                       .dimmMask = 0};
+    std::vector<CPUInfo> cpusInfo = {cpuInfo};
+    TestCrashdump crashdump(cpusInfo);
+
+    cpusInfo[0].inputFile.bufferPtr = inRoot;
+
+    uint8_t cc = 0x80;
+    uint8_t u8CrashdumpEnabled = 0;
+    uint16_t u16CrashdumpNumAgents = 2;
+    uint8_t u64UniqueId[8] = {0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+    uint8_t PayloadExp[8] = {0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+    uint8_t Data[8] = {0xef, 0xbe, 0xad, 0xde, 0xef, 0xbe, 0xad, 0xde};
+
+    EXPECT_CALL(*crashdump.libPeciMock, peci_CrashDump_Discovery)
+        .WillOnce(DoAll(SetArgPointee<6>(u8CrashdumpEnabled),
+                        SetArgPointee<7>(cc), Return(PECI_CC_SUCCESS)))
+        .WillOnce(DoAll(SetArgPointee<6>(u16CrashdumpNumAgents),
+                        SetArgPointee<7>(cc), Return(PECI_CC_SUCCESS)))
+        .WillOnce(DoAll(SetArrayArgument<6>(u64UniqueId, u64UniqueId + 8),
+                        SetArgPointee<7>(cc), Return(PECI_CC_SUCCESS)))
+        .WillOnce(DoAll(SetArrayArgument<6>(PayloadExp, PayloadExp + 8),
+                        SetArgPointee<7>(cc), Return(PECI_CC_SUCCESS)));
+
+    EXPECT_CALL(*crashdump.libPeciMock, peci_CrashDump_GetFrame)
+        .WillRepeatedly(DoAll(SetArrayArgument<5>(Data, Data + 8),
+                              SetArgPointee<6>(cc), Return(PECI_CC_SUCCESS)));
+
+    struct timespec sectionStart;
+    clock_gettime(CLOCK_MONOTONIC, &sectionStart);
+    for (int cpu = 0; cpu < (int)cpusInfo.size(); cpu++)
+    {
+        sleep(1);
+        status = fillNewSection(outRoot, &cpusInfo[cpu], cpu, "TOR",
+                                &sectionStart, "_time:");
+        EXPECT_EQ(status, ACD_SUCCESS);
+    }
+}

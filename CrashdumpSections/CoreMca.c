@@ -224,10 +224,9 @@ int logCoreMcaICXSPR(CPUInfo* cpuInfo, cJSON* pJsonChild)
 }
 
 static const SCoreMcaLogVx sCoreMcaLogVx[] = {
-    {cd_icx, logCoreMcaICXSPR},
-    {cd_icx2, logCoreMcaICXSPR},
-    {cd_spr, logCoreMcaICXSPR},
-    {cd_icxd, logCoreMcaICXSPR},
+    {cd_icx, logCoreMcaICXSPR},    {cd_icx2, logCoreMcaICXSPR},
+    {cd_icxd, logCoreMcaICXSPR},   {cd_spr, logCoreMcaICXSPR},
+    {cd_sprhbm, logCoreMcaICXSPR},
 };
 
 /******************************************************************************

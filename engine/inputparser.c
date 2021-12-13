@@ -21,6 +21,28 @@
 
 #include "validator.h"
 
+char* decodeState(int value)
+{
+    switch (value)
+    {
+        case STARTUP:
+            return MD_STARTUP;
+            break;
+        case EVENT:
+            return MD_EVENT;
+            break;
+        case OVERWRITTEN:
+            return MD_OVERWRITTEN;
+            break;
+        case INVALID:
+            return MD_INVALID;
+            break;
+        default:
+            return MD_INVALID;
+            break;
+    }
+}
+
 void ReadLoops(cJSON* section, LoopOnFlags* loopOnFlags)
 {
     loopOnFlags->loopOnCPU = false;
@@ -85,6 +107,7 @@ acdStatus UpdateParams(CPUInfo* cpuInfo, CmdInOut* cmdInOut,
                 int mismatchtarget = 1;
                 int mismatchcha = 1;
                 int mismatchcorethread = 1;
+                int mismatchcore = 1;
                 strcmp_s(param->valuestring, strnlen_s(TARGET, sizeof(TARGET)),
                          TARGET, &mismatchtarget);
                 strcmp_s(param->valuestring, strnlen_s(CHA, sizeof(CHA)), CHA,
@@ -92,6 +115,8 @@ acdStatus UpdateParams(CPUInfo* cpuInfo, CmdInOut* cmdInOut,
                 strcmp_s(param->valuestring,
                          strnlen_s(CORETHREAD, sizeof(CORETHREAD)), CORETHREAD,
                          &mismatchcorethread);
+                strcmp_s(param->valuestring, strnlen_s(CORE, sizeof(CORE)),
+                         CORE, &mismatchcore);
                 if (mismatchtarget == 0)
                 {
                     cJSON_AddItemToObject(cmdInOut->paramsTracker, TARGET,
@@ -118,6 +143,14 @@ acdStatus UpdateParams(CPUInfo* cpuInfo, CmdInOut* cmdInOut,
                             ((loggerStruct->contextLogger.core * 2) +
                              loggerStruct->contextLogger.thread)));
                 }
+                else if (mismatchcore == 0)
+                {
+                    cJSON_AddItemToObject(cmdInOut->paramsTracker, CORE,
+                                          cJSON_CreateNumber(pos));
+                    cJSON_ReplaceItemInArray(
+                        cmdInOut->in.params, pos,
+                        cJSON_CreateNumber(loggerStruct->contextLogger.core));
+                }
                 else if (IsValidHexString(param->valuestring))
                 {
                     cJSON_ReplaceItemInArray(
@@ -127,9 +160,7 @@ acdStatus UpdateParams(CPUInfo* cpuInfo, CmdInOut* cmdInOut,
                 }
                 else
                 {
-                    errInfo->paramsPos = pos;
-                    errInfo->val = param->valuestring;
-                    return ACD_FAILURE_UPDATE_PARAMS;
+                    cmdInOut->out.stringVal = param->valuestring;
                 }
             }
         }

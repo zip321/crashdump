@@ -21,6 +21,9 @@
 
 #include <search.h>
 
+#include "../CrashdumpSections/BigCore.h"
+#include "../CrashdumpSections/Crashlog.h"
+#include "../CrashdumpSections/TorDump.h"
 #include "../CrashdumpSections/utils.h"
 #include "inputparser.h"
 #include "validator.h"
@@ -89,7 +92,23 @@ static acdStatus CrashDump_Discovery(CmdInOut* cmdInOut)
         params.addr, params.subopcode, params.param0, params.param1,
         params.param2, params.rx_len, (uint8_t*)&cmdInOut->out.val.u64,
         &cmdInOut->out.cc);
-    UpdateInternalVar(cmdInOut);
+
+    if (cmdInOut->out.ret != PECI_CC_SUCCESS)
+    {
+        if (cmdInOut->internalVarsTracker != NULL)
+        {
+            char jsonItemString[JSON_VAL_LEN];
+            cd_snprintf_s(jsonItemString, JSON_VAL_LEN, CMD_ERROR_VALUE);
+            cJSON_AddItemToObject(cmdInOut->internalVarsTracker,
+                                  cmdInOut->internalVarName,
+                                  cJSON_CreateString(jsonItemString));
+        }
+    }
+    else
+    {
+        UpdateInternalVar(cmdInOut);
+    }
+
     return ACD_SUCCESS;
 }
 
@@ -239,6 +258,53 @@ static acdStatus RdPkgConfig(CmdInOut* cmdInOut)
     return ACD_SUCCESS;
 }
 
+static acdStatus RdPkgConfigCore(CmdInOut* cmdInOut)
+{
+    struct peci_rd_pkg_cfg_msg params = {0};
+    int position = 0;
+    uint8_t core = 0;
+    cJSON* it = NULL;
+
+    if (!IsRdPkgConfigCoreParamsValid(cmdInOut->in.params))
+    {
+        return ACD_INVALID_RDPKGCONFIGCORE_PARAMS;
+    }
+
+    cJSON_ArrayForEach(it, cmdInOut->in.params)
+    {
+        switch (position)
+        {
+            case 0:
+                params.addr = it->valueint;
+                break;
+            case 1:
+                params.index = it->valueint;
+                break;
+            case 2:
+                core = it->valueint;
+                break;
+            case 3:
+                params.param = it->valueint;
+                break;
+            case 4:
+                params.rx_len = it->valueint;
+                cmdInOut->out.size = params.rx_len;
+                break;
+            default:
+                return ACD_INVALID_RDPKGCONFIG_PARAMS;
+        }
+        position++;
+    }
+    params.param = (core << 8 | params.param);
+
+    cmdInOut->out.ret =
+        peci_RdPkgConfig(params.addr, params.index, params.param, params.rx_len,
+                         (uint8_t*)&cmdInOut->out.val.u64, &cmdInOut->out.cc);
+
+    UpdateInternalVar(cmdInOut);
+    return ACD_SUCCESS;
+}
+
 static acdStatus RdEndPointConfigPciLocal(CmdInOut* cmdInOut)
 {
     struct peci_rd_end_pt_cfg_msg params = {0};
@@ -307,6 +373,60 @@ static acdStatus RdEndPointConfigPciLocal(CmdInOut* cmdInOut)
             }
             break;
     }
+    UpdateInternalVar(cmdInOut);
+    return ACD_SUCCESS;
+}
+
+static acdStatus WrEndPointConfigPciLocal(CmdInOut* cmdInOut)
+{
+    struct peci_wr_end_pt_cfg_msg params = {0};
+    int position = 0;
+    cJSON* it = NULL;
+
+    if (!IsWrEndPointConfigPciLocalParamsValid(cmdInOut->in.params))
+    {
+        return ACD_INVALID_WRENDPOINTCONFIGPCILOCAL_PARAMS;
+    }
+
+    cJSON_ArrayForEach(it, cmdInOut->in.params)
+    {
+        switch (position)
+        {
+            case 0:
+                params.addr = it->valueint;
+                break;
+            case 1:
+                params.params.pci_cfg.seg = it->valueint;
+                break;
+            case 2:
+                params.params.pci_cfg.bus = it->valueint;
+                break;
+            case 3:
+                params.params.pci_cfg.device = it->valueint;
+                break;
+            case 4:
+                params.params.pci_cfg.function = it->valueint;
+                break;
+            case 5:
+                params.params.pci_cfg.reg = it->valueint;
+                break;
+            case 6:
+                params.tx_len = it->valueint;
+                cmdInOut->out.size = params.tx_len;
+                break;
+            case 7:
+                params.value = it->valueint;
+                break;
+            default:
+                return ACD_INVALID_WRENDPOINTCONFIGPCILOCAL_PARAMS;
+        }
+        position++;
+    }
+    cmdInOut->out.ret = peci_WrEndPointPCIConfigLocal(
+        params.addr, params.params.pci_cfg.seg, params.params.pci_cfg.bus,
+        params.params.pci_cfg.device, params.params.pci_cfg.function,
+        params.params.pci_cfg.reg, params.tx_len, params.value,
+        &cmdInOut->out.cc);
     UpdateInternalVar(cmdInOut);
     return ACD_SUCCESS;
 }
@@ -392,6 +512,9 @@ static acdStatus RdPostEnumBus(CmdInOut* cmdInOut)
             case 2:
                 params.bitToCheck = it->valueint;
                 break;
+            case 3:
+                params.shift = (uint8_t)it->valueint;
+                break;
             default:
                 return ACD_INVALID_RDPOSTENUMBUS_PARAMS;
         }
@@ -400,13 +523,13 @@ static acdStatus RdPostEnumBus(CmdInOut* cmdInOut)
     if (0 == CHECK_BIT(params.cpubusno_valid, params.bitToCheck))
     {
         CRASHDUMP_PRINT(ERR, stderr,
-                        "Bus 30 does not contain valid post enumerated bus"
+                        "Bus %d does not contain valid post enumerated bus"
                         "number! (0x%x)\n",
-                        params.cpubusno_valid);
+                        params.bitToCheck, params.cpubusno_valid);
         return ACD_FAILURE;
     }
     cmdInOut->out.size = sizeof(uint8_t);
-    cmdInOut->out.val.u32[0] = ((params.cpubusno >> 16) & 0xff);
+    cmdInOut->out.val.u32[0] = ((params.cpubusno >> params.shift) & 0xff);
     UpdateInternalVar(cmdInOut);
 
     // Set ret & cc to success for logger
@@ -453,6 +576,447 @@ static acdStatus RdChaCount(CmdInOut* cmdInOut)
     return ACD_SUCCESS;
 }
 
+static acdStatus Telemetry_Discovery(CmdInOut* cmdInOut)
+{
+    struct peci_telemetry_disc_msg params = {0};
+    int position = 0;
+    cJSON* it = NULL;
+
+    if (!IsTelemetry_DiscoveryParamsValid(cmdInOut->in.params))
+    {
+        return ACD_INVALID_TELEMETRY_DISCOVERY_PARAMS;
+    }
+
+    cJSON_ArrayForEach(it, cmdInOut->in.params)
+    {
+        switch (position)
+        {
+            case 0:
+                params.addr = it->valueint;
+                break;
+            case 1:
+                params.subopcode = it->valueint;
+                break;
+            case 2:
+                params.param0 = it->valueint;
+                break;
+            case 3:
+                params.param1 = it->valueint;
+                break;
+            case 4:
+                params.param2 = it->valueint;
+                break;
+            case 5:
+                params.rx_len = it->valueint;
+                cmdInOut->out.size = params.rx_len;
+                break;
+            default:
+                return ACD_INVALID_TELEMETRY_DISCOVERY_PARAMS;
+        }
+        position++;
+    }
+    cmdInOut->out.ret = peci_Telemetry_Discovery(
+        params.addr, params.subopcode, params.param0, params.param1,
+        params.param2, params.rx_len, (uint8_t*)&cmdInOut->out.val,
+        &cmdInOut->out.cc);
+
+    if (cmdInOut->out.ret != PECI_CC_SUCCESS || PECI_CC_UA(cmdInOut->out.cc))
+    {
+        if (cmdInOut->internalVarsTracker != NULL)
+        {
+            char jsonItemString[JSON_VAL_LEN];
+            cd_snprintf_s(jsonItemString, JSON_VAL_LEN, CMD_ERROR_VALUE);
+            cJSON_AddItemToObject(cmdInOut->internalVarsTracker,
+                                  cmdInOut->internalVarName,
+                                  cJSON_CreateString(jsonItemString));
+        }
+    }
+    else
+    {
+        UpdateInternalVar(cmdInOut);
+    }
+
+    return ACD_SUCCESS;
+}
+
+uint8_t getIsTelemetrySupportedResult(CmdInOut* cmdInOut)
+{
+    cJSON* isTelemetryEnabledNode = cJSON_GetObjectItemCaseSensitive(
+        cmdInOut->internalVarsTracker, "IsEnable");
+
+    if (isTelemetryEnabledNode != NULL)
+    {
+
+        if (strcmp_s(CMD_ERROR_VALUE,
+                     strnlen(CMD_ERROR_VALUE, sizeof(CMD_ERROR_VALUE)),
+                     isTelemetryEnabledNode->valuestring, NULL) == 0)
+        {
+            return TELEMETRY_UNSUPPORTED;
+        }
+
+        return (uint8_t)strtoul(isTelemetryEnabledNode->valuestring, NULL, 16);
+    }
+
+    return TELEMETRY_UNSUPPORTED;
+}
+
+uint8_t getNumberofCrashlogAgents(CmdInOut* cmdInOut)
+{
+    cJSON* numberofCrashlogAgentsNode = cJSON_GetObjectItemCaseSensitive(
+        cmdInOut->internalVarsTracker, "NumAgents");
+
+    if (numberofCrashlogAgentsNode != NULL)
+    {
+        if (strcmp_s(CMD_ERROR_VALUE,
+                     strnlen(CMD_ERROR_VALUE, sizeof(CMD_ERROR_VALUE)),
+                     numberofCrashlogAgentsNode->valuestring, NULL) == 0)
+        {
+            return NO_CRASHLOG_AGENTS;
+        }
+
+        return (uint8_t)strtoul(numberofCrashlogAgentsNode->valuestring, NULL,
+                                16);
+    }
+
+    return NO_CRASHLOG_AGENTS;
+}
+
+static acdStatus LogCrashlog(CmdInOut* cmdInOut)
+{
+    cmdInOut->out.size = sizeof(uint8_t);
+    GenerateJsonPath(cmdInOut, cmdInOut->root, cmdInOut->logger);
+    if (getIsTelemetrySupportedResult(cmdInOut))
+    {
+        return logCrashlogSection(cmdInOut->cpuInfo,
+                                  cmdInOut->logger->nameProcessing.lastLevel,
+                                  getNumberofCrashlogAgents(cmdInOut));
+    }
+
+    return ACD_FAILURE;
+}
+
+static bool getIsCrashdumpEnableResult(CmdInOut* cmdInOut)
+{
+    cJSON* isCrashdumpEnableNode = cJSON_GetObjectItemCaseSensitive(
+        cmdInOut->internalVarsTracker, "IsCrashdumpEnable");
+
+    if (isCrashdumpEnableNode != NULL)
+    {
+        if (strcmp_s(CMD_ERROR_VALUE,
+                     strnlen(CMD_ERROR_VALUE, sizeof(CMD_ERROR_VALUE)),
+                     isCrashdumpEnableNode->valuestring, NULL) == 0)
+        {
+            return false;
+        }
+
+        uint8_t isEnabled =
+            (uint8_t)strtoul(isCrashdumpEnableNode->valuestring, NULL, 16);
+
+        if (isEnabled == ICX_A0_CRASHDUMP_DISABLED)
+        {
+            CRASHDUMP_PRINT(ERR, stderr,
+                            "Crashdump is disabled (%d) during discovery "
+                            "(disabled:%d)\n",
+                            cmdInOut->out.ret, isEnabled);
+            return false;
+        }
+        return true;
+    }
+    return false;
+}
+
+static bool getNumCrashdumpAgentsResult(CmdInOut* cmdInOut)
+{
+    cJSON* numCrashdumpAgentsNode = cJSON_GetObjectItemCaseSensitive(
+        cmdInOut->internalVarsTracker, "NumCrashdumpAgents");
+
+    if (numCrashdumpAgentsNode != NULL)
+    {
+        if (strcmp_s(CMD_ERROR_VALUE,
+                     strnlen(CMD_ERROR_VALUE, sizeof(CMD_ERROR_VALUE)),
+                     numCrashdumpAgentsNode->valuestring, NULL) == 0)
+        {
+            return false;
+        }
+
+        uint16_t numCrashdumpAgents =
+            (uint16_t)strtoul(numCrashdumpAgentsNode->valuestring, NULL, 16);
+        if (numCrashdumpAgents <= PECI_CRASHDUMP_CORE)
+        {
+            CRASHDUMP_PRINT(
+                ERR, stderr,
+                "Error occurred (%d) during discovery (num of agents:%d)\n",
+                cmdInOut->out.ret, numCrashdumpAgents);
+            return false;
+        }
+        return true;
+    }
+    return false;
+}
+
+static bool getCrashdumpGUIDResult(CmdInOut* cmdInOut)
+{
+    cJSON* crashdumpGUIDNode = cJSON_GetObjectItemCaseSensitive(
+        cmdInOut->internalVarsTracker, "CrashdumpGUID");
+
+    if (crashdumpGUIDNode != NULL)
+    {
+        if (strcmp_s(CMD_ERROR_VALUE,
+                     strnlen(CMD_ERROR_VALUE, sizeof(CMD_ERROR_VALUE)),
+                     crashdumpGUIDNode->valuestring, NULL) == 0)
+        {
+            return false;
+        }
+
+        return true;
+    }
+    return false;
+}
+
+static bool getCrashdumpPayloadSizeResult(CmdInOut* cmdInOut)
+{
+    cJSON* crashdumpPayloadSizeNode = cJSON_GetObjectItemCaseSensitive(
+        cmdInOut->internalVarsTracker, "CrashdumpPayloadSize");
+
+    if (crashdumpPayloadSizeNode != NULL)
+    {
+        if (strcmp_s(CMD_ERROR_VALUE,
+                     strnlen(CMD_ERROR_VALUE, sizeof(CMD_ERROR_VALUE)),
+                     crashdumpPayloadSizeNode->valuestring, NULL) == 0)
+        {
+            return false;
+        }
+        return true;
+    }
+    return false;
+}
+
+static acdStatus LogBigCore(CmdInOut* cmdInOut)
+{
+    cmdInOut->out.size = sizeof(uint8_t);
+    GenerateJsonPath(cmdInOut, cmdInOut->root, cmdInOut->logger);
+    if (getIsCrashdumpEnableResult(cmdInOut) &&
+        getNumCrashdumpAgentsResult(cmdInOut) &&
+        getCrashdumpGUIDResult(cmdInOut) &&
+        getCrashdumpPayloadSizeResult(cmdInOut))
+    {
+        return logBigCoreSection(cmdInOut->cpuInfo,
+                                 cmdInOut->logger->nameProcessing.lastLevel);
+    }
+
+    return ACD_FAILURE;
+}
+
+static acdStatus RdAndConcatenate(CmdInOut* cmdInOut)
+{
+    cJSON* it;
+    int position = 0;
+    uint32_t high32BitValue = 0;
+    uint32_t low32BitValue = 0;
+
+    if (!IsRdAndConcatenateParamsValid(cmdInOut->in.params))
+    {
+        return ACD_INVALID_RD_CONCATENATE_PARAMS;
+    }
+    cJSON_ArrayForEach(it, cmdInOut->in.params)
+    {
+        switch (position)
+        {
+            case 0:
+                low32BitValue = (uint32_t)it->valuedouble;
+                break;
+            case 1:
+                high32BitValue = (uint32_t)it->valuedouble;
+                break;
+            default:
+                return ACD_INVALID_RD_CONCATENATE_PARAMS;
+        }
+        position++;
+    }
+
+    cmdInOut->out.size = sizeof(uint64_t);
+    cmdInOut->out.val.u32[1] = high32BitValue;
+    cmdInOut->out.val.u32[0] = low32BitValue;
+
+    UpdateInternalVar(cmdInOut);
+
+    // Set ret & cc to success for logger
+    cmdInOut->out.ret = PECI_CC_SUCCESS;
+    cmdInOut->out.cc = PECI_DEV_CC_SUCCESS;
+    return ACD_SUCCESS;
+}
+
+static acdStatus RdGlobalVars(CmdInOut* cmdInOut)
+{
+    if (!IsRdGlobalVarsValid(cmdInOut->in.params))
+    {
+        return ACD_INVALID_GLOBAL_VARS_PARAMS;
+    }
+    cmdInOut->out.ret = PECI_CC_SUCCESS;
+    cmdInOut->out.cc = PECI_DEV_CC_SUCCESS;
+    int mismatchclientaddr = 1;
+    int mismatchcpuid = 1;
+    int mismatchcpuidsource = 1;
+    int mismatchcoremasksource = 1;
+    int mismatchchacountsource = 1;
+    int mismatchchcoremask = 1;
+    int mismatchchacount = 1;
+    int mismatchcorecount = 1;
+    int mismatchcrashcorecount = 1;
+    int mismatchcrashcoremask = 1;
+
+    strcmp_s(cmdInOut->out.stringVal, strnlen_s(peci_addr, sizeof(peci_addr)),
+             peci_addr, &mismatchclientaddr);
+    if (mismatchclientaddr == 0)
+    {
+        cmdInOut->out.size = sizeof(uint8_t);
+        cmdInOut->out.val.u64 = (uint64_t)cmdInOut->cpuInfo->clientAddr;
+        return ACD_SUCCESS;
+    }
+    strcmp_s(cmdInOut->out.stringVal, strnlen_s(cpuid, sizeof(cpuid)), cpuid,
+             &mismatchcpuid);
+    if (mismatchcpuid == 0)
+    {
+        cmdInOut->out.size = sizeof(uint32_t);
+        cmdInOut->out.val.u64 =
+            (uint64_t)(cmdInOut->cpuInfo->cpuidRead.cpuModel |
+                       cmdInOut->cpuInfo->cpuidRead.stepping);
+        return ACD_SUCCESS;
+    }
+    strcmp_s(cmdInOut->out.stringVal,
+             strnlen_s(cpuid_source, sizeof(cpuid_source)), cpuid_source,
+             &mismatchcpuidsource);
+    if (mismatchcpuidsource == 0)
+    {
+        cmdInOut->out.printString = true;
+        cmdInOut->out.stringVal =
+            decodeState((int)cmdInOut->cpuInfo->cpuidRead.source);
+        return ACD_SUCCESS;
+    }
+    strcmp_s(cmdInOut->out.stringVal,
+             strnlen_s(coremask_source, sizeof(coremask_source)),
+             coremask_source, &mismatchcoremasksource);
+    if (mismatchcoremasksource == 0)
+    {
+        cmdInOut->out.printString = true;
+        cmdInOut->out.stringVal =
+            decodeState((int)cmdInOut->cpuInfo->coreMaskRead.source);
+        return ACD_SUCCESS;
+    }
+    strcmp_s(cmdInOut->out.stringVal,
+             strnlen_s(chacount_source, sizeof(chacount_source)),
+             chacount_source, &mismatchchacountsource);
+    if (mismatchchacountsource == 0)
+    {
+        cmdInOut->out.printString = true;
+        cmdInOut->out.stringVal =
+            decodeState((int)cmdInOut->cpuInfo->chaCountRead.source);
+        return ACD_SUCCESS;
+    }
+    strcmp_s(cmdInOut->out.stringVal, strnlen_s(coremask, sizeof(coremask)),
+             coremask, &mismatchchcoremask);
+    if (mismatchchcoremask == 0)
+    {
+        cmdInOut->out.size = sizeof(uint64_t);
+        cmdInOut->out.val.u64 = (uint64_t)(cmdInOut->cpuInfo->coreMask);
+        return ACD_SUCCESS;
+    }
+    strcmp_s(cmdInOut->out.stringVal, strnlen_s(chacount, sizeof(chacount)),
+             chacount, &mismatchchacount);
+    if (mismatchchacount == 0)
+    {
+        cmdInOut->out.size = sizeof(uint8_t);
+        cmdInOut->out.val.u64 = (uint64_t)(cmdInOut->cpuInfo->chaCount);
+        return ACD_SUCCESS;
+    }
+    strcmp_s(cmdInOut->out.stringVal, strnlen_s(corecount, sizeof(corecount)),
+             corecount, &mismatchcorecount);
+    if (mismatchcorecount == 0)
+    {
+        cmdInOut->out.size = sizeof(uint8_t);
+        cmdInOut->out.val.u64 =
+            (uint64_t)(__builtin_popcountll(cmdInOut->cpuInfo->coreMask));
+        return ACD_SUCCESS;
+    }
+    strcmp_s(cmdInOut->out.stringVal,
+             strnlen_s(crashcorecount, sizeof(crashcorecount)), crashcorecount,
+             &mismatchcrashcorecount);
+    if (mismatchcrashcorecount == 0)
+    {
+        cmdInOut->out.size = sizeof(uint8_t);
+        cmdInOut->out.val.u64 = (uint64_t)(
+            __builtin_popcountll(cmdInOut->cpuInfo->crashedCoreMask));
+        return ACD_SUCCESS;
+    }
+    strcmp_s(cmdInOut->out.stringVal,
+             strnlen_s(crashcoremask, sizeof(crashcoremask)), crashcoremask,
+             &mismatchcrashcoremask);
+    if (mismatchcrashcoremask == 0)
+    {
+        cmdInOut->out.size = sizeof(uint64_t);
+        cmdInOut->out.val.u64 = (uint64_t)(cmdInOut->cpuInfo->crashedCoreMask);
+        return ACD_SUCCESS;
+    }
+    cmdInOut->out.printString = false;
+    cmdInOut->out.val.u64 = 0;
+    CRASHDUMP_PRINT(ERR, stderr, "Unknown RdGlobalVar command.\n");
+    return ACD_FAILURE;
+}
+
+static acdStatus SaveStrVars(CmdInOut* cmdInOut)
+{
+    if (!IsSaveStrVarsValid(cmdInOut->in.params))
+    {
+        return ACD_INVALID_SAVE_STR_VARS_PARAMS;
+    }
+    cmdInOut->out.ret = PECI_CC_SUCCESS;
+    cmdInOut->out.cc = PECI_DEV_CC_SUCCESS;
+    cmdInOut->out.printString = true;
+    return ACD_SUCCESS;
+}
+
+static uint64_t getPayloadExp(CmdInOut* cmdInOut)
+{
+    cJSON* payloadSize = cJSON_GetObjectItemCaseSensitive(
+        cmdInOut->internalVarsTracker, "CrashdumpPayloadSize");
+    if (payloadSize == NULL)
+    {
+        CRASHDUMP_PRINT(ERR, stderr, "Could not read CrashdumpPayloadSize\n");
+        return 0;
+    }
+    char* pCrashdumpPayloadSize = payloadSize->valuestring;
+    uint8_t u8PayloadExp = (uint8_t)strtol(pCrashdumpPayloadSize, NULL, 16);
+    return u8PayloadExp;
+}
+
+static acdStatus LogTor(CmdInOut* cmdInOut)
+{
+    cmdInOut->out.size = sizeof(uint8_t);
+    GenerateJsonPath(cmdInOut, cmdInOut->root, cmdInOut->logger);
+    if (getIsCrashdumpEnableResult(cmdInOut) &&
+        getNumCrashdumpAgentsResult(cmdInOut) &&
+        getCrashdumpGUIDResult(cmdInOut) &&
+        getCrashdumpPayloadSizeResult(cmdInOut))
+    {
+        uint8_t u8PayloadExp = getPayloadExp(cmdInOut);
+        if (u8PayloadExp > TOR_MAX_PAYLOAD_EXP ||
+            u8PayloadExp == TOR_INVALID_PAYLOAD_EXP)
+        {
+            CRASHDUMP_PRINT(
+                ERR, stderr,
+                "Error during discovery (Invalid exponent value: %d)\n",
+                u8PayloadExp);
+            return ACD_FAILURE;
+        }
+        uint8_t u8PayloadBytes = (1 << u8PayloadExp);
+        return logTorSection(cmdInOut->cpuInfo,
+                             cmdInOut->logger->nameProcessing.lastLevel,
+                             u8PayloadBytes);
+    }
+
+    return ACD_FAILURE;
+}
+
 static acdStatus (*cmds[CD_NUM_OF_PECI_CMDS])() = {
     (acdStatus(*)())CrashDump_Discovery,
     (acdStatus(*)())CrashDump_GetFrame,
@@ -460,23 +1024,41 @@ static acdStatus (*cmds[CD_NUM_OF_PECI_CMDS])() = {
     (acdStatus(*)())GetCPUID,
     (acdStatus(*)())RdEndPointConfigMmio,
     (acdStatus(*)())RdEndPointConfigPciLocal,
+    (acdStatus(*)())WrEndPointConfigPciLocal,
     (acdStatus(*)())RdIAMSR,
     (acdStatus(*)())RdPkgConfig,
+    (acdStatus(*)())RdPkgConfigCore,
     (acdStatus(*)())RdPostEnumBus,
     (acdStatus(*)())RdChaCount,
+    (acdStatus(*)())Telemetry_Discovery,
+    (acdStatus(*)())LogCrashlog,
+    (acdStatus(*)())LogBigCore,
+    (acdStatus(*)())RdAndConcatenate,
+    (acdStatus(*)())RdGlobalVars,
+    (acdStatus(*)())SaveStrVars,
+    (acdStatus(*)())LogTor,
 };
 
 static char* inputCMDs[CD_NUM_OF_PECI_CMDS] = {
-    "CrashDumpDiscovery",
+    "CrashDump_Discovery",
     "CrashDumpGetFrame",
     "Ping",
     "GetCPUID",
     "RdEndpointConfigMMIO",
     "RdEndpointConfigPCILocal",
+    "WrEndPointConfigPciLocal",
     "RdIAMSR",
     "RdPkgConfig",
+    "RdPkgConfigCore",
     "RdPostEnumBus",
     "RdChaCount",
+    "Telemetry_Discovery",
+    "LogCrashlog",
+    "LogBigCore",
+    "RdAndConcatenate",
+    "RdGlobalVars",
+    "SaveStrVars",
+    "LogTor",
 };
 
 acdStatus BuildCmdsTable(ENTRY* entry)

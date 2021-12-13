@@ -38,6 +38,8 @@
 #define TD_DATA_CC_RC ",CC:0x%x,RC:0x%x"
 #define TD_FIXED_DATA_CC_RC "0x0,CC:0x%x,RC:0x%x"
 #define SIZE_FAILURE 7
+#define TOR_MAX_PAYLOAD_EXP 7
+#define TOR_INVALID_PAYLOAD_EXP 0
 
 /******************************************************************************
  *
@@ -53,6 +55,14 @@ typedef struct
     int (*logTorDumpVx)(CPUInfo* cpuInfo, cJSON* pJsonChild);
 } STorDumpVx;
 
+typedef struct
+{
+    Model cpuModel;
+    int (*logTorSectionVx)(CPUInfo* cpuInfo, cJSON* pJsonChild,
+                           uint8_t u8PayloadBytes);
+} STorSectionVx;
+
 int logTorDump(CPUInfo* cpuInfo, cJSON* pJsonChild);
+int logTorSection(CPUInfo* cpuInfo, cJSON* outputNode, uint8_t u8PayloadBytes);
 
 #endif // TORDUMP_H

@@ -38,5 +38,6 @@ int getBIOSVersionDBus(char* biosVerStr, size_t biosVerStrSize);
 std::shared_ptr<sdbusplus::bus::match::match>
     startHostStateMonitor(std::shared_ptr<sdbusplus::asio::connection> conn);
 } // namespace crashdump
-
+int fillBmcVersion(char* cSectionName, cJSON* pJsonChild);
+int fillBiosId(char* cSectionName, cJSON* pJsonChild);
 int logSysInfoCommon(cJSON* pJsonChild);

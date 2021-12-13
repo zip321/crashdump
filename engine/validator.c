@@ -73,13 +73,48 @@ bool IsRdEndPointConfigPciLocalParamsValid(cJSON* params)
     return true;
 }
 
+bool IsWrEndPointConfigPciLocalParamsValid(cJSON* params)
+{
+    // TODO: Validate params
+    return true;
+}
+
 bool IsRdPkgConfigParamsValid(cJSON* params)
 {
     // TODO: Validate params
     return true;
 }
 
+bool IsRdPkgConfigCoreParamsValid(cJSON* params)
+{
+    // TODO: Validate params
+    return true;
+}
 bool IsRdPostEnumBusParamsValid(cJSON* params)
+{
+    // TODO: Validate params
+    return true;
+}
+
+bool IsTelemetry_DiscoveryParamsValid(cJSON* params)
+{
+    // TODO: Validate params
+    return true;
+}
+
+bool IsRdAndConcatenateParamsValid(cJSON* params)
+{
+    // TODO: Validate params
+    return true;
+}
+
+bool IsRdGlobalVarsValid(cJSON* params)
+{
+    // TODO: Validate params
+    return true;
+}
+
+bool IsSaveStrVarsValid(cJSON* params)
 {
     // TODO: Validate params
     return true;

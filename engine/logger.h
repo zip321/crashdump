@@ -22,47 +22,7 @@
 #include "../CrashdumpSections/crashdump.h"
 #include "CrashdumpSections/utils.h"
 #include "cmdprocessor.h"
-#define LOGGER_JSON_PATH_STRING_LEN 128
-#define MAX_NUM_PATH_LEVELS 11
-
-typedef struct
-{
-    char* pathStringToken;
-    char pathString[LOGGER_JSON_PATH_STRING_LEN];
-    char* pathLevelToken[MAX_NUM_PATH_LEVELS];
-    int numberOfTokens;
-} PathParsing;
-
-typedef struct
-{
-    char* registerName;
-    char* sectionName;
-    bool extraLevel;
-    bool logRegister;
-    uint8_t size;
-    bool sizeFromOutput;
-    cJSON* lastLevel;
-    int rootAtLevel;
-    cJSON* rootCommonJson;
-} NameProcessing;
-
-typedef struct
-{
-    uint8_t cpu;
-    uint8_t core;
-    uint8_t thread;
-    uint8_t cha;
-    bool skipFlag;
-    bool skipOnFailFromInputFile;
-    int version;
-} ContextLogger;
-
-typedef struct
-{
-    PathParsing pathParsing;
-    NameProcessing nameProcessing;
-    ContextLogger contextLogger;
-} LoggerStruct;
+#include "logger_internal.h"
 
 void Logger(CmdInOut* cmdInOut, cJSON* root, LoggerStruct* loggerStruct);
 acdStatus GetPath(cJSON* OutputJSON, LoggerStruct* loggerStruct);
@@ -90,5 +50,6 @@ void logRecordDisabled(CmdInOut* cmdInOut, cJSON* root,
 #define LOGGER_CBO "cbo%d"
 #define LOGGER_CBO_UC "CBO%d"
 #define LOGGER_CHA "cha%d"
+#define LOGGER_REPEAT "%d"
 
 #endif // LOGGER_H

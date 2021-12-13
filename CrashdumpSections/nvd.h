@@ -24,13 +24,18 @@
 
 #include "crashdump.h"
 
-#define NVD_JSON_STRING_LEN 32
+#define NVD_JSON_STRING_LEN 64
 #define NVD_UINT32_FMT "0x%" PRIx32 ""
 #define NVD_RC "RC:0x%x"
 #define NVD_FILE_CSR_KEY "_input_file_nvd_csr"
 #define NVD_FILE_CSR_ERR "Error parsing nvd csr section"
 #define NVD_MAX_DIMM 16
 #define NVD_DIMM_MAP_STR_LEN 10
+#define MAX_PAYLOAD_STR 2048
+#define PMEM_FILE_ERR_LOG_KEY "_input_file_nvd_error_log"
+#define PMEM_FILE_ERR_LOG_ERR "Error parsing nvd error_log section"
+#define PMEM_THERMAL_LOG_ENTRY_SIZE 16
+#define PMEM_MEDIA_LOG_ENTRY_SIZE 32
 
 typedef struct
 {
@@ -46,6 +51,28 @@ enum NVD_CSR
     NVD_CSR_DEV,
     NVD_CSR_FUNC,
     NVD_CSR_OFFSET,
+};
+
+enum NVD_API_STATUS
+{
+    NVD_MB_FAIL,
+    NVD_MB_SUCCESS,
+};
+
+typedef struct
+{
+    char* name;
+    uint8_t type;
+    uint8_t level;
+    uint16_t maxSeqNum;
+} inputErrLog;
+
+enum PMEM_ERR_LOG
+{
+    PMEM_ERRLOG_NAME,
+    PMEM_ERRLOG_TYPE,
+    PMEM_ERRLOG_LEVEL,
+    PMEM_ERRLOG_MAX_SEQ_NUM,
 };
 
 acdStatus fillNVDSection(const CPUInfo* const cpuInfo, const uint8_t cpuNum,

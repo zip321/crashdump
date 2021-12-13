@@ -76,7 +76,7 @@ TEST_F(InputParserTestFixture, InputParserUpdateParams)
     cmdInOut.in.params = cJSON_Parse(
         R"(["Target", 0, 0, "PostEnumBusInvalid", 26, 0, "0x201A4", 6, 4])");
     status = UpdateParams(&cpusInfo[0], &cmdInOut, &loggerStruct, &errInfo);
-    EXPECT_EQ(ACD_FAILURE_UPDATE_PARAMS, status);
+    EXPECT_EQ(ACD_SUCCESS, status);
 }
 
 TEST_F(InputParserTestFixture, InputParserSingle)
@@ -127,7 +127,7 @@ TEST_F(InputParserTestFixture, InputParserSingleInvalidTarget)
     LoggerStruct loggerStruct;
     cmdInOut.in.params = cJSON_Parse(R"(["TargetInvalid", 0, 0, "0x10"])");
     status = UpdateParams(&cpusInfo[0], &cmdInOut, &loggerStruct, &errInfo);
-    EXPECT_EQ(ACD_FAILURE_UPDATE_PARAMS, status);
+    EXPECT_EQ(ACD_SUCCESS, status);
 }
 
 TEST_F(InputParserTestFixture, InputParserSingleInvalidHexString)
@@ -136,5 +136,5 @@ TEST_F(InputParserTestFixture, InputParserSingleInvalidHexString)
     LoggerStruct loggerStruct;
     cmdInOut.in.params = cJSON_Parse(R"(["Target", 0, 0, "0x10Invalid"])");
     status = UpdateParams(&cpusInfo[0], &cmdInOut, &loggerStruct, &errInfo);
-    EXPECT_EQ(ACD_FAILURE_UPDATE_PARAMS, status);
+    EXPECT_EQ(ACD_SUCCESS, status);
 }

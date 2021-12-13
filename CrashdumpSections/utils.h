@@ -62,7 +62,7 @@
 #define SET_BIT(val, pos) ((val) |= ((uint64_t)1 << ((uint64_t)pos)))
 #define CLEAR_BIT(val, pos) ((val) &= ~((uint64_t)1 << ((uint64_t)pos)))
 #define CHECK_BIT(val, pos) ((val) & ((uint64_t)1 << ((uint64_t)pos)))
-#define CPU_STR_LEN 5
+#define CPU_STR_LEN 7
 #define NAME_STR_LEN 255
 #define DEFAULT_VALUE -1
 
@@ -72,6 +72,7 @@ uint32_t bitField(uint32_t offset, uint32_t size, uint32_t val);
 
 // crashdump_input_xxx.json #define(s) and c-helper functions
 #define RECORD_ENABLE "_record_enable"
+#define RECORD_ENABLE_SECTIONS "RecordEnable"
 #define CD_ENABLE 0
 #define UT_REG_NAME_LEN 32
 #define UT_REG_DWORD 4
@@ -128,6 +129,7 @@ extern struct timespec crashdumpStart;
 
 void updateRecordEnable(cJSON* root, bool enable);
 cJSON* getCrashDataSection(cJSON* root, char* section, bool* enable);
+cJSON* getNewCrashDataSection(cJSON* root, char* section, bool* enable);
 cJSON* getCrashDataSectionRegList(cJSON* root, char* section, char* regType,
                                   bool* enable);
 int getCrashDataSectionVersion(cJSON* root, char* section);
@@ -152,6 +154,7 @@ struct timespec calculateTimeRemaining(uint32_t maxWaitTimeFromInputFileInSec);
 uint32_t getDelayFromInputFile(CPUInfo* cpuInfo, char* sectionName);
 int getPciRegister(CPUInfo* cpuInfo, SRegRawData* sRegData, uint8_t u8index);
 bool getSkipFromInputFile(CPUInfo* cpuInfo, char* sectionName);
+bool getSkipFromNewInputFile(CPUInfo* cpuInfo, char* sectionName);
 cJSON* getPeciAccessType(cJSON* root);
 inputField getFlagValueFromInputFile(CPUInfo* cpuInfo, char* sectionName,
                                      char* flagName);
@@ -164,4 +167,15 @@ cJSON* getNVDSection(cJSON* root, const char* const section,
                      bool* const enable);
 cJSON* getNVDSectionRegList(cJSON* root, const char* const section,
                             bool* const enable);
+cJSON* getPMEMSectionErrLogList(cJSON* root, const char* const section,
+                                bool* const enable);
+
+/* Crashlog Related functions */
+cJSON* getCrashlogExcludeList(cJSON* root);
+cJSON* getCrashlogAgentsFromInputFile(cJSON* root);
+uint8_t getMaxCollectionCoresFromInputFile(CPUInfo* cpuInfo);
+
+/* SPRHBM Related functions */
+bool isSprHbm(const CPUInfo* cpuInfo);
+
 #endif // UTILS_H

@@ -2,6 +2,39 @@
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.7] - 12/02/2021
+
+### Bug Fix
+
+- Fixed bug in Core Crashdump Version String Decode which was causing a
+mismatch on version comparison check.
+- Fixed bug when choosing unformatted printing though a build define and while
+using BAFI, the output was incorrectly still saved as formatted.
+- Added correct enumerated bus translations for MMIO using buses 8,9,10,11
+
+### New
+
+- Added dumping of core Crashlog data.
+- Added WrEndPointConfigPciLocal command and Unocre registers SAD2TAD Section.
+- Added Crashlog exclude list to give an option of excluding AgentIDs
+- acd_verify enhancements for file checking.
+- Added SPRHBM support, including specific MCA banks and separate input file.
+- Added PLL section to the PM_Info record.
+- Added big_core MaxCollectionCores input file parameter as a performance
+option.
+- Added "UseRegEnable" to the input file for bigcore, this feature allows for
+selecting which specific bigcore registers to save to the output file.
+- NVD additions, identifyDIMM feature, errorlog.
+- Added New Uncore registers, ICX, SPR, SPRHBM, and Telemetry.
+
+### Changed
+
+- Changed "PECI Engine" Logging function.
+- Conversion of multiple records to "PECI Engine" style input file syntax;
+PM_Info, address_map(ICX), crashlog, big_core, metadata, TOR.
+- Unit test changed for new functionality.
+- Changed crashdump_ver to BMC_EGS_0.7
+
 ## [0.6] - 09/20/2021
 
 ### New

@@ -19,7 +19,7 @@
 
 #ifndef CRASHDUMP_FLOW_H
 #define CRASHDUMP_FLOW_H
-
+#define MAX_CORE_MASK 64
 #include "../CrashdumpSections/crashdump.h"
 #include "engine/cmdprocessor.h"
 #include "engine/inputparser.h"

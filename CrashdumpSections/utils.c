@@ -128,6 +128,35 @@ cJSON* getCrashDataSection(cJSON* root, char* section, bool* enable)
     return child;
 }
 
+cJSON* getNewCrashDataSection(cJSON* root, char* section, bool* enable)
+{
+    *enable = false;
+    cJSON* sections = cJSON_GetObjectItemCaseSensitive(
+        cJSON_GetObjectItemCaseSensitive(root, "crash_data"), "Sections");
+
+    if (sections != NULL)
+    {
+        cJSON* child =
+            cJSON_GetObjectItemCaseSensitive(sections->child, section);
+        if (child != NULL)
+        {
+            cJSON* recordEnable =
+                cJSON_GetObjectItem(child, RECORD_ENABLE_SECTIONS);
+            if (recordEnable == NULL)
+            {
+                *enable = true;
+            }
+            else
+            {
+                *enable = cJSON_IsTrue(recordEnable);
+            }
+        }
+        return child;
+    }
+
+    return sections;
+}
+
 cJSON* getCrashDataSectionRegList(cJSON* root, char* section, char* regType,
                                   bool* enable)
 {
@@ -146,6 +175,20 @@ cJSON* getCrashDataSectionObjectOneLevel(cJSON* root, char* section,
                                          const char* firstLevel, bool* enable)
 {
     cJSON* child = getCrashDataSection(root, section, enable);
+
+    if (child != NULL)
+    {
+        return cJSON_GetObjectItemCaseSensitive(child, firstLevel);
+    }
+
+    return child;
+}
+
+cJSON* getNewCrashDataSectionObjectOneLevel(cJSON* root, char* section,
+                                            const char* firstLevel,
+                                            bool* enable)
+{
+    cJSON* child = getNewCrashDataSection(root, section, enable);
 
     if (child != NULL)
     {
@@ -200,14 +243,14 @@ void updateRecordEnable(cJSON* root, bool enable)
 bool isBigCoreRegVersionMatch(cJSON* root, uint32_t version)
 {
     bool enable = false;
-    cJSON* child = getCrashDataSection(root, "big_core", &enable);
+    cJSON* child = getNewCrashDataSection(root, BIG_CORE_SECTION_NAME, &enable);
 
     if (child != NULL && enable)
     {
         char jsonItemName[NAME_STR_LEN] = {0};
         cd_snprintf_s(jsonItemName, NAME_STR_LEN, "0x%x", version);
 
-        cJSON* decodeArray = cJSON_GetObjectItemCaseSensitive(child, "decode");
+        cJSON* decodeArray = cJSON_GetObjectItemCaseSensitive(child, "Decode");
 
         if (decodeArray != NULL)
         {
@@ -272,11 +315,11 @@ cJSON* getValidBigCoreMap(cJSON* decodeArray, char* version)
 cJSON* getCrashDataSectionBigCoreRegList(cJSON* root, char* version)
 {
     bool enable = false;
-    cJSON* child = getCrashDataSection(root, "big_core", &enable);
+    cJSON* child = getNewCrashDataSection(root, BIG_CORE_SECTION_NAME, &enable);
 
     if (child != NULL && enable)
     {
-        cJSON* decodeObject = cJSON_GetObjectItemCaseSensitive(child, "decode");
+        cJSON* decodeObject = cJSON_GetObjectItemCaseSensitive(child, "Decode");
 
         if (decodeObject != NULL)
         {
@@ -296,11 +339,11 @@ uint32_t getCrashDataSectionBigCoreSize(cJSON* root, char* version)
 {
     uint32_t size = 0;
     bool enable = false;
-    cJSON* child = getCrashDataSection(root, "big_core", &enable);
+    cJSON* child = getNewCrashDataSection(root, BIG_CORE_SECTION_NAME, &enable);
 
     if (child != NULL && enable)
     {
-        cJSON* decodeObject = cJSON_GetObjectItemCaseSensitive(child, "decode");
+        cJSON* decodeObject = cJSON_GetObjectItemCaseSensitive(child, "Decode");
 
         if (decodeObject != NULL)
         {
@@ -326,7 +369,7 @@ void storeCrashDataSectionBigCoreSize(cJSON* root, char* version,
                                       uint32_t totalSize)
 {
     bool enable = false;
-    cJSON* child = getCrashDataSection(root, "big_core", &enable);
+    cJSON* child = getNewCrashDataSection(root, BIG_CORE_SECTION_NAME, &enable);
 
     if (child != NULL && enable)
     {
@@ -334,7 +377,7 @@ void storeCrashDataSectionBigCoreSize(cJSON* root, char* version,
         cd_snprintf_s(jsonItemName, NAME_STR_LEN, "0x%x", totalSize);
         cJSON_AddStringToObject(
             getValidBigCoreMap(
-                cJSON_GetObjectItemCaseSensitive(child, "decode"), version),
+                cJSON_GetObjectItemCaseSensitive(child, "Decode"), version),
             "_size", jsonItemName);
     }
 }
@@ -353,6 +396,9 @@ cJSON* selectAndReadInputFile(Model cpuModel, char** filename, bool isTelemetry)
             break;
         case cd_spr:
             strcpy_s(cpuStr, sizeof("spr"), "spr");
+            break;
+        case cd_sprhbm:
+            strcpy_s(cpuStr, sizeof("sprhbm"), "sprhbm");
             break;
         default:
             CRASHDUMP_PRINT(ERR, stderr,
@@ -457,8 +503,8 @@ inline struct timespec
 inline uint32_t getDelayFromInputFile(CPUInfo* cpuInfo, char* sectionName)
 {
     bool enable = false;
-    cJSON* inputDelayField = getCrashDataSectionObjectOneLevel(
-        cpuInfo->inputFile.bufferPtr, sectionName, "_max_wait_sec", &enable);
+    cJSON* inputDelayField = getNewCrashDataSectionObjectOneLevel(
+        cpuInfo->inputFile.bufferPtr, sectionName, "MaxWaitSec", &enable);
 
     if (inputDelayField != NULL && enable)
     {
@@ -471,8 +517,8 @@ inline uint32_t getDelayFromInputFile(CPUInfo* cpuInfo, char* sectionName)
 uint32_t getCollectionTimeFromInputFile(CPUInfo* cpuInfo)
 {
     bool enable = false;
-    cJSON* inputField = getCrashDataSectionObjectOneLevel(
-        cpuInfo->inputFile.bufferPtr, "big_core", "_max_collection_sec",
+    cJSON* inputField = getNewCrashDataSectionObjectOneLevel(
+        cpuInfo->inputFile.bufferPtr, BIG_CORE_SECTION_NAME, "MaxCollectionSec",
         &enable);
 
     if (inputField != NULL && enable)
@@ -488,6 +534,22 @@ inline bool getSkipFromInputFile(CPUInfo* cpuInfo, char* sectionName)
     bool enable = false;
     cJSON* skipIfFailRead = getCrashDataSectionObjectOneLevel(
         cpuInfo->inputFile.bufferPtr, sectionName, "_skip_on_fail", &enable);
+
+    if (skipIfFailRead != NULL && enable)
+    {
+        return cJSON_IsTrue(skipIfFailRead);
+    }
+
+    return false;
+}
+
+inline bool getSkipFromNewInputFile(CPUInfo* cpuInfo, char* sectionName)
+{
+    bool enable = false;
+    cJSON* torSection = getNewCrashDataSection(cpuInfo->inputFile.bufferPtr,
+                                               sectionName, &enable);
+    cJSON* skipIfFailRead =
+        cJSON_GetObjectItemCaseSensitive(torSection, "_skip_on_fail");
 
     if (skipIfFailRead != NULL && enable)
     {
@@ -603,7 +665,7 @@ inputField getFlagValueFromInputFile(CPUInfo* cpuInfo, char* sectionName,
                                      char* flagName)
 {
     bool enable;
-    cJSON* flagField = getCrashDataSectionObjectOneLevel(
+    cJSON* flagField = getNewCrashDataSectionObjectOneLevel(
         cpuInfo->inputFile.bufferPtr, sectionName, flagName, &enable);
 
     if (flagField != NULL && enable)
@@ -683,4 +745,79 @@ cJSON* getNVDSectionRegList(cJSON* root, const char* const section,
     }
 
     return child;
+}
+
+cJSON* getPMEMSectionErrLogList(cJSON* root, const char* const section,
+                                bool* const enable)
+{
+    cJSON* child = getNVDSection(root, section, enable);
+
+    if (child != NULL)
+    {
+        return cJSON_GetObjectItemCaseSensitive(child, "log_list");
+    }
+
+    return child;
+}
+
+cJSON* getCrashlogExcludeList(cJSON* root)
+{
+    bool enable = false;
+    cJSON* crashlogSection = getNewCrashDataSection(root, "crashlog", &enable);
+
+    if (crashlogSection != NULL && enable)
+    {
+        cJSON* excludeAgentsList = cJSON_GetObjectItemCaseSensitive(
+            crashlogSection, "ExcludeAgentIDs");
+        return excludeAgentsList;
+    }
+
+    return NULL;
+}
+
+bool isSprHbm(const CPUInfo* cpuInfo)
+{
+    EPECIStatus status;
+    uint8_t cc = 0;
+    uint32_t val = 0;
+
+    // Notes: See doc 611488 SPR EDS Volume 1, Table 91 for PLATFORM ID details
+    status = peci_RdPkgConfig(cpuInfo->clientAddr, 0, 1, sizeof(uint32_t),
+                              (uint8_t*)&val, &cc);
+    if (status != PECI_CC_SUCCESS || (PECI_CC_UA(cc)))
+    {
+        return false;
+    }
+    else
+    {
+        return (val == SPR_HBM_PLATFORM_ID) ? true : false;
+    }
+}
+
+cJSON* getCrashlogAgentsFromInputFile(cJSON* root)
+{
+    bool enable = false;
+    cJSON* crashlogSection = getNewCrashDataSection(root, "crashlog", &enable);
+
+    if (crashlogSection != NULL && enable)
+    {
+        return cJSON_GetObjectItemCaseSensitive(crashlogSection, "Agent");
+    }
+
+    return NULL;
+}
+
+uint8_t getMaxCollectionCoresFromInputFile(CPUInfo* cpuInfo)
+{
+    bool enable = false;
+    cJSON* inputField = getNewCrashDataSectionObjectOneLevel(
+        cpuInfo->inputFile.bufferPtr, BIG_CORE_SECTION_NAME,
+        "MaxCollectionCores", &enable);
+
+    if (inputField != NULL && enable)
+    {
+        return (uint8_t)inputField->valueint;
+    }
+
+    return 0;
 }

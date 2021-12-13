@@ -111,11 +111,13 @@ if (NOT ${YOCTO_DEPENDENCIES})
         GIT_REPOSITORY https://github.com/openbmc/libpeci.git
         GIT_TAG ff44e549c44c7658ec11e0c19c13c4c45900cfe4
         INSTALL_COMMAND ""
+        # For this step to work, meta-restricted repository needs to be clone at
+        # same level as openbmc-crashdump
         PATCH_COMMAND
             git apply
-            ${CMAKE_BINARY_DIR}/../../../../../openbmc-meta-intel/meta-egs/recipes-core/libpeci/libpeci//0001-Add-SPR-CPUID.patch
+            ${CMAKE_BINARY_DIR}/../../meta-restricted/recipes-core/libpeci/libpeci/0001-Add-CPUIDs.patch
             && git apply
-            ${CMAKE_BINARY_DIR}/../../../../../openbmc-meta-intel/meta-egs/recipes-core/libpeci/libpeci/0003-Add-PECI-Telemetry-command.patch
+            ${CMAKE_BINARY_DIR}/../../meta-restricted/recipes-core/libpeci/libpeci/0002-Add-PECI-Telemetry-command.patch
         LOG_DOWNLOAD ON
     )
     externalproject_get_property (libpeci-project SOURCE_DIR)
@@ -212,7 +214,7 @@ set (
     engine/inputparser.c
     engine/validator.c
     engine/flow.c
-    CrashdumpSections/PchCrashlog.c
+    CrashdumpSections/Crashlog.c
     CrashdumpSections/base64Encode.c
 )
 
@@ -286,6 +288,8 @@ install (
           ${CMAKE_CURRENT_SOURCE_DIR}/telemetry_input_icx.json
           ${CMAKE_CURRENT_SOURCE_DIR}/crashdump_input_spr.json
           ${CMAKE_CURRENT_SOURCE_DIR}/telemetry_input_spr.json
+          ${CMAKE_CURRENT_SOURCE_DIR}/crashdump_input_sprhbm.json
+          ${CMAKE_CURRENT_SOURCE_DIR}/telemetry_input_sprhbm.json
     PERMISSIONS OWNER_READ
     DESTINATION /usr/share/crashdump/input/
 )
@@ -353,7 +357,7 @@ if (NOT ${YOCTO_DEPENDENCIES})
             tests/engine/inputparser_test.cpp
             tests/engine/validator_test.cpp
             tests/engine/flow_test.cpp
-            tests/CrashdumpSections/PchCrashlog_test.cpp
+            tests/CrashdumpSections/Crashlog_test.cpp
         )
 
         add_definitions (-DCOMPILE_UNIT_TESTS)

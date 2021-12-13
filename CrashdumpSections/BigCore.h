@@ -82,7 +82,8 @@
 enum BigCoreParams
 {
     bigCoreRegName,
-    bigCoreRegSize
+    bigCoreRegSize,
+    bigCoreRegIsLogged
 };
 
 typedef enum
@@ -104,6 +105,7 @@ typedef struct
 {
     char* name;
     uint8_t size;
+    bool isLogged;
 } SCrashdumpRegICX1;
 
 typedef union

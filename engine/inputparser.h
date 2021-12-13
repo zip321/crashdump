@@ -26,7 +26,13 @@
 
 #define TARGET "Target"
 #define CHA "CHA"
+#define CORE "Core"
 #define CORETHREAD "(CORE*2)+THREAD"
+
+#define MD_STARTUP "STARTUP"
+#define MD_EVENT "EVENT"
+#define MD_OVERWRITTEN "OVERWRITTEN"
+#define MD_INVALID "INVALID"
 
 typedef struct
 {
@@ -45,6 +51,7 @@ typedef struct
     bool loopOnThread;
 } LoopOnFlags;
 
+char* decodeState(int value);
 acdStatus UpdateParams(CPUInfo* cpuInfo, CmdInOut* cmdInOut,
                        LoggerStruct* loggerStruct, InputParserErrInfo* errInfo);
 

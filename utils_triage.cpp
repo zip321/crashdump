@@ -57,9 +57,13 @@ void appendTriageSection(std::string& storedLogContents)
         char jsonStr[JSON_STR_LEN];
         cd_snprintf_s(jsonStr, JSON_STR_LEN, BAFI_RC, status);
         cJSON_AddStringToObject(content, TRIAGE_KEY, jsonStr);
-        CRASHDUMP_PRINT(ERR, stderr, "Get triage info failed!\n");
+        CRASHDUMP_PRINT(ERR, stderr, "Get triage info failed! (%d)\n", status);
     }
+#ifdef CRASHDUMP_PRINT_UNFORMATTED
+    storedLogContents.assign(cJSON_PrintUnformatted(content));
+#else
     storedLogContents.assign(cJSON_Print(content));
+#endif
     cJSON_Delete(content);
     if (triageInfo != NULL)
     {
@@ -80,7 +84,8 @@ void appendSummarySection(std::string& storedLogContents)
     cJSON* content = cJSON_Parse(storedLogContents.c_str());
     if (status == 0)
     {
-        cJSON* summary = cJSON_Parse(summaryInfo);
+        cJSON* summary =
+            cJSON_GetObjectItem(cJSON_Parse(summaryInfo), SUMMARY_KEY);
         if (summary == NULL)
         {
             cJSON_AddStringToObject(content, SUMMARY_KEY, SUMMARY_ERR);
@@ -96,9 +101,13 @@ void appendSummarySection(std::string& storedLogContents)
         char jsonStr[JSON_STR_LEN];
         cd_snprintf_s(jsonStr, JSON_STR_LEN, BAFI_RC, status);
         cJSON_AddStringToObject(content, SUMMARY_KEY, jsonStr);
-        CRASHDUMP_PRINT(ERR, stderr, "Get summary info failed!\n");
+        CRASHDUMP_PRINT(ERR, stderr, "Get summary info failed! (%d)\n", status);
     }
+#ifdef CRASHDUMP_PRINT_UNFORMATTED
+    storedLogContents.assign(cJSON_PrintUnformatted(content));
+#else
     storedLogContents.assign(cJSON_Print(content));
+#endif
     cJSON_Delete(content);
     if (summaryInfo != NULL)
     {
