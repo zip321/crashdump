@@ -20,8 +20,8 @@
 #include "../mock/test_crashdump.hpp"
 
 extern "C" {
-#include "CrashdumpSections/crashdump.h"
-#include "CrashdumpSections/utils.h"
+#include "engine/crashdump.h"
+#include "engine/utils.h"
 #include "engine/validator.h"
 }
 
@@ -49,7 +49,6 @@ TEST(ValidatorTestFixture, IsRdIAMSRParamsValid)
                        .model = cd_spr,
                        .coreMask = 0x0000db7e,
                        .crashedCoreMask = 0x0,
-                       .sectionMask = 0,
                        .chaCount = 0,
                        .initialPeciWake = ON,
                        .inputFile = {},
@@ -61,6 +60,8 @@ TEST(ValidatorTestFixture, IsRdIAMSRParamsValid)
     std::vector<CPUInfo> cpusInfo = {cpuInfo};
     TestCrashdump crashdump(cpusInfo);
     cJSON* root = cJSON_CreateObject();
-    EXPECT_EQ(IsRdIAMSRParamsValid(root), true);
+    ValidatorParams ValidParams;
+    ValidParams.validateInput = true;
+    EXPECT_EQ(IsRdIAMSRParamsValid(root, &ValidParams), true);
     cJSON_Delete(root);
 }

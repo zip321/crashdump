@@ -16,6 +16,7 @@
 ###############################################################################
 
 import os
+import warnings
 
 
 class Postprocessor():
@@ -65,33 +66,19 @@ class Postprocessor():
 
     def txtSummary(self, summary):
         title = "Summary of File Contents:"
-        nCPUs = "\n\tNumber of CPUs: {0}".format(summary["nCPUs"])
-        cpuID = "\n\tcpuid: {0}".format(self.txtCpuId(summary["IDs"]))
-        totalTime = "\n\t_total_time: {0}".format(summary["totalTime"])
-        triggerType = "\n\ttrigger_type: {0}".format(summary["triggerType"])
-        crashcoreCounts = self.txtCrashcoreCounts(summary["crashcoreCounts"])
+        metadataSummary = self.txtMetadataSummary(summary["metadata"])
+        tableSummary = self.txtSummaryTable(summary)
+        sSummary = title + metadataSummary + tableSummary
 
-        sSummary = title + nCPUs + cpuID + totalTime + triggerType + \
-            crashcoreCounts
         return sSummary
 
-    def txtCpuId(self, IDs):
-        if len(IDs) > 1:
-            sIDs = ""
-            for cpu in IDs:
-                cpuID = "\n\t\t{0} ID: {1}".format(cpu, IDs[cpu])
-                sIDs = sIDs + cpuID
-            return sIDs
-        else:
-            return IDs[0]
+    def txtMetadataSummary(self, metadata):
+        nCPUs = "\n\tNumber of CPUs: {0}".format(metadata["nCPUs"])
+        totalTime = "\n\t_total_time: {0}".format(metadata["totalTime"])
+        triggerType = "\n\ttrigger_type: {0}".format(metadata["triggerType"])
 
-    def txtCrashcoreCounts(self, counts):
-        sCounts = ""
-        for cpu in counts:
-            sCPU = "\n\tcrashcoreCount {0}: {1}".format(
-                cpu.upper(), counts[cpu])
-            sCounts = sCounts+sCPU
-        return sCounts
+        sSummary = nCPUs + totalTime + triggerType
+        return sSummary
 
     def txtErrorsTable(self, table):
         tInfo = {}
@@ -146,7 +133,10 @@ class Postprocessor():
                 if key == "metadata":
                     count = 0
                     for reg in errorList[key]:
-                        regsList += f"\n\t\t{key}.{reg}: {errorList[key][reg]}"
+                        regValue = errorList[key][reg]
+                        if regValue == 'N/A':
+                            continue
+                        regsList += f"\n\t\t{key}.{reg}: {regValue}"
                         if count == 2:
                             break
                         count += 1
@@ -154,8 +144,11 @@ class Postprocessor():
                     for section in errorList[key]:
                         count = 0
                         for reg in errorList[key][section]:
+                            regValue = errorList[key][section][reg]
+                            if regValue == 'N/A':
+                                continue
                             regsList += f"\n\t\t{key}.{section}.{reg}:" + \
-                                        f" {errorList[key][section][reg]}"
+                                        f" {regValue}"
                             if count == 2:
                                 break
                             count += 1
@@ -169,12 +162,16 @@ class Postprocessor():
                 for reg in errorList[key]:
                     regName = f"{key}.{reg}"
                     regValue = errorList[key][reg]
+                    if regValue == 'N/A':
+                        continue
                     fullList[regName] = regValue
             elif "cpu" in key:
                 for section in errorList[key]:
                     for reg in errorList[key][section]:
                         regName = f"{key}.{section}.{reg}"
                         regValue = errorList[key][section][reg]
+                        if regValue == 'N/A':
+                            continue
                         fullList[regName] = regValue
         return fullList
 
@@ -356,3 +353,49 @@ class Postprocessor():
         headers = ["Section", "Differences"]
 
         return self.txtTable(headers, columns), self.report["specialCompSections"]
+
+    def _getChops(self, summary):
+        chops = {}
+        for key in summary:
+            if key.startswith('cpu'):
+                chops[key] = None
+                if 'uncore' in summary[key]:
+                    if 'chop' in summary[key]['uncore']:
+                        chops[key] = summary[key]['uncore']['chop']
+
+        return chops
+
+    def _getHeaders(self, headers, obj):
+        for key in obj:
+            if key not in headers:
+                headers.append(key)
+        return headers
+
+    def txtSummaryTable(self, summary):
+        chops = self._getChops(summary)
+
+        headers = []
+        headers = self._getHeaders(headers, chops)
+        headers = self._getHeaders(headers, summary['metadata']['crashcoreCounts'])
+        headers = self._getHeaders(headers, summary['metadata']['cpuIDs'])
+
+        columns = [['CPUID', 'crashcoreCount', 'Chop']]
+        for cpu in range(len(headers)):
+            lCpu = []
+            if f'cpu{cpu}' in summary['metadata']['cpuIDs']:
+                lCpu.append(summary['metadata']['cpuIDs'][f'cpu{cpu}'])
+            else:
+                lCpu.append('Not present')
+                warnings.warn(f'cpu{cpu} cpuid not in metadata')
+            if f'cpu{cpu}' in summary['metadata']['crashcoreCounts']:
+                lCpu.append(
+                    summary['metadata']['crashcoreCounts'][f'cpu{cpu}'])
+            else:
+                lCpu.append('Not present')
+                warnings.warn(f'cpu{cpu} crashcoreCounts not in metadata')
+            lCpu.append(str(chops[f'cpu{cpu}']))
+            columns.append(lCpu)
+
+        headers.insert(0, 'Data')
+
+        return '\n\n' + self.txtTable(headers, columns)

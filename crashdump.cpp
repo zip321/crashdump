@@ -44,24 +44,15 @@
 extern "C" {
 #include <cjson/cJSON.h>
 
-#include "CrashdumpSections/AddressMap.h"
-#include "CrashdumpSections/BigCore.h"
-#include "CrashdumpSections/CoreMca.h"
-#include "CrashdumpSections/MetaData.h"
-#include "CrashdumpSections/PowerManagement.h"
-#include "CrashdumpSections/TorDump.h"
-#include "CrashdumpSections/Uncore.h"
-#include "CrashdumpSections/UncoreMca.h"
-#include "CrashdumpSections/crashdump.h"
-#include "CrashdumpSections/nvd.h"
+#include "engine/BigCore.h"
+#include "engine/TorDump.h"
 #include "engine/cmdprocessor.h"
+#include "engine/crashdump.h"
 #include "engine/flow.h"
 #include "engine/inputparser.h"
 #include "engine/logger.h"
+#include "engine/nvd.h"
 #include "engine/validator.h"
-#ifdef OEMDATA_SECTION
-#include "CrashdumpSections/OemData.h"
-#endif
 #include "safe_str_lib.h"
 }
 
@@ -78,7 +69,7 @@ constexpr int const vcuPeciWake = 5;
 
 static PlatformState platformState = {false, DEFAULT_VALUE, DEFAULT_VALUE,
                                       DEFAULT_VALUE, DEFAULT_VALUE};
-
+#ifdef NVD_SECTION
 static void logRunTime(cJSON* parent, timespec* start, char* key)
 {
     char timeString[64];
@@ -99,6 +90,7 @@ static void logRunTime(cJSON* parent, timespec* start, char* key)
 
     clock_gettime(CLOCK_MONOTONIC, start);
 }
+#endif
 
 static const std::string getUuid()
 {
@@ -241,7 +233,6 @@ acdStatus loadInputFiles(std::vector<CPUInfo>& cpuInfo,
 {
     int uniqueCount = 0;
     cJSON* defaultStateSection = NULL;
-    bool enable = false;
     acdStatus status = ACD_SUCCESS;
 
     for (CPUInfo& cpu : cpuInfo)
@@ -263,34 +254,44 @@ acdStatus loadInputFiles(std::vector<CPUInfo>& cpuInfo,
         cpu.inputFile.bufferPtr = inputFileInfo->buffers[cpu.model];
 
         // Get and Check global enable/disable value from "DefaultState"
-        defaultStateSection = getCrashDataSection(
-            inputFileInfo->buffers[cpu.model], "DefaultState", &enable);
+        defaultStateSection = cJSON_GetObjectItemCaseSensitive(
+            inputFileInfo->buffers[cpu.model], "DefaultState");
         int defaultStateEnable = 1;
         if (defaultStateSection != NULL)
         {
             strcmp_s(defaultStateSection->valuestring, CRASHDUMP_VALUE_LEN,
                      "Enable", &defaultStateEnable);
-        }
-        else
-        {
-            CRASHDUMP_PRINT(ERR, stderr, "Missing \"DefaultState\" in %s\n",
-                            inputFileInfo->filenames[cpu.model]);
-            status = ACD_INPUT_FILE_ERROR;
-        }
-        if (defaultStateEnable == CD_ENABLE)
-        {
-            // Check local enable "_record_enable"
-            for (uint8_t i = 0; i < NUMBER_OF_SECTIONS; i++)
+            if (defaultStateEnable == 0)
             {
-                getCrashDataSection(inputFileInfo->buffers[cpu.model],
-                                    sectionNames[i].name, &enable);
-                enable ? SET_BIT(cpu.sectionMask, i)
-                       : CLEAR_BIT(cpu.sectionMask, i);
+                status = ACD_SUCCESS;
+            }
+            else
+            {
+                defaultStateEnable = 1;
+                strcmp_s(defaultStateSection->valuestring, CRASHDUMP_VALUE_LEN,
+                         "Disable", &defaultStateEnable);
+                if (defaultStateEnable == 0)
+                {
+                    status = ACD_INPUT_FILE_ERROR;
+                    CRASHDUMP_PRINT(
+                        ERR, stderr,
+                        "Exiting, \"DefaultState\" set to Disable in: %s\n",
+                        inputFileInfo->filenames[cpu.model]);
+                }
+                else
+                {
+                    status = ACD_SUCCESS;
+                    CRASHDUMP_PRINT(ERR, stderr,
+                                    "\"DefaultState\" (%s) is neither "
+                                    "Enable/Disable in: %s\n",
+                                    defaultStateSection->valuestring,
+                                    inputFileInfo->filenames[cpu.model]);
+                }
             }
         }
         else
         {
-            cpu.sectionMask = 0x00;
+            status = ACD_SUCCESS;
         }
     }
 
@@ -306,11 +307,11 @@ static bool getCoreMasks(std::vector<CPUInfo>& cpuInfo, cpuidState cpuState)
     {
         if (cpu.coreMaskRead.coreMaskValid)
         {
-            break;
+            continue;
         }
         uint32_t coreMask0 = 0x0;
         uint32_t coreMask1 = 0x0;
-
+        cpu.coreMask = 0;
         switch (cpu.model)
         {
             case cd_icx:
@@ -322,7 +323,7 @@ static bool getCoreMasks(std::vector<CPUInfo>& cpuInfo, cpuidState cpuState)
                                                (uint8_t*)&coreMask0, &cc);
                 cpu.coreMaskRead.coreMaskCc = cc;
                 cpu.coreMaskRead.coreMaskRet = retval;
-                if (retval != PECI_CC_SUCCESS)
+                if (retval != PECI_CC_SUCCESS || PECI_CC_UA(cc))
                 {
                     CRASHDUMP_PRINT(
                         ERR, stderr,
@@ -335,7 +336,7 @@ static bool getCoreMasks(std::vector<CPUInfo>& cpuInfo, cpuidState cpuState)
                                                (uint8_t*)&coreMask1, &cc);
                 cpu.coreMaskRead.coreMaskCc = cc;
                 cpu.coreMaskRead.coreMaskRet = retval;
-                if (retval != PECI_CC_SUCCESS)
+                if (retval != PECI_CC_SUCCESS || PECI_CC_UA(cc))
                 {
                     CRASHDUMP_PRINT(
                         ERR, stderr,
@@ -353,7 +354,7 @@ static bool getCoreMasks(std::vector<CPUInfo>& cpuInfo, cpuidState cpuState)
                     (uint8_t*)&coreMask0, &cc);
                 cpu.coreMaskRead.coreMaskCc = cc;
                 cpu.coreMaskRead.coreMaskRet = retval;
-                if (retval != PECI_CC_SUCCESS)
+                if (retval != PECI_CC_SUCCESS || PECI_CC_UA(cc))
                 {
                     CRASHDUMP_PRINT(
                         ERR, stderr,
@@ -366,7 +367,7 @@ static bool getCoreMasks(std::vector<CPUInfo>& cpuInfo, cpuidState cpuState)
                     (uint8_t*)&coreMask1, &cc);
                 cpu.coreMaskRead.coreMaskCc = cc;
                 cpu.coreMaskRead.coreMaskRet = retval;
-                if (retval != PECI_CC_SUCCESS)
+                if (retval != PECI_CC_SUCCESS || PECI_CC_UA(cc))
                 {
                     CRASHDUMP_PRINT(
                         ERR, stderr,
@@ -379,10 +380,13 @@ static bool getCoreMasks(std::vector<CPUInfo>& cpuInfo, cpuidState cpuState)
             default:
                 return false;
         }
-        cpu.coreMask = coreMask1;
-        cpu.coreMask <<= 32;
-        cpu.coreMask |= coreMask0;
-        cpu.coreMaskRead.source = cpuState;
+        if (cpu.coreMaskRead.coreMaskValid)
+        {
+            cpu.coreMask = coreMask1;
+            cpu.coreMask <<= 32;
+            cpu.coreMask |= coreMask0;
+            cpu.coreMaskRead.source = cpuState;
+        }
     }
     return true;
 }
@@ -396,11 +400,11 @@ static bool getCHACounts(std::vector<CPUInfo>& cpuInfo, cpuidState cpuState)
     {
         if (cpu.chaCountRead.chaCountValid)
         {
-            break;
+            continue;
         }
         uint32_t chaMask0 = 0x0;
         uint32_t chaMask1 = 0x0;
-
+        cpu.chaCount = 0;
         switch (cpu.model)
         {
             case cd_icx:
@@ -412,7 +416,7 @@ static bool getCHACounts(std::vector<CPUInfo>& cpuInfo, cpuidState cpuState)
                                                (uint8_t*)&chaMask0, &cc);
                 cpu.chaCountRead.chaCountCc = cc;
                 cpu.chaCountRead.chaCountRet = retval;
-                if (retval != PECI_CC_SUCCESS)
+                if (retval != PECI_CC_SUCCESS || PECI_CC_UA(cc))
                 {
                     CRASHDUMP_PRINT(
                         ERR, stderr,
@@ -425,7 +429,7 @@ static bool getCHACounts(std::vector<CPUInfo>& cpuInfo, cpuidState cpuState)
                                                (uint8_t*)&chaMask1, &cc);
                 cpu.chaCountRead.chaCountCc = cc;
                 cpu.chaCountRead.chaCountRet = retval;
-                if (retval != PECI_CC_SUCCESS)
+                if (retval != PECI_CC_SUCCESS || PECI_CC_UA(cc))
                 {
                     CRASHDUMP_PRINT(
                         ERR, stderr,
@@ -443,7 +447,7 @@ static bool getCHACounts(std::vector<CPUInfo>& cpuInfo, cpuidState cpuState)
                     (uint8_t*)&chaMask0, &cc);
                 cpu.chaCountRead.chaCountCc = cc;
                 cpu.chaCountRead.chaCountRet = retval;
-                if (retval != PECI_CC_SUCCESS)
+                if (retval != PECI_CC_SUCCESS || PECI_CC_UA(cc))
                 {
                     CRASHDUMP_PRINT(
                         ERR, stderr,
@@ -456,7 +460,7 @@ static bool getCHACounts(std::vector<CPUInfo>& cpuInfo, cpuidState cpuState)
                     (uint8_t*)&chaMask1, &cc);
                 cpu.chaCountRead.chaCountCc = cc;
                 cpu.chaCountRead.chaCountRet = retval;
-                if (retval != PECI_CC_SUCCESS)
+                if (retval != PECI_CC_SUCCESS || PECI_CC_UA(cc))
                 {
                     CRASHDUMP_PRINT(
                         ERR, stderr,
@@ -469,14 +473,12 @@ static bool getCHACounts(std::vector<CPUInfo>& cpuInfo, cpuidState cpuState)
             default:
                 return false;
         }
-
-        cpu.chaCount = 0;
         if (cpu.chaCountRead.chaCountValid)
         {
             cpu.chaCount =
                 __builtin_popcount(chaMask0) + __builtin_popcount(chaMask1);
+            cpu.chaCountRead.source = cpuState;
         }
-        cpu.chaCountRead.source = cpuState;
     }
     return true;
 }
@@ -493,7 +495,7 @@ static void getCPUID(CPUInfo& cpuInfo)
     cpuInfo.cpuidRead.stepping = stepping;
     cpuInfo.cpuidRead.cpuidCc = cc;
     cpuInfo.cpuidRead.cpuidRet = retval;
-    if (retval != PECI_CC_SUCCESS)
+    if (retval != PECI_CC_SUCCESS || PECI_CC_UA(cc))
     {
         CRASHDUMP_PRINT(ERR, stderr,
                         "Cannot get CPUID! ret: (0x%x), cc: (0x%x)\n", retval,
@@ -558,9 +560,9 @@ static void parseCPUInfo(CPUInfo& cpuInfo, cpuidState cpuState)
 static void overwriteCPUInfo(std::vector<CPUInfo>& cpuInfo)
 {
     bool found = false;
-    Model defaultModel;
-    CPUModel defaultCpuModel;
-    uint8_t defaultStepping;
+    Model defaultModel = (Model)0x0;
+    CPUModel defaultCpuModel = (CPUModel)0x0;
+    uint8_t defaultStepping = 0x0;
     for (CPUInfo& cpu : cpuInfo)
     {
         if (cpu.cpuidRead.cpuidValid)
@@ -576,7 +578,6 @@ static void overwriteCPUInfo(std::vector<CPUInfo>& cpuInfo)
     {
         if (!cpu.cpuidRead.cpuidValid)
         {
-            cpu.cpuidRead.cpuidValid = true;
             if (found)
             {
                 cpu.model = defaultModel;
@@ -585,6 +586,7 @@ static void overwriteCPUInfo(std::vector<CPUInfo>& cpuInfo)
                 cpu.cpuidRead.source = OVERWRITTEN;
                 cpu.cpuidRead.cpuidCc = PECI_DEV_CC_SUCCESS;
                 cpu.cpuidRead.cpuidRet = PECI_CC_SUCCESS;
+                cpu.cpuidRead.cpuidValid = true;
             }
             else
             {
@@ -605,12 +607,13 @@ void initCPUInfo(std::vector<CPUInfo>& cpuInfo)
         cpu.cpuidRead.cpuidValid = false;
         cpu.coreMaskRead.source = INVALID;
         cpu.chaCountRead.source = INVALID;
-        cpu.sectionMask = 0xff;
-        cpu.model = cd_spr;
+        cpu.cpuidRead.source = INVALID;
+        cpu.model = (Model)0x0;
+        cpu.cpuidRead.cpuModel = (CPUModel)0x0;
     }
 }
 
-static void getCPUData(std::vector<CPUInfo>& cpuInfo, cpuidState cpuState)
+void getCPUData(std::vector<CPUInfo>& cpuInfo, cpuidState cpuState)
 {
     for (CPUInfo& cpu : cpuInfo)
     {
@@ -661,7 +664,7 @@ static void logPlatformName(cJSON* parent)
 
 static void logCrashdumpVersion(cJSON* parent)
 {
-    cJSON_AddStringToObject(parent, "crashdump_ver", SI_CRASHDUMP_VER);
+    cJSON_AddStringToObject(parent, "crashdump_ver", CRASHDUMP_VER);
 }
 
 static void logMEVersion(cJSON* parent)
@@ -679,121 +682,11 @@ static void logMetaDataCommon(cJSON* parent, std::string& logTime,
     logCrashdumpVersion(parent);
 }
 
-static cJSON* addSectionLog(
-    cJSON* parent, CPUInfo* cpuInfo, std::string sectionName,
-    const std::function<int(CPUInfo* cpuInfo, cJSON*)> sectionLogFunc)
-{
-    CRASHDUMP_PRINT(INFO, stderr, "Logging %s on PECI address %d\n",
-                    sectionName.c_str(), cpuInfo->clientAddr);
-
-    // Create an empty JSON object for this section if it doesn't already
-    // exist
-    cJSON* logSectionJson;
-    if ((logSectionJson = cJSON_GetObjectItemCaseSensitive(
-             parent, sectionName.c_str())) == NULL)
-    {
-        cJSON_AddItemToObject(parent, sectionName.c_str(),
-                              logSectionJson = cJSON_CreateObject());
-    }
-
-    // Get the log for this section
-    int ret = 0;
-    if ((ret = sectionLogFunc(cpuInfo, logSectionJson)) != ACD_SUCCESS)
-    {
-        CRASHDUMP_PRINT(ERR, stderr, "Error %d during %s log\n", ret,
-                        sectionName.c_str());
-    }
-
-    // Check if child data is added to the JSON section
-    if (logSectionJson->child == NULL)
-    {
-        // If there was supposed to be child data, add a failed status
-        if (ret != 0)
-        {
-            cJSON_AddStringToObject(logSectionJson,
-                                    crashdump::dbgStatusItemName,
-                                    crashdump::dbgFailedStatus);
-        }
-    }
-    return logSectionJson;
-}
-
-static cJSON* addDisableSection(cJSON* parent, std::string sectionName)
-{
-    cJSON* logSection = NULL;
-    cJSON* logSectionJson = NULL;
-    logSection = cJSON_GetObjectItemCaseSensitive(parent, sectionName.c_str());
-    if (logSection == NULL)
-    {
-        cJSON_AddItemToObject(parent, sectionName.c_str(),
-                              logSectionJson = cJSON_CreateObject());
-        cJSON_AddBoolToObject(logSectionJson, RECORD_ENABLE, false);
-    }
-    return logSectionJson;
-}
-
-void fillSection(
-    cJSON* cpu, CPUInfo* cpuInfo, CrashdumpSection sectionName,
-    const std::function<int(CPUInfo* cpuInfo, cJSON*)> sectionLogFunc,
-    timespec* sectionStart, char* timeStr)
-{
-    cJSON* logSection = NULL;
-
-    if (CHECK_BIT(cpuInfo->sectionMask, sectionName.section))
-    {
-        updateCurrentSection(sectionName, cpuInfo);
-
-        logSection =
-            addSectionLog(cpu, cpuInfo, sectionName.name, sectionLogFunc);
-
-        // Do not log UNCORE & MCA_UNCORE version here
-        if ((sectionName.section != Section::UNCORE) &&
-            (sectionName.section != Section::MCA_UNCORE))
-        {
-            logCrashdumpVersion(logSection, cpuInfo, sectionName.record_type);
-        }
-
-        if (sectionName.section == Section::MCA_CORE)
-        {
-            updateMcaRunTime(logSection, sectionStart);
-        }
-        else
-        {
-            logRunTime(logSection, sectionStart, timeStr);
-        }
-    }
-    else
-    {
-        addDisableSection(cpu, sectionName.name);
-    }
-}
-
-void fillMetaDataCPU(cJSON* crashlogData, CPUInfo cpuInfo,
-                     InputFileInfo* inputFileInfo)
-{
-    cJSON* logSection = NULL;
-    if (CHECK_BIT(cpuInfo.sectionMask, METADATA))
-    {
-        updateCurrentSection(sectionNames[Section::METADATA], &cpuInfo);
-
-        logSection =
-            addSectionLog(crashlogData, &cpuInfo, "METADATA", logSysInfo);
-
-        if (!inputFileInfo->unique)
-        {
-            // Fill in Input File Info in METADATA cpu section
-            logSysInfoInputfile(&cpuInfo, logSection, inputFileInfo);
-        }
-    }
-}
-
 void logInputFileVersion(cJSON* root, CPUInfo cpuInfo,
                          InputFileInfo* inputFileInfo)
 {
     cJSON* jsonVer = cJSON_GetObjectItemCaseSensitive(
-        cJSON_GetObjectItemCaseSensitive(inputFileInfo->buffers[cpuInfo.model],
-                                         "crash_data"),
-        "Version");
+        inputFileInfo->buffers[cpuInfo.model], "Version");
 
     if ((jsonVer != NULL) && cJSON_IsString(jsonVer))
     {
@@ -808,30 +701,21 @@ void logInputFileVersion(cJSON* root, CPUInfo cpuInfo,
 void fillMetaDataCommon(cJSON* metaData, CPUInfo cpuInfo,
                         InputFileInfo* inputFileInfo,
                         const std::string& triggerType, std::string& timestamp,
-                        timespec* crashdumpStart, timespec* sectionStart,
-                        char* timeStr)
+                        timespec* crashdumpStart, timespec* sectionStart)
 {
-    if (CHECK_BIT(cpuInfo.sectionMask, METADATA))
+    if (metaData != NULL)
     {
-        updateCurrentSection(sectionNames[Section::METADATA], &cpuInfo);
+        fillBmcVersion("bmc_fw_ver", metaData);
+        fillBiosId("bios_id", metaData);
+        logMetaDataCommon(metaData, timestamp, triggerType);
+        logInputFileVersion(metaData, cpuInfo, inputFileInfo);
 
-        if (metaData != NULL)
+        if (inputFileInfo->unique)
         {
-            fillBmcVersion("bmc_fw_ver", metaData);
-            fillBiosId("bios_id", metaData);
-            logMetaDataCommon(metaData, timestamp, triggerType);
-            logInputFileVersion(metaData, cpuInfo, inputFileInfo);
-            if (inputFileInfo->unique)
-            {
-                logSysInfoInputfile(&cpuInfo, metaData, inputFileInfo);
-            }
-            logSectionRunTime(metaData, sectionStart, timeStr);
-            logSectionRunTime(metaData, crashdumpStart, "_total_time");
+            fillInputFile(&cpuInfo, "_input_file", metaData, inputFileInfo);
         }
-    }
-    else
-    {
-        cJSON_AddBoolToObject(metaData, RECORD_ENABLE, false);
+        logSectionRunTime(metaData, sectionStart, TIME_KEY);
+        logSectionRunTime(metaData, crashdumpStart, GLOBAL_TIME_KEY);
     }
 }
 
@@ -855,6 +739,8 @@ void createCrashdump(std::vector<CPUInfo>& cpuInfo,
     cJSON* processors = NULL;
     cJSON* cpu = NULL;
     char* out = NULL;
+    RunTimeInfo runTimeInfo;
+    runTimeInfo.maxGlobalTime = 0xFFFFFFFF;
     InputFileInfo inputFileInfo = {
         .unique = true, .filenames = {NULL}, .buffers = {NULL}};
 
@@ -868,6 +754,18 @@ void createCrashdump(std::vector<CPUInfo>& cpuInfo,
 
     acdStatus inputFileLoadError =
         loadInputFiles(cpuInfo, &inputFileInfo, isTelemetry);
+
+    if (inputFileLoadError == ACD_INPUT_FILE_ERROR)
+    {
+        cJSON_free(out);
+        CRASHDUMP_PRINT(INFO, stderr, "Completed!\n");
+
+        cleanupInputFiles(&inputFileInfo);
+        crashdump::checkPeciWake(cpuInfo);
+        crashdump::setPeciWake(cpuInfo, OFF);
+
+        return;
+    }
 
     // start the JSON tree for CPU dump
     root = cJSON_CreateObject();
@@ -896,33 +794,31 @@ void createCrashdump(std::vector<CPUInfo>& cpuInfo,
     // Create the NVD section
     cJSON_AddItemToObject(crashlogData, "NVD", nvd = cJSON_CreateObject());
 #endif
-
     // Include the version field
     logCrashdumpVersion(processors, &cpuInfo[0], RECORD_TYPE_BMCAUTONOMOUS);
 
     // Fill in the Crashdump data in the correct order (uncore to core) for
     // each CPU
-    struct timespec sectionStart;
-    cJSON* useSections = cJSON_GetObjectItemCaseSensitive(
-        cJSON_GetObjectItemCaseSensitive(cpuInfo[0].inputFile.bufferPtr,
-                                         "crash_data"),
-        "UseSections");
+    cJSON* maxCrashdumpTime = cJSON_GetObjectItemCaseSensitive(
+        cpuInfo[0].inputFile.bufferPtr, "MaxTimeInSec");
+    if (maxCrashdumpTime != NULL)
+    {
+        runTimeInfo.maxGlobalTime = (uint32_t)maxCrashdumpTime->valueint;
+    }
 
-    clock_gettime(CLOCK_MONOTONIC, &sectionStart);
+    clock_gettime(CLOCK_MONOTONIC, &runTimeInfo.sectionRunTime);
     clock_gettime(CLOCK_MONOTONIC, &crashdumpStart);
 
-    char timeStr[] = "_time";
+    runTimeInfo.globalRunTime = crashdumpStart;
 
-    for (size_t i = 0; i < NUMBER_OF_SECTIONS; i++)
+    uint8_t numberOfSections = getNumberOfSections(&cpuInfo[0]);
+    for (uint8_t section = 0; section < numberOfSections; section++)
     {
         for (size_t j = 0; j < cpuInfo.size(); j++)
         {
-            // Create a section for this cpu
             char cpuString[8];
             cd_snprintf_s(cpuString, sizeof(cpuString), "cpu%d", j);
-
             cpu = cJSON_GetObjectItemCaseSensitive(processors, cpuString);
-
             if (cpu == NULL)
             {
                 cJSON_AddItemToObject(processors, cpuString,
@@ -932,160 +828,11 @@ void createCrashdump(std::vector<CPUInfo>& cpuInfo,
             {
                 if (cpuInfo[j].cpuidRead.cpuidValid)
                 {
-                    switch ((int)sectionNames[i].section)
-                    {
-                        case MCA_UNCORE:
-                            if (cJSON_IsTrue(useSections))
-                            {
-                                fillNewSection(root, &cpuInfo[j], j,
-                                               "MCA_UNCORE", &sectionStart,
-                                               timeStr);
-                                fillNewSection(root, &cpuInfo[j], j, "MCA_CBO",
-                                               &sectionStart, timeStr);
-                            }
-                            else
-                            {
-                                fillSection(cpu, &cpuInfo[j], sectionNames[i],
-                                            sectionNames[i].fptr, &sectionStart,
-                                            timeStr);
-                            }
-                            break;
-                        case MCA_CORE:
-                            if (cJSON_IsTrue(useSections))
-                            {
-                                fillNewSection(root, &cpuInfo[j], j, "MCA_CORE",
-                                               &sectionStart, timeStr);
-                            }
-                            else
-                            {
-                                fillSection(cpu, &cpuInfo[j], sectionNames[i],
-                                            sectionNames[i].fptr, &sectionStart,
-                                            timeStr);
-                            }
-                            break;
-                        case UNCORE:
-                            // Notes: cp
-                            // /usr/share/crashdump/input/crashdump_input_xxx.json
-                            // to /tmp/crashdump/input and modify UseSection:
-                            // true in the file to enable peci engine flow.
-                            if (cJSON_IsTrue(useSections))
-                            {
-
-                                fillNewSection(root, &cpuInfo[j], j,
-                                               "Uncore_PCI", &sectionStart,
-                                               timeStr);
-                                fillNewSection(root, &cpuInfo[j], j,
-                                               "Uncore_MMIO", &sectionStart,
-                                               timeStr);
-                                fillNewSection(root, &cpuInfo[j], j,
-                                               "Uncore_RdIAMSR", &sectionStart,
-                                               timeStr);
-                                fillNewSection(root, &cpuInfo[j], j,
-                                               "Uncore_RdIAMSR_CHA",
-                                               &sectionStart, timeStr);
-                                fillNewSection(root, &cpuInfo[j], j,
-                                               "Uncore_RdTAD", &sectionStart,
-                                               timeStr);
-                            }
-                            else
-                            {
-                                fillSection(cpu, &cpuInfo[j], sectionNames[i],
-                                            sectionNames[i].fptr, &sectionStart,
-                                            timeStr);
-                            }
-                            break;
-                        case TOR:
-                            if (cJSON_IsTrue(useSections))
-                            {
-                                fillNewSection(root, &cpuInfo[j], j, "TOR",
-                                               &sectionStart, timeStr);
-                            }
-                            else
-                            {
-                                fillSection(cpu, &cpuInfo[j], sectionNames[i],
-                                            sectionNames[i].fptr, &sectionStart,
-                                            timeStr);
-                            }
-                            break;
-                        case BIG_CORE:
-                            fillNewSection(root, &cpuInfo[j], j,
-                                           BIG_CORE_SECTION_NAME, &sectionStart,
-                                           timeStr);
-                            break;
-                        case METADATA:
-                            if (cJSON_IsTrue(useSections))
-                            {
-                                fillNewSection(root, &cpuInfo[j], j,
-                                               "Metadata_Cpu", &sectionStart,
-                                               timeStr);
-                            }
-                            else
-                            {
-                                fillMetaDataCPU(crashlogData, cpuInfo[j],
-                                                &inputFileInfo);
-                            }
-                            break;
-                        case ADDRESS_MAP:
-                            if ((cd_spr != cpuInfo[j].model) &&
-                                (cd_sprhbm != cpuInfo[j].model))
-                            {
-                                if (cJSON_IsTrue(useSections))
-                                {
-                                    fillNewSection(root, &cpuInfo[j], j,
-                                                   "Address_Map", &sectionStart,
-                                                   timeStr);
-                                }
-                                else
-                                {
-                                    fillSection(cpu, &cpuInfo[j],
-                                                sectionNames[i],
-                                                sectionNames[i].fptr,
-                                                &sectionStart, timeStr);
-                                }
-                            }
-                            break;
-                        case PM_INFO:
-                            if (cJSON_IsTrue(useSections))
-                            {
-
-                                fillNewSection(root, &cpuInfo[j], j,
-                                               "PowerManagement_PCI",
-                                               &sectionStart, timeStr);
-                                fillNewSection(root, &cpuInfo[j], j,
-                                               "PowerManagement_PCI_core",
-                                               &sectionStart, timeStr);
-                                fillNewSection(root, &cpuInfo[j], j,
-                                               "PowerManagement_Pll",
-                                               &sectionStart, timeStr);
-                                fillNewSection(root, &cpuInfo[j], j,
-                                               "PowerManagement_Dispatcher",
-                                               &sectionStart, timeStr);
-                            }
-                            else
-                            {
-                                fillSection(cpu, &cpuInfo[j], sectionNames[i],
-                                            sectionNames[i].fptr, &sectionStart,
-                                            timeStr);
-                            }
-                            break;
-                        case CRASHLOG:
-                            if (cd_icx != cpuInfo[j].model)
-                            {
-                                fillNewSection(root, &cpuInfo[j], j, "crashlog",
-                                               &sectionStart, timeStr);
-                            }
-                            break;
-                        default:
-                            fillSection(cpu, &cpuInfo[j], sectionNames[i],
-                                        sectionNames[i].fptr, &sectionStart,
-                                        timeStr);
-                            break;
-                    }
+                    fillNewSection(root, &cpuInfo[j], j, &runTimeInfo, section);
                 }
             }
         }
     }
-
 #ifdef NVD_SECTION
     acdStatus nvdStatus = crashdump::getDIMMInventoryDBus(cpuInfo);
     if (nvdStatus == ACD_SUCCESS)
@@ -1096,51 +843,16 @@ void createCrashdump(std::vector<CPUInfo>& cpuInfo,
         }
         if (nvdStatus != ACD_SECTION_DISABLE)
         {
-            logRunTime(nvd, &sectionStart, "_time");
+            logRunTime(nvd, &runTimeInfo.sectionRunTime, TIME_KEY);
         }
     }
 #endif
-
     fillMetaDataCommon(metaData, cpuInfo[0], &inputFileInfo, triggerType,
-                       timestamp, &crashdumpStart, &sectionStart, timeStr);
+                       timestamp, &crashdumpStart, &runTimeInfo.sectionRunTime);
 
     logResetDetected(metaData, platformState.resetCpu,
                      platformState.resetSection);
 
-#ifdef OEMDATA_SECTION
-    // OEM Customer Section
-    clock_gettime(CLOCK_MONOTONIC, &sectionStart);
-    crashdumpStart.tv_sec = sectionStart.tv_sec;
-    crashdumpStart.tv_nsec = sectionStart.tv_nsec;
-    cJSON* oemCrashlogData = NULL;
-    cJSON* oemProcessors = NULL;
-    cJSON* oemCpu = NULL;
-    cJSON* oemLogSection = NULL;
-    cJSON_AddItemToObject(root, "oemdata",
-                          oemCrashlogData = cJSON_CreateObject());
-    cJSON_AddItemToObject(oemCrashlogData, "PROCESSORS",
-                          oemProcessors = cJSON_CreateObject());
-    logCrashdumpVersion(oemProcessors, &cpuInfo[0], RECORD_TYPE_BMCAUTONOMOUS);
-
-    for (size_t i = 0; i < cpuInfo.size(); i++)
-    {
-        char cpuString[8];
-        cd_snprintf_s(cpuString, sizeof(cpuString), "cpu%d", i);
-        cJSON_AddItemToObject(oemProcessors, cpuString,
-                              oemCpu = cJSON_CreateObject());
-        oemLogSection =
-            addSectionLog(oemCpu, &cpuInfo[i], "oemdata", logOemData);
-        if (oemLogSection)
-        {
-            logRunTime(oemLogSection, &sectionStart, timeStr);
-        }
-    }
-    if (oemLogSection != NULL)
-    {
-        logTimestamp(oemCrashlogData, timestamp);
-        logRunTime(oemCrashlogData, &crashdumpStart, "_total_time");
-    }
-#endif
 #ifdef CRASHDUMP_PRINT_UNFORMATTED
     out = cJSON_PrintUnformatted(root);
 #else
@@ -1150,10 +862,28 @@ void createCrashdump(std::vector<CPUInfo>& cpuInfo,
     {
         crashdumpContents = out;
 #ifdef TRIAGE_SECTION
-        appendTriageSection(crashdumpContents);
+        bool triageEnable = true;
+        if (isTelemetry)
+        {
+            triageEnable = false;
+        }
+        if (readInputFileFlag(cpuInfo[0].inputFile.bufferPtr, triageEnable,
+                              TRIAGE_ENABLE))
+        {
+            appendTriageSection(crashdumpContents);
+        }
 #endif
 #ifdef BAFI_NDA_OUTPUT
-        appendSummarySection(crashdumpContents);
+        bool summaryEnable = true;
+        if (isTelemetry)
+        {
+            summaryEnable = false;
+        }
+        if (readInputFileFlag(cpuInfo[0].inputFile.bufferPtr, summaryEnable,
+                              SUMMARY_ENABLE))
+        {
+            appendSummarySection(crashdumpContents);
+        }
 #endif
         cJSON_free(out);
         CRASHDUMP_PRINT(INFO, stderr, "Completed!\n");
@@ -1510,6 +1240,10 @@ struct PowerOffException final : public sdbusplus::exception_t
         return "org.freedesktop.DBus.Error.NotSupported: "
                "Power off, cannot access peci";
     };
+    int get_errno() const noexcept override
+    {
+        return EOPNOTSUPP;
+    }
 };
 /** Exception for when a log is attempted while another is in progress. */
 struct LogInProgressException final : public sdbusplus::exception_t
@@ -1527,6 +1261,10 @@ struct LogInProgressException final : public sdbusplus::exception_t
         return "org.freedesktop.DBus.Error.ObjectPathInUse: "
                "Log in progress";
     };
+    int get_errno() const noexcept override
+    {
+        return EBUSY;
+    }
 };
 } // namespace crashdump
 

@@ -19,8 +19,8 @@
 
 #ifndef LOGGER_H
 #define LOGGER_H
-#include "../CrashdumpSections/crashdump.h"
-#include "CrashdumpSections/utils.h"
+#include "../engine/crashdump.h"
+#include "../engine/utils.h"
 #include "cmdprocessor.h"
 #include "logger_internal.h"
 
@@ -33,11 +33,15 @@ void GenerateVersion(cJSON* Section, int* Version);
 void logSectionRunTime(cJSON* parent, struct timespec* start, char* key);
 void logRecordDisabled(CmdInOut* cmdInOut, cJSON* root,
                        LoggerStruct* loggerStruct);
-
+acdStatus GenerateJsonPath(CmdInOut* cmdInOut, cJSON* root,
+                           LoggerStruct* loggerStruct, bool useRootPath);
 #define LOGGER_JSON_STRING_LEN 64
 #define LOGGER_DATA_64bits "0x%" PRIx64 ""
 #define LOGGER_DATA_64_bits_CC_RC "0x%" PRIx64 ",CC:0x%x,RC:0x%x"
 #define LOGGER_FIXED_DATA_CC_RC "0x0,CC:0x%x,RC:0x%x"
+#define LOGGER_INFO_TIMEOUT "%ds"
+#define LOGGER_GLOBAL_TIMEOUT "_cpu%d_%s_global_timeout:"
+#define LOGGER_SECTION_TIMEOUT "_cpu%d_%s_section_timeout:"
 #define LOGGER_VERSION_STRING "_version"
 #define LOGGER_NA "N/A"
 #define RECORD_ENABLE "_record_enable"

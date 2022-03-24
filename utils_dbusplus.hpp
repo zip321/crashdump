@@ -41,3 +41,9 @@ std::shared_ptr<sdbusplus::bus::match::match>
 int fillBmcVersion(char* cSectionName, cJSON* pJsonChild);
 int fillBiosId(char* cSectionName, cJSON* pJsonChild);
 int logSysInfoCommon(cJSON* pJsonChild);
+
+typedef struct
+{
+    char sectionName[SI_JSON_STRING_LEN];
+    int (*FillSysInfoJson)(char* cSectionName, cJSON* pJsonChild);
+} SSysInfoCommonSection;

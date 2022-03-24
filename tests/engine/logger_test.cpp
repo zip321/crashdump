@@ -20,9 +20,9 @@
 #include "../mock/test_crashdump.hpp"
 
 extern "C" {
-#include "CrashdumpSections/crashdump.h"
-#include "CrashdumpSections/utils.h"
+#include "engine/crashdump.h"
 #include "engine/logger.h"
+#include "engine/utils.h"
 }
 
 #include "gmock/gmock.h"
@@ -43,7 +43,7 @@ class ProcessLoggerTestFixture : public ::testing::Test
     {
         UTFile = fs::current_path();
         UTFile = UTFile.parent_path();
-        UTFile /= "tests/UnitTestFiles/ut_uncore_input_sample_spr.json";
+        UTFile /= "tests/UnitTestFiles/ut_uncore.json";
         inRoot = readInputFile(UTFile.c_str());
         if (inRoot == NULL)
         {
@@ -360,4 +360,200 @@ TEST_F(ProcessLoggerTestFixture, LoggingTest)
     cJSON* Object1 = cJSON_GetObjectItemCaseSensitive(outRoot, "String");
     EXPECT_FALSE(Object1 == NULL);
     EXPECT_STREQ(Object1->valuestring, "Testing");
+}
+
+TEST_F(ProcessLoggerTestFixture, LoggerRepeatBadCC)
+{
+    LoggerStruct loggerStruct;
+    CmdInOut cmdInOut;
+    loggerStruct.pathParsing.numberOfTokens = 0;
+    loggerStruct.nameProcessing.extraLevel = false;
+    loggerStruct.nameProcessing.registerName = "Pll_0x220c_r%d";
+    loggerStruct.contextLogger.repeats = 0;
+    cmdInOut.out.ret = PECI_CC_DRIVER_ERR;
+    cmdInOut.out.cc = PECI_DEV_CC_MCA_ERROR;
+    loggerStruct.nameProcessing.size = 4;
+    loggerStruct.nameProcessing.sizeFromOutput = true;
+    loggerStruct.contextLogger.skipFlag = false;
+    cmdInOut.out.printString = false;
+    cmdInOut.out.val.u64 = 0xdeadbeef;
+    Logger(&cmdInOut, outRoot, &loggerStruct);
+    cJSON* Object1 = cJSON_GetObjectItemCaseSensitive(outRoot, "Pll_0x220c_r0");
+    EXPECT_FALSE(Object1 == NULL);
+    EXPECT_STREQ(Object1->valuestring, "0x0,CC:0x91,RC:0x3");
+}
+
+TEST_F(ProcessLoggerTestFixture, LoggerRecordDisable)
+{
+    static const char* OutputPathStr =
+        R"({"OutputPath":"crash_data/PROCESSORS/cpu%d/MCA"})";
+    cJSON* OutputPathjson = cJSON_Parse(OutputPathStr);
+    LoggerStruct loggerStruct;
+    CmdInOut cmdInOut;
+    status = GetPath(OutputPathjson, &loggerStruct);
+    EXPECT_EQ(ACD_SUCCESS, status);
+    status = ParsePath(&loggerStruct);
+    EXPECT_EQ(ACD_SUCCESS, status);
+    cmdInOut.out.ret = PECI_CC_SUCCESS;
+    cmdInOut.out.cc = PECI_DEV_CC_SUCCESS;
+    loggerStruct.nameProcessing.rootAtLevel = 4;
+    loggerStruct.contextLogger.skipFlag = false;
+    cmdInOut.out.printString = false;
+    logRecordDisabled(&cmdInOut, outRoot, &loggerStruct);
+    cJSON* crash_data = cJSON_GetObjectItemCaseSensitive(outRoot, "crash_data");
+    EXPECT_TRUE(crash_data != NULL);
+    cJSON* processors =
+        cJSON_GetObjectItemCaseSensitive(crash_data, "PROCESSORS");
+    EXPECT_TRUE(processors != NULL);
+    cJSON* cpu = cJSON_GetObjectItemCaseSensitive(processors, "cpu0");
+    EXPECT_TRUE(cpu != NULL);
+    cJSON* mca = cJSON_GetObjectItemCaseSensitive(cpu, "MCA");
+    EXPECT_TRUE(mca != NULL);
+    cJSON* record = cJSON_GetObjectItemCaseSensitive(mca, "_record_enable");
+    EXPECT_TRUE(record != NULL);
+    EXPECT_TRUE(cJSON_IsBool(record));
+}
+
+TEST_F(ProcessLoggerTestFixture, LoggerVersion)
+{
+    static const char* OutputPathStr =
+        R"({"OutputPath":"crash_data/PROCESSORS/cpu%d/Uncore"})";
+    cJSON* OutputPathjson = cJSON_Parse(OutputPathStr);
+    LoggerStruct loggerStruct;
+    CmdInOut cmdInOut;
+    status = GetPath(OutputPathjson, &loggerStruct);
+    EXPECT_EQ(ACD_SUCCESS, status);
+    status = ParsePath(&loggerStruct);
+    EXPECT_EQ(ACD_SUCCESS, status);
+    cmdInOut.out.ret = PECI_CC_SUCCESS;
+    cmdInOut.out.cc = PECI_DEV_CC_SUCCESS;
+    loggerStruct.nameProcessing.rootAtLevel = 4;
+    loggerStruct.contextLogger.version = 1;
+    loggerStruct.contextLogger.skipFlag = false;
+    cmdInOut.out.printString = false;
+    logVersion(&cmdInOut, outRoot, &loggerStruct);
+    cJSON* crash_data = cJSON_GetObjectItemCaseSensitive(outRoot, "crash_data");
+    EXPECT_TRUE(crash_data != NULL);
+    cJSON* processors =
+        cJSON_GetObjectItemCaseSensitive(crash_data, "PROCESSORS");
+    EXPECT_TRUE(processors != NULL);
+    cJSON* cpu = cJSON_GetObjectItemCaseSensitive(processors, "cpu0");
+    EXPECT_TRUE(cpu != NULL);
+    cJSON* uncore = cJSON_GetObjectItemCaseSensitive(cpu, "Uncore");
+    EXPECT_TRUE(uncore != NULL);
+    cJSON* version = cJSON_GetObjectItemCaseSensitive(uncore, "_version");
+    EXPECT_TRUE(version != NULL);
+    char* value = version->valuestring;
+    EXPECT_STREQ("0x1", value);
+}
+
+TEST_F(ProcessLoggerTestFixture, LoggerRootLevelLessThanToken)
+{
+    static const char* OutputPathStr =
+        R"({"OutputPath":"crash_data/PROCESSORS/cpu%d/Uncore"})";
+    cJSON* OutputPathjson = cJSON_Parse(OutputPathStr);
+    LoggerStruct loggerStruct;
+    CmdInOut cmdInOut;
+    status = GetPath(OutputPathjson, &loggerStruct);
+    EXPECT_EQ(ACD_SUCCESS, status);
+    status = ParsePath(&loggerStruct);
+    EXPECT_EQ(ACD_SUCCESS, status);
+    cmdInOut.out.ret = PECI_CC_SUCCESS;
+    cmdInOut.out.cc = PECI_DEV_CC_SUCCESS;
+    loggerStruct.nameProcessing.rootAtLevel = 2;
+    loggerStruct.contextLogger.version = 1;
+    loggerStruct.contextLogger.skipFlag = false;
+    cmdInOut.out.printString = false;
+    logVersion(&cmdInOut, outRoot, &loggerStruct);
+    cJSON* crash_data = cJSON_GetObjectItemCaseSensitive(outRoot, "crash_data");
+    EXPECT_TRUE(crash_data != NULL);
+    cJSON* processors =
+        cJSON_GetObjectItemCaseSensitive(crash_data, "PROCESSORS");
+    EXPECT_TRUE(processors != NULL);
+    cJSON* version = cJSON_GetObjectItemCaseSensitive(processors, "_version");
+    EXPECT_TRUE(version != NULL);
+    char* value = version->valuestring;
+    EXPECT_STREQ("0x1", value);
+}
+
+TEST_F(ProcessLoggerTestFixture, LoggerRootLevelBiggerThanToken)
+{
+    static const char* OutputPathStr =
+        R"({"OutputPath":"crash_data/PROCESSORS/cpu%d/Uncore"})";
+    cJSON* OutputPathjson = cJSON_Parse(OutputPathStr);
+    LoggerStruct loggerStruct;
+    CmdInOut cmdInOut;
+    status = GetPath(OutputPathjson, &loggerStruct);
+    EXPECT_EQ(ACD_SUCCESS, status);
+    status = ParsePath(&loggerStruct);
+    EXPECT_EQ(ACD_SUCCESS, status);
+    cmdInOut.out.ret = PECI_CC_SUCCESS;
+    cmdInOut.out.cc = PECI_DEV_CC_SUCCESS;
+    loggerStruct.nameProcessing.rootAtLevel = 10;
+    loggerStruct.contextLogger.version = 1;
+    loggerStruct.contextLogger.skipFlag = false;
+    cmdInOut.out.printString = false;
+    logVersion(&cmdInOut, outRoot, &loggerStruct);
+    cJSON* crash_data = cJSON_GetObjectItemCaseSensitive(outRoot, "crash_data");
+    EXPECT_TRUE(crash_data != NULL);
+    cJSON* processors =
+        cJSON_GetObjectItemCaseSensitive(crash_data, "PROCESSORS");
+    EXPECT_TRUE(processors != NULL);
+    cJSON* cpu = cJSON_GetObjectItemCaseSensitive(processors, "cpu0");
+    EXPECT_TRUE(cpu != NULL);
+    cJSON* uncore = cJSON_GetObjectItemCaseSensitive(cpu, "Uncore");
+    EXPECT_TRUE(uncore != NULL);
+    cJSON* version = cJSON_GetObjectItemCaseSensitive(uncore, "_version");
+    EXPECT_TRUE(version != NULL);
+    char* value = version->valuestring;
+    EXPECT_STREQ("0x1", value);
+}
+
+TEST_F(ProcessLoggerTestFixture, LoggerNoRootAtLevelSpecified)
+{
+    static const char* OutputPathStr =
+        R"({"OutputPath":"crash_data/PROCESSORS/cpu%d/Uncore"})";
+    cJSON* OutputPathjson = cJSON_Parse(OutputPathStr);
+    LoggerStruct loggerStruct;
+    CmdInOut cmdInOut;
+    status = GetPath(OutputPathjson, &loggerStruct);
+    EXPECT_EQ(ACD_SUCCESS, status);
+    status = ParsePath(&loggerStruct);
+    EXPECT_EQ(ACD_SUCCESS, status);
+    cmdInOut.out.ret = PECI_CC_SUCCESS;
+    cmdInOut.out.cc = PECI_DEV_CC_SUCCESS;
+    loggerStruct.contextLogger.version = 1;
+    loggerStruct.contextLogger.skipFlag = false;
+    cmdInOut.out.printString = false;
+    logVersion(&cmdInOut, outRoot, &loggerStruct);
+    cJSON* crash_data = cJSON_GetObjectItemCaseSensitive(outRoot, "crash_data");
+    EXPECT_TRUE(crash_data != NULL);
+    cJSON* processors =
+        cJSON_GetObjectItemCaseSensitive(crash_data, "PROCESSORS");
+    EXPECT_TRUE(processors != NULL);
+    cJSON* cpu = cJSON_GetObjectItemCaseSensitive(processors, "cpu0");
+    EXPECT_TRUE(cpu != NULL);
+    cJSON* uncore = cJSON_GetObjectItemCaseSensitive(cpu, "Uncore");
+    EXPECT_TRUE(uncore != NULL);
+    cJSON* version = cJSON_GetObjectItemCaseSensitive(uncore, "_version");
+    EXPECT_TRUE(version != NULL);
+    char* value = version->valuestring;
+    EXPECT_STREQ("0x1", value);
+}
+
+TEST_F(ProcessLoggerTestFixture, LoggerNoPathParseBeforeGenerationOfJson)
+{
+    LoggerStruct loggerStruct;
+    CmdInOut cmdInOut;
+    status = GenerateJsonPath(&cmdInOut, outRoot, &loggerStruct, true);
+    EXPECT_EQ(status, ACD_SUCCESS);
+}
+
+TEST_F(ProcessLoggerTestFixture, LoggerGenerateJsonPathFailure)
+{
+    LoggerStruct loggerStruct;
+    CmdInOut cmdInOut;
+    outRoot = NULL;
+    status = GenerateJsonPath(&cmdInOut, outRoot, &loggerStruct, true);
+    EXPECT_EQ(status, ACD_FAILURE);
 }

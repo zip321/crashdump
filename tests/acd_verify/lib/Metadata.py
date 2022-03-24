@@ -38,22 +38,16 @@ class Metadata(Section):
             )
             return None
 
-    def verifyCpuID(self):
-        # Obtain all cpuIDs
-        cpuIDs = [self.sectionInfo[cpu].get('cpuid') for cpu in self.cpus]
-        # Eliminate duplicates
-        cpuIDs = list(dict.fromkeys(cpuIDs))
-        if len(cpuIDs) > 1:   # More than 1 cpuID found
-            tmp = {}
-            for cpu in self.cpus:
-                tmp[cpu] = self.sectionInfo[cpu]["cpuid"] if "cpuid" in self.sectionInfo[cpu] else "Not present"
-            return tmp
+    def getCpuIDs(self):
+        cpuIDs = {}
+        for cpu in self.cpus:
+            cpuIDs[cpu] = self.sectionInfo[cpu]["cpuid"] if "cpuid" in self.sectionInfo[cpu] else "Not present"
         return cpuIDs
 
     def getSummaryInfo(self):
         summaryInfo = {}
         summaryInfo["nCPUs"] = len(self.cpus)
-        summaryInfo["IDs"] = self.verifyCpuID()
+        summaryInfo["cpuIDs"] = self.getCpuIDs()
         summaryInfo["totalTime"] = self.sectionInfo["_total_time"]
         summaryInfo["triggerType"] = self.sectionInfo["trigger_type"]
         summaryInfo["crashcoreCounts"] = self.getCrashcoreCounts()
@@ -136,11 +130,14 @@ class Metadata(Section):
         cpuID = self.search(cpu, self.sectionInfo[cpu], "cpuid")
         if cpuID:
             cpuID = cpuID.upper()
+            # SKX, CLX and CPX
+            cpxValidVal = (cpuID[:-1] == "0X5065")
             # ICX
             icxValidVal = (cpuID[:-1] == "0X606A")
             # SPR
             sprValidVal = (cpuID[:-1] == "0X806F")
-            if (not icxValidVal) and (not sprValidVal):
+            if (not icxValidVal) and (not sprValidVal) and \
+               (not cpxValidVal):
                 errMessage = f"{cpu} has CPUID invalid value {cpuID}"
                 self.healthCheckErrors.append(errMessage)
         else:

@@ -5,7 +5,7 @@
 
 extern "C" {
 
-#include "CrashdumpSections/crashdump.h"
+#include "engine/crashdump.h"
 }
 
 #include "fake_peci.hpp"

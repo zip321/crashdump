@@ -1,57 +1,36 @@
 {
-  "crash_data": {
-    "cpu": "icx2",
-    "Version": "release",
-    "ServiceName": "crashdump",
-    "DefaultState": "Enable",
-    "UseSections": true,
-    "MCA": {
-      "_record_enable": false
-    },
-    "METADATA": {
-      "_record_enable": true
-    },
-    "PM_info": {
-      "_record_enable": false
-    },
-    "TOR": {
-      "_record_enable": false
-    },
-    "address_map": {
-      "_record_enable": false
-    },
-    "big_core": {
-      "_record_enable": false
-    },
-    "uncore": {
-      "_record_enable": true,
-      "_version": "0x01",
-      "pci": {
-        "header_info": ["reg_name", "bus", "device", "function", "offset", "size"],
-        "reg_list": []
-      },
-      "mmio": {
-        "header_info": ["reg_name", "bar_id", "bus", "device", "function", "offset", "addr_type", "size"],
-        "reg_list": []
-      },
-      "rdiamsr": {
-        "header_info": ["reg_name", "address", "thread_id", "size"],
-        "reg_list": []
-      }
-    },
-    "Sections": [
-      {
+  "cpu": "icx2",
+  "Version": "release",
+  "ServiceName": "crashdump",
+  "DefaultState": "Enable",
+  "UseSections": true,
+  "PECIHeaders": {
+    "CrashDump_Discovery": ["Target", "Opcode", "Param0", "Param1", "Param2", "ReadLen"],
+    "CrashDump_GetFrame": ["Target", "Param0", "Param1", "Param2", "ReadLen"],
+    "Ping": ["Target"],
+    "GetCPUID": ["Target"],
+    "RdIAMSR": ["Target", "Thread", "Address"],
+    "RdPkgConfig": ["Target", "Index", "Param", "ReadLen"],
+    "RdPCIConfigLocal": ["Target", "Bus", "Dev", "Func", "Reg", "ReadLen"],
+    "RdEndPointConfigPciLocal": ["Target", "Seg", "Bus", "Dev", "Func", "Reg", "ReadLen"],
+    "WrEndPointPCIConfigLocal": ["Target", "Seg", "Bus", "Dev", "Func", "Reg", "ReadLen", "Value"],
+    "RdEndPointConfigMMIO": ["Target", "Seg", "Bus", "Dev", "Func", "Bar", "AType", "Offset", "ReadLen"],
+    "Telemetry_Discovery": ["Target", "Opcode", "Param0", "Param1", "Param2", "ReadLen"]
+  },
+  "Sections": [
+    {
       "MCA_UNCORE":{
         "RecordEnable": false,
-        "RootAtLevel": 3,
+        "RootAtLevel": 4,
         "OutputPath": "crash_data/PROCESSORS/cpu%d/MCA"
-      },
+      }
+    },
+    {
       "MCA_CBO": {
         "RecordEnable": false
-      },
-      "MCA_CORE": {
-        "RecordEnable": false
-      },
+      }
+    },
+    {
       "Uncore_PCI": {
         "RecordEnable": true,
         "RecordType": "0x08",
@@ -227,7 +206,9 @@
             ]
           }
         ]
-      },
+      }
+    },
+    {
       "Uncore_MMIO": {
         "RecordEnable": true,
         "SkipOnFail": false,
@@ -397,7 +378,9 @@
             ]
           }
         ]
-      },
+      }
+    },
+    {
       "Uncore_RdIAMSR": {
         "RecordEnable": true,
         "SkipOnFail": false,
@@ -466,10 +449,57 @@
             ]
           }
         ]
-      },
+      }
+    },
+    {
       "Uncore_RdIAMSR_CHA": {
         "RecordEnable": false
-      },
+      }
+    },
+    {
+      "TOR": {
+        "RecordEnable": false,
+        "RootAtLevel": 4,
+        "OutputPath": "crash_data/PROCESSORS/cpu%d/TOR"
+      }
+    },
+    {
+      "PowerManagement_PCI": {
+        "RecordEnable": false,
+        "RootAtLevel": 4,
+        "OutputPath": "crash_data/PROCESSORS/cpu%d/PM_info"
+      }
+    },
+    {
+      "PowerManagement_PCI_core": {
+        "RecordEnable": false
+      }
+    },
+    {
+      "PowerManagement_Pll": {
+        "RecordEnable": false
+      }
+    },
+    {
+      "Address_Map": {
+        "RecordEnable": false,
+        "RootAtLevel": 4,
+        "OutputPath": "crash_data/PROCESSORS/cpu%d/address_map"
+      }
+    },
+    {
+      "BigCore" : {
+        "RecordEnable": false,
+        "RootAtLevel": 4,
+        "OutputPath": "crash_data/PROCESSORS/cpu%d/big_core"
+      }
+    },
+    {
+      "MCA_CORE": {
+        "RecordEnable": false
+      }
+    },
+    {
       "Metadata_Cpu": {
         "RecordEnable": true,
         "RecordType": "0x0b",
@@ -493,7 +523,9 @@
                 {"Params": ["Target", 0, 14, 30, 4, "0xF8", 4], "InternalVar": "firstierrtsc_low"},
                 {"Params": ["Target", 0, 14, 30, 4, "0xFC", 4], "InternalVar": "firstierrtsc_high"},
                 {"Params": ["Target", 0, 14, 30, 4, "0xF0", 4], "InternalVar": "firstmcerrtsc_low"},
-                {"Params": ["Target", 0, 14, 30, 4, "0xF4", 4], "InternalVar": "firstmcerrtsc_high"}
+                {"Params": ["Target", 0, 14, 30, 4, "0xF4", 4], "InternalVar": "firstmcerrtsc_high"},
+                {"Params": ["Target", 0, 31, 30, 3, "0x9c", 4], "InternalVar": "chamask0"},
+                {"Params": ["Target", 0, 31, 30, 3, "0xa0", 4], "InternalVar": "chamask1"}
               ]
             }
           ]
@@ -520,6 +552,7 @@
           },
           {
             "RdAndConcatenate": [
+              {"Params": ["chamask0", "chamask1"], "Output": {"Size": 8,"Name": ["cha_mask"]}},
               {"Params": ["ppin_low", "ppin_high"], "Output": {"Size": 8,"Name": ["ppin"]}},
               {"Params": ["firstierrtsc_low", "firstierrtsc_high"], "Output": {"Size": 8,"Name": ["firstierrtsc"]}},
               {"Params": ["firstmcerrtsc_low", "firstmcerrtsc_high"], "Output": {"Size": 8,"Name": ["firstmcerrtsc"]}}
@@ -539,8 +572,7 @@
               ]
             }
           ]
-        }
       }
-    ]
-  }
+    }
+  ]
 }

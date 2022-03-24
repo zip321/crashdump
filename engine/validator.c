@@ -19,104 +19,177 @@
 
 #include "validator.h"
 
-bool IsMaxTimeValid(uint32_t maxTime)
+bool IsMaxTimeValid(uint32_t maxTime, const ValidatorParams* validatorParams)
 {
-    // TODO: Validate params
+    if (validatorParams->validateInput)
+    {
+        return true;
+    }
     return true;
 }
 
-bool IsCrashDump_DiscoveryParamsValid(cJSON* params)
+bool IsCrashDump_DiscoveryParamsValid(cJSON* params,
+                                      const ValidatorParams* validatorParams)
 {
-    // TODO: Validate params
+    if (validatorParams->validateInput)
+    {
+        return true;
+    }
     return true;
 }
 
-bool IsCrashDump_GetFrameParamsValid(cJSON* params)
+bool IsCrashDump_GetFrameParamsValid(cJSON* params,
+                                     const ValidatorParams* validatorParams)
 {
-    // TODO: Validate params
+    if (validatorParams->validateInput)
+    {
+        return true;
+    }
     return true;
 }
 
-bool IsGetCPUIDParamsValid(cJSON* params)
+bool IsGetCPUIDParamsValid(cJSON* params,
+                           const ValidatorParams* validatorParams)
 {
-    // TODO: Validate params
+    if (validatorParams->validateInput)
+    {
+        return true;
+    }
     return true;
 }
 
-bool IsPingParamsValid(cJSON* params)
+bool IsPingParamsValid(cJSON* params, const ValidatorParams* validatorParams)
 {
-    // TODO: Validate params
+    if (validatorParams->validateInput)
+    {
+        return true;
+    }
     return true;
 }
 
-bool IsRdEndPointConfigMmioParamsValid(cJSON* params)
+bool IsRdEndPointConfigMmioParamsValid(cJSON* params,
+                                       const ValidatorParams* validatorParams)
 {
-    // TODO: Validate params
+    if (validatorParams->validateInput)
+    {
+        return true;
+    }
     return true;
 }
 
-bool IsRdChaCountParamsValid(cJSON* params)
+bool IsRdChaCountParamsValid(cJSON* params,
+                             const ValidatorParams* validatorParams)
 {
-    // TODO: Validate params
+    if (validatorParams->validateInput)
+    {
+        return true;
+    }
     return true;
 }
 
-bool IsRdIAMSRParamsValid(cJSON* params)
+bool IsRdIAMSRParamsValid(cJSON* params, const ValidatorParams* validatorParams)
 {
-    // TODO: Validate params
+    if (validatorParams->validateInput)
+    {
+        return true;
+    }
     return true;
 }
 
-bool IsRdEndPointConfigPciLocalParamsValid(cJSON* params)
+bool IsRdPciConfigLocalParamsValid(cJSON* params,
+                                   const ValidatorParams* validatorParams)
 {
-    // TODO: Validate params
+    if (validatorParams->validateInput)
+    {
+        return true;
+    }
     return true;
 }
 
-bool IsWrEndPointConfigPciLocalParamsValid(cJSON* params)
+bool IsRdEndPointConfigPciLocalParamsValid(
+    cJSON* params, const ValidatorParams* validatorParams)
 {
-    // TODO: Validate params
+    if (validatorParams->validateInput)
+    {
+        return true;
+    }
     return true;
 }
 
-bool IsRdPkgConfigParamsValid(cJSON* params)
+bool IsWrEndPointConfigPciLocalParamsValid(
+    cJSON* params, const ValidatorParams* validatorParams)
 {
-    // TODO: Validate params
+    if (validatorParams->validateInput)
+    {
+        return true;
+    }
     return true;
 }
 
-bool IsRdPkgConfigCoreParamsValid(cJSON* params)
+bool IsRdPkgConfigParamsValid(cJSON* params,
+                              const ValidatorParams* validatorParams)
 {
-    // TODO: Validate params
-    return true;
-}
-bool IsRdPostEnumBusParamsValid(cJSON* params)
-{
-    // TODO: Validate params
-    return true;
-}
-
-bool IsTelemetry_DiscoveryParamsValid(cJSON* params)
-{
-    // TODO: Validate params
+    if (validatorParams->validateInput)
+    {
+        return true;
+    }
     return true;
 }
 
-bool IsRdAndConcatenateParamsValid(cJSON* params)
+bool IsRdPkgConfigCoreParamsValid(cJSON* params,
+                                  const ValidatorParams* validatorParams)
 {
-    // TODO: Validate params
+    if (validatorParams->validateInput)
+    {
+        return true;
+    }
+    return true;
+}
+bool IsRdPostEnumBusParamsValid(cJSON* params,
+                                const ValidatorParams* validatorParams)
+{
+    if (validatorParams->validateInput)
+    {
+        return true;
+    }
     return true;
 }
 
-bool IsRdGlobalVarsValid(cJSON* params)
+bool IsTelemetry_DiscoveryParamsValid(cJSON* params,
+                                      const ValidatorParams* validatorParams)
 {
-    // TODO: Validate params
+    if (validatorParams->validateInput)
+    {
+        return true;
+    }
     return true;
 }
 
-bool IsSaveStrVarsValid(cJSON* params)
+bool IsRdAndConcatenateParamsValid(cJSON* params,
+                                   const ValidatorParams* validatorParams)
 {
-    // TODO: Validate params
+    if (validatorParams->validateInput)
+    {
+        return true;
+    }
+    return true;
+}
+
+bool IsRdGlobalVarsValid(cJSON* params, const ValidatorParams* validatorParams)
+{
+    if (validatorParams->validateInput)
+    {
+        return true;
+    }
+    return true;
+}
+
+bool IsSaveStrVarsValid(cJSON* params, const ValidatorParams* validatorParams)
+{
+    if (validatorParams->validateInput)
+    {
+        return true;
+    }
     return true;
 }
 

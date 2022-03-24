@@ -36,7 +36,9 @@ class Preprocessor():
             if "address_map" in cpus[cpu]:
                 self.sections[cpu] = {
                     "tor": Tor.createTor(cpus[cpu]),
-                    "uncore": Uncore.createUncore(cpus[cpu]),
+                    "uncore": Uncore.createUncore(
+                        cpus[cpu], cpu,
+                        self.sections['metadata'].sectionInfo[cpu]['cpuid']),
                     "mca": Mca.createMCA(cpus[cpu]),
                     "pm_info": PM_info.createPM_info(cpus[cpu]),
                     "address_map": Address_map.createAdress_map(cpus[cpu]),
@@ -45,7 +47,9 @@ class Preprocessor():
             else:
                 self.sections[cpu] = {
                     "tor": Tor.createTor(cpus[cpu]),
-                    "uncore": Uncore.createUncore(cpus[cpu]),
+                    "uncore": Uncore.createUncore(
+                        cpus[cpu], cpu,
+                        self.sections['metadata'].sectionInfo[cpu]['cpuid']),
                     "mca": Mca.createMCA(cpus[cpu]),
                     "pm_info": PM_info.createPM_info(cpus[cpu]),
                     "big_core": Big_core.createBig_core(cpus[cpu])

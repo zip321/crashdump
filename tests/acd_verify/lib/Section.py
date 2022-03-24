@@ -100,7 +100,8 @@ class Section():
         }
 
         _validProducts = ("2A", "2B", "1A", "1B", "1C",
-                          "2C", "2D", "33", "22", "23")
+                          "2C", "2D", "33", "22", "23",
+                          "34")
 
         if self.sectionName in _revision:
             if not (revision == _revision[self.sectionName]):

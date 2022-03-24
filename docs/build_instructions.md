@@ -8,70 +8,22 @@
     cd openbmc
     ```
 
-2. Clone the `meta-egs` repo inside meta-openbmc-mods.
+2. Clone the `meta-egs` and `meta-restricted` repo inside meta-openbmc-mods.
     ```shell
     cd meta-openbmc-mods
     git clone git@github.com:Intel-BMC/meta-egs.git
+    git clone git@github.com:Intel-BMC/meta-restricted.git
     ```
 
-3. Create a `crashdump` folder and include the following bitbake file in it.
-    ```shell
-    cd meta-openbmc-mods/meta-common/recipes-core
-    mkdir crashdump
-    cd crashdump
-    touch crashdump_git.bb
-    ```
-
-4. Follow this step if you have got `crashdump` source in a tar.gz or zip file.
-Else go to step 5.
+3. Follow this step if you have got `crashdump` source in a tar.gz or zip file.
+Else go to step 4.
     ```shell
     cd meta-openbmc-mods/meta-common/recipes-core/crashdump
     mkdir -p files/crashdump
     tar -xvf crashdump.tar.gz -C ./files/crashdump
     ```
 
-5. Open `crashdump_git.bb` in your favorite editor and include the following in
-it. Please make sure bb file format follows bitbake rules. The bitbake file has
-dependencies as shown below with the `DEPENDS` command. Choose the right
-`SRC_URI` method in the bitbake file depending on how you have received your
-`crashdump` source code. If you have access, you can also find the bitbake file
-at `https://github.com/Intel-BMC/meta-restricted/recipes-core/crashdump/crashdump_git.bb`.
-
-    ```bitbake
-    inherit obmc-phosphor-dbus-service
-    inherit obmc-phosphor-systemd
-
-    SUMMARY = "CPU Crashdump"
-    DESCRIPTION = "CPU utilities for dumping CPU Crashdump and registers over PECI"
-
-    DEPENDS = "boost cjson sdbusplus safec gtest libpeci"
-    inherit cmake systemd
-
-    EXTRA_OECMAKE = "-DYOCTO_DEPENDENCIES=ON -DCRASHDUMP_BUILD_UT=OFF"
-
-    LICENSE = "Proprietary"
-    LIC_FILES_CHKSUM = "file://LICENSE;md5=43c09494f6b77f344027eea0a1c22830"
-
-    # If you have access to the repo where crashdump is released
-    SRC_URI = "git://git@github.com/Intel-BMC/crashdump.git;protocol=ssh;branch=egs"
-    SRCREV = "8d1e8934e48a96e65981dd62b061b14f57e6f72b"
-    S = "${WORKDIR}/git"
-
-    # or if you have been provided with crashdump source code
-    #SRC_URI = "file://crashdump"
-    #S = "${WORKDIR}/crashdump"
-
-    SYSTEMD_SERVICE_${PN} += "com.intel.crashdump.service"
-
-    # linux-libc-headers guides this way to include custom uapi headers
-    CFLAGS_append = " -I ${STAGING_KERNEL_DIR}/include/uapi"
-    CFLAGS_append = " -I ${STAGING_KERNEL_DIR}/include"
-    CXXFLAGS_append = " -I ${STAGING_KERNEL_DIR}/include/uapi"
-    CXXFLAGS_append = " -I ${STAGING_KERNEL_DIR}/include"
-    do_configure[depends] += "virtual/kernel:do_shared_workdir"
-    ```
-
-6. When the `crashdump` module compiles successfully, OpenBMC needs to install
+4. When the `crashdump` module compiles successfully, OpenBMC needs to install
 `crashdump` to the image file. Add the `IMAGE_INSTALL` command to the `local.
 conf.sample` file in the `conf` folder.
 
@@ -84,16 +36,17 @@ conf.sample` file in the `conf` folder.
     IMAGE_INSTALL += "crashdump"
     ```
 
-7. After the bitbake file is created, use `devtool` as follows to allow OpenBMC
+5. After the bitbake file is created, use `devtool` as follows to allow OpenBMC
 to use the `crashdump` from the source code.
     ```shell
     cd <root of openbmc source code>
+    export TEMPLATECONF=meta-openbmc-mods/meta-<platform>/conf
     source oe-init-build-env
     devtool modify crashdump
     devtool build crashdump
     ```
 
-8. Build `openbmc` image.
+6. Build `openbmc` image.
 
     ```shell
     bitbake intel-platforms
@@ -146,7 +99,7 @@ cp /usr/share/crashdump/input/crashdump_input_spr.json /tmp/crashdump/input
 1. Ask Intel representative for `Intel System Crashdump BMC assisted FRU Isolation`
    access and follow repo instruction to setup .bb file.
 
-   [Intel Developer Zone](https://www.intel.com/content/www/us/en/secure/design/confidential/software-kits/kit-details.html?kitId=686344)
+   [Intel Developer Zone](https://www.intel.com/content/www/us/en/secure/design/confidential/software-kits/kit-details.html?kitId=724248&s=Newest)
 
 2. Select one of below BAFI options:
 
@@ -166,8 +119,6 @@ cp /usr/share/crashdump/input/crashdump_input_spr.json /tmp/crashdump/input
 
 3. For Non-Yocto build only
 
-   Notes: Current BAFI source code is not fully compatible with -Werror flag.
-
    ```shell
    # unzip BAFI source code inside crashdump source directory and named bafi
    cd bafi
@@ -175,8 +126,6 @@ cp /usr/share/crashdump/input/crashdump_input_spr.json /tmp/crashdump/input
 
    # Add the following line to CMakeList.txt
    include_directories (${BAFI_SOURCE_DIR})
-
-   Remove "-Werror" flag in CMakeList.txt
    ```
 
 ## Building and running Crashdump Unit tests
@@ -203,6 +152,26 @@ code coverage report can be launched by opening in `build\ccov\index.html`.
     cmake .. -DCRASHDUMP_BUILD_UT=ON -DCODE_COVERAGE=ON
     make ccov
     ```
+
+### Unit Test Ubuntu 18.04 Support
+
+Make the following changes if Ubuntu 18.04 is used for building unit test:
+
+CMakeLists.txt:
+
+Change sdbusplus.git tag value
+   ```
+   GIT_TAG 6adfe948ee55ffde8457047042d0d55aa3d8b4a7 // original
+   GIT_TAG 0f19c87276e46b56edbae70a71749353d401ed39 // change
+   ```
+
+crashdump.cpp:
+
+Remove **override** from below function
+   ```
+   int get_errno() const noexcept override // original
+   int get_errno() const noexcept // change
+   ```
 
 ## Troubleshooting
 The following are possible issues and the corresponding solutions.

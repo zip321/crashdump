@@ -2,6 +2,45 @@
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+
+## [2.0] - 03/28/2022
+
+### Bug Fix
+
+- Fixed bug related to fail cases/reporting of CPUID, CoreMasks, CHACounts.
+- Fixed Memory leak for BAFI Summary / Triage Sections 
+
+### New
+
+- Added OptanePMem auto discovery feature
+- Added OptanePMem Smart-Health-Info feature
+- Added Global Maximum Time
+- Added cha_mask to METADATA section
+- Added _version for crashlog section
+- Added timeout information when timeout occurs.
+- acd_verify: Add Uncore Chop to Summary
+- acd_verify: Add comments for Uncore Gen4 DMI Regs on expected 0x90/0x93 
+
+### Changed
+
+- Complete changes for “PECI Engine” 
+	- Update input files syntax
+	- Order sections in the right sequential order
+	- Remove old syntax from input files.
+	- Updates to Logger function. 
+	- Remove Unused Code due to transition to PECI Engine.
+	- Add looping/parsing of input file “Sections”
+	- Change “Sections” to be a structure of arrays.
+	- Additions to PECIHeaders key in the input file.
+	- Add enable / disable for Validation functions.
+- Register changes/additions for crashdump_input_spr.json
+- Register changes/additions for crashdump_input_sprhbm.json
+- Remove crash_data level from all input files.
+- Changed crashdump_ver to BMC_EGS_2.0
+- Update Unit tests.
+- Updates for build instructions.
+
+
 ## [0.7] - 12/02/2021
 
 ### Bug Fix

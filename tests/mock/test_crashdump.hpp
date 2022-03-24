@@ -7,7 +7,7 @@
 extern "C" {
 #include <peci.h>
 
-#include "CrashdumpSections/crashdump.h"
+#include "engine/crashdump.h"
 }
 
 #include "crashdump.hpp"

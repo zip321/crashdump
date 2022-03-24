@@ -20,18 +20,20 @@
 #ifndef CRASHDUMP_FLOW_H
 #define CRASHDUMP_FLOW_H
 #define MAX_CORE_MASK 64
-#include "../CrashdumpSections/crashdump.h"
-#include "engine/cmdprocessor.h"
-#include "engine/inputparser.h"
-#include "engine/logger.h"
-#include "engine/validator.h"
+#define TIME_KEY "_time"
+#define GLOBAL_TIME_KEY "_total_time"
+#define VALIDATE_ENABLE_KEY "ValidateInput"
+#include "cmdprocessor.h"
+#include "crashdump.h"
+#include "inputparser.h"
+#include "logger.h"
+#include "validator.h"
 
 void ProcessPECICmds(ENTRY* entry, CPUInfo* cpuInfo, cJSON* peciCmds,
                      CmdInOut* cmdInOut, InputParserErrInfo* errInfo,
                      LoggerStruct* loggerStruct, cJSON* outRoot,
-                     struct timespec* start, uint32_t* maxTime);
+                     RunTimeInfo* runTimeInfo);
 acdStatus fillNewSection(cJSON* root, CPUInfo* cpuInfo, uint8_t cpu,
-                         char* sectionName, struct timespec* sectionStart,
-                         char* timeStr);
+                         RunTimeInfo* runTimeInfo, uint8_t sectionIndex);
 
 #endif // CRASHDUMP_FLOW_H

@@ -20,9 +20,9 @@
 #include "../mock/test_crashdump.hpp"
 
 extern "C" {
-#include "CrashdumpSections/crashdump.h"
-#include "CrashdumpSections/utils.h"
+#include "engine/crashdump.h"
 #include "engine/inputparser.h"
+#include "engine/utils.h"
 }
 
 #include "gmock/gmock.h"

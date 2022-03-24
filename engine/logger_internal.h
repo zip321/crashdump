@@ -43,9 +43,8 @@ typedef struct
     bool logRegister;
     uint8_t size;
     bool sizeFromOutput;
-    cJSON* lastLevel;
     int rootAtLevel;
-    cJSON* rootCommonJson;
+    cJSON* jsonOutput;
 } NameProcessing;
 
 typedef struct
@@ -59,6 +58,7 @@ typedef struct
     bool skipCrashCores;
     bool skipOnFailFromInputFile;
     int version;
+    char* currentSectionName;
 } ContextLogger;
 
 typedef struct

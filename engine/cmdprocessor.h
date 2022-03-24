@@ -22,10 +22,11 @@
 
 #include <search.h>
 
-#include "../CrashdumpSections/crashdump.h"
+#include "crashdump.h"
 #include "logger_internal.h"
+#include "validator.h"
 
-#define CD_NUM_OF_PECI_CMDS 19
+#define CD_NUM_OF_PECI_CMDS 20
 #define CMD_ERROR_VALUE "PECI_RETURN_ERROR"
 
 #define peci_addr "peci_addr"
@@ -79,6 +80,8 @@ typedef struct
     CPUInfo* cpuInfo;
     cJSON* root;
     LoggerStruct* logger;
+    RunTimeInfo* runTimeInfo;
+    ValidatorParams* validatorParams;
 } CmdInOut;
 
 typedef struct

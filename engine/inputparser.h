@@ -20,7 +20,7 @@
 #ifndef CRASHDUMP_INPUTPARSER_H
 #define CRASHDUMP_INPUTPARSER_H
 
-#include "../CrashdumpSections/crashdump.h"
+#include "../engine/crashdump.h"
 #include "cmdprocessor.h"
 #include "logger.h"
 

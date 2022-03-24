@@ -21,10 +21,10 @@
 
 #include <search.h>
 
-#include "../CrashdumpSections/BigCore.h"
-#include "../CrashdumpSections/Crashlog.h"
-#include "../CrashdumpSections/TorDump.h"
-#include "../CrashdumpSections/utils.h"
+#include "../engine/BigCore.h"
+#include "../engine/Crashlog.h"
+#include "../engine/TorDump.h"
+#include "../engine/utils.h"
 #include "inputparser.h"
 #include "validator.h"
 
@@ -55,7 +55,8 @@ static acdStatus CrashDump_Discovery(CmdInOut* cmdInOut)
     int position = 0;
     cJSON* it = NULL;
 
-    if (!IsCrashDump_DiscoveryParamsValid(cmdInOut->in.params))
+    if (!IsCrashDump_DiscoveryParamsValid(cmdInOut->in.params,
+                                          &cmdInOut->validatorParams))
     {
         return ACD_INVALID_CRASHDUMP_DISCOVERY_PARAMS;
     }
@@ -118,7 +119,8 @@ static acdStatus CrashDump_GetFrame(CmdInOut* cmdInOut)
     int position = 0;
     cJSON* it = NULL;
 
-    if (!IsCrashDump_GetFrameParamsValid(cmdInOut->in.params))
+    if (!IsCrashDump_GetFrameParamsValid(cmdInOut->in.params,
+                                         &cmdInOut->validatorParams))
     {
         return ACD_INVALID_CRASHDUMP_GETFRAME_PARAMS;
     }
@@ -158,7 +160,7 @@ static acdStatus CrashDump_GetFrame(CmdInOut* cmdInOut)
 
 static acdStatus Ping(CmdInOut* cmdInOut)
 {
-    if (!IsPingParamsValid(cmdInOut->in.params))
+    if (!IsPingParamsValid(cmdInOut->in.params, &cmdInOut->validatorParams))
     {
         return ACD_INVALID_PING_PARAMS;
     }
@@ -169,7 +171,7 @@ static acdStatus Ping(CmdInOut* cmdInOut)
 
 static acdStatus GetCPUID(CmdInOut* cmdInOut)
 {
-    if (!IsGetCPUIDParamsValid(cmdInOut->in.params))
+    if (!IsGetCPUIDParamsValid(cmdInOut->in.params, &cmdInOut->validatorParams))
     {
         return ACD_INVALID_PING_PARAMS;
     }
@@ -186,7 +188,7 @@ static acdStatus RdIAMSR(CmdInOut* cmdInOut)
     int position = 0;
     cJSON* it = NULL;
 
-    if (!IsRdIAMSRParamsValid(cmdInOut->in.params))
+    if (!IsRdIAMSRParamsValid(cmdInOut->in.params, &cmdInOut->validatorParams))
     {
         return ACD_INVALID_RDIAMSR_PARAMS;
     }
@@ -223,7 +225,8 @@ static acdStatus RdPkgConfig(CmdInOut* cmdInOut)
     int position = 0;
     cJSON* it = NULL;
 
-    if (!IsRdPkgConfigParamsValid(cmdInOut->in.params))
+    if (!IsRdPkgConfigParamsValid(cmdInOut->in.params,
+                                  &cmdInOut->validatorParams))
     {
         return ACD_INVALID_RDPKGCONFIG_PARAMS;
     }
@@ -265,7 +268,8 @@ static acdStatus RdPkgConfigCore(CmdInOut* cmdInOut)
     uint8_t core = 0;
     cJSON* it = NULL;
 
-    if (!IsRdPkgConfigCoreParamsValid(cmdInOut->in.params))
+    if (!IsRdPkgConfigCoreParamsValid(cmdInOut->in.params,
+                                      &cmdInOut->validatorParams))
     {
         return ACD_INVALID_RDPKGCONFIGCORE_PARAMS;
     }
@@ -305,6 +309,72 @@ static acdStatus RdPkgConfigCore(CmdInOut* cmdInOut)
     return ACD_SUCCESS;
 }
 
+static acdStatus RdPCIConfigLocal(CmdInOut* cmdInOut)
+{
+    struct peci_rd_pci_cfg_local_msg params = {0};
+    int position = 0;
+    cJSON* it = NULL;
+    const int wordFrameSize = (sizeof(uint64_t) / sizeof(uint16_t));
+
+    if (!IsRdPciConfigLocalParamsValid(cmdInOut->in.params,
+                                       &cmdInOut->validatorParams))
+    {
+        return ACD_INVALID_RDPCICONFIGLOCAL_PARAMS;
+    }
+
+    cJSON_ArrayForEach(it, cmdInOut->in.params)
+    {
+        switch (position)
+        {
+            case 0:
+                params.addr = it->valueint;
+                break;
+            case 1:
+                params.bus = it->valueint;
+                break;
+            case 2:
+                params.device = it->valueint;
+                break;
+            case 3:
+                params.function = it->valueint;
+                break;
+            case 4:
+                params.reg = it->valueint;
+                break;
+            case 5:
+                params.rx_len = it->valueint;
+                cmdInOut->out.size = params.rx_len;
+                break;
+            default:
+                return ACD_INVALID_RDPCICONFIGLOCAL_PARAMS;
+        }
+        position++;
+    }
+    switch (params.rx_len)
+    {
+        case sizeof(uint8_t):
+        case sizeof(uint16_t):
+        case sizeof(uint32_t):
+            cmdInOut->out.ret = peci_RdPCIConfigLocal(
+                params.addr, params.bus, params.device, params.function,
+                params.reg, params.rx_len, (uint8_t*)&cmdInOut->out.val.u64,
+                &cmdInOut->out.cc);
+            break;
+        case sizeof(uint64_t):
+            for (uint8_t u8Dword = 0; u8Dword < 2; u8Dword++)
+            {
+                cmdInOut->out.ret = peci_RdPCIConfigLocal(
+                    params.addr, params.bus, params.device, params.function,
+                    params.reg + (u8Dword * wordFrameSize), sizeof(uint32_t),
+                    (uint8_t*)&cmdInOut->out.val.u32[u8Dword],
+                    &cmdInOut->out.cc);
+            }
+            break;
+    }
+    UpdateInternalVar(cmdInOut);
+    return ACD_SUCCESS;
+}
+
 static acdStatus RdEndPointConfigPciLocal(CmdInOut* cmdInOut)
 {
     struct peci_rd_end_pt_cfg_msg params = {0};
@@ -312,7 +382,8 @@ static acdStatus RdEndPointConfigPciLocal(CmdInOut* cmdInOut)
     cJSON* it = NULL;
     const int wordFrameSize = (sizeof(uint64_t) / sizeof(uint16_t));
 
-    if (!IsRdEndPointConfigPciLocalParamsValid(cmdInOut->in.params))
+    if (!IsRdEndPointConfigPciLocalParamsValid(cmdInOut->in.params,
+                                               &cmdInOut->validatorParams))
     {
         return ACD_INVALID_RDENDPOINTCONFIGPCILOCAL_PARAMS;
     }
@@ -383,7 +454,8 @@ static acdStatus WrEndPointConfigPciLocal(CmdInOut* cmdInOut)
     int position = 0;
     cJSON* it = NULL;
 
-    if (!IsWrEndPointConfigPciLocalParamsValid(cmdInOut->in.params))
+    if (!IsWrEndPointConfigPciLocalParamsValid(cmdInOut->in.params,
+                                               &cmdInOut->validatorParams))
     {
         return ACD_INVALID_WRENDPOINTCONFIGPCILOCAL_PARAMS;
     }
@@ -437,7 +509,8 @@ static acdStatus RdEndPointConfigMmio(CmdInOut* cmdInOut)
     int position = 0;
     cJSON* it = NULL;
 
-    if (!IsRdEndPointConfigMmioParamsValid(cmdInOut->in.params))
+    if (!IsRdEndPointConfigMmioParamsValid(cmdInOut->in.params,
+                                           &cmdInOut->validatorParams))
     {
         return ACD_INVALID_RDENDPOINTCONFIGMMIO_PARAMS;
     }
@@ -492,10 +565,11 @@ static acdStatus RdEndPointConfigMmio(CmdInOut* cmdInOut)
 static acdStatus RdPostEnumBus(CmdInOut* cmdInOut)
 {
     PostEnumBus params = {0};
-    cJSON* it;
+    cJSON* it = NULL;
     int position = 0;
 
-    if (!IsRdPostEnumBusParamsValid(cmdInOut->in.params))
+    if (!IsRdPostEnumBusParamsValid(cmdInOut->in.params,
+                                    &cmdInOut->validatorParams))
     {
         return ACD_INVALID_RDPOSTENUMBUS_PARAMS;
     }
@@ -541,11 +615,12 @@ static acdStatus RdPostEnumBus(CmdInOut* cmdInOut)
 static acdStatus RdChaCount(CmdInOut* cmdInOut)
 {
     ChaCount params = {0};
-    cJSON* it;
+    cJSON* it = NULL;
     int position = 0;
     uint8_t chaCountValue;
 
-    if (!IsRdChaCountParamsValid(cmdInOut->in.params))
+    if (!IsRdChaCountParamsValid(cmdInOut->in.params,
+                                 &cmdInOut->validatorParams))
     {
         return ACD_INVALID_RDCHACOUNT_PARAMS;
     }
@@ -582,7 +657,8 @@ static acdStatus Telemetry_Discovery(CmdInOut* cmdInOut)
     int position = 0;
     cJSON* it = NULL;
 
-    if (!IsTelemetry_DiscoveryParamsValid(cmdInOut->in.params))
+    if (!IsTelemetry_DiscoveryParamsValid(cmdInOut->in.params,
+                                          &cmdInOut->validatorParams))
     {
         return ACD_INVALID_TELEMETRY_DISCOVERY_PARAMS;
     }
@@ -684,12 +760,19 @@ uint8_t getNumberofCrashlogAgents(CmdInOut* cmdInOut)
 static acdStatus LogCrashlog(CmdInOut* cmdInOut)
 {
     cmdInOut->out.size = sizeof(uint8_t);
-    GenerateJsonPath(cmdInOut, cmdInOut->root, cmdInOut->logger);
-    if (getIsTelemetrySupportedResult(cmdInOut))
+    if (GenerateJsonPath(cmdInOut, cmdInOut->root, cmdInOut->logger, false) ==
+        ACD_SUCCESS)
     {
-        return logCrashlogSection(cmdInOut->cpuInfo,
-                                  cmdInOut->logger->nameProcessing.lastLevel,
-                                  getNumberofCrashlogAgents(cmdInOut));
+        if (getIsTelemetrySupportedResult(cmdInOut))
+        {
+            return logCrashlogSection(
+                cmdInOut->cpuInfo, cmdInOut->logger->nameProcessing.jsonOutput,
+                getNumberofCrashlogAgents(cmdInOut));
+        }
+    }
+    else
+    {
+        CRASHDUMP_PRINT(ERR, stderr, "Could not log Crashlog, path is Null.\n");
     }
 
     return ACD_FAILURE;
@@ -794,14 +877,22 @@ static bool getCrashdumpPayloadSizeResult(CmdInOut* cmdInOut)
 static acdStatus LogBigCore(CmdInOut* cmdInOut)
 {
     cmdInOut->out.size = sizeof(uint8_t);
-    GenerateJsonPath(cmdInOut, cmdInOut->root, cmdInOut->logger);
-    if (getIsCrashdumpEnableResult(cmdInOut) &&
-        getNumCrashdumpAgentsResult(cmdInOut) &&
-        getCrashdumpGUIDResult(cmdInOut) &&
-        getCrashdumpPayloadSizeResult(cmdInOut))
+    if (GenerateJsonPath(cmdInOut, cmdInOut->root, cmdInOut->logger, false) ==
+        ACD_SUCCESS)
     {
-        return logBigCoreSection(cmdInOut->cpuInfo,
-                                 cmdInOut->logger->nameProcessing.lastLevel);
+        if (getIsCrashdumpEnableResult(cmdInOut) &&
+            getNumCrashdumpAgentsResult(cmdInOut) &&
+            getCrashdumpGUIDResult(cmdInOut) &&
+            getCrashdumpPayloadSizeResult(cmdInOut))
+        {
+            return logBigCoreSection(
+                cmdInOut->cpuInfo, cmdInOut->logger->nameProcessing.jsonOutput,
+                *cmdInOut->runTimeInfo);
+        }
+    }
+    else
+    {
+        CRASHDUMP_PRINT(ERR, stderr, "Could not log BigCore, path is Null.\n");
     }
 
     return ACD_FAILURE;
@@ -809,12 +900,13 @@ static acdStatus LogBigCore(CmdInOut* cmdInOut)
 
 static acdStatus RdAndConcatenate(CmdInOut* cmdInOut)
 {
-    cJSON* it;
+    cJSON* it = NULL;
     int position = 0;
     uint32_t high32BitValue = 0;
     uint32_t low32BitValue = 0;
 
-    if (!IsRdAndConcatenateParamsValid(cmdInOut->in.params))
+    if (!IsRdAndConcatenateParamsValid(cmdInOut->in.params,
+                                       &cmdInOut->validatorParams))
     {
         return ACD_INVALID_RD_CONCATENATE_PARAMS;
     }
@@ -848,7 +940,7 @@ static acdStatus RdAndConcatenate(CmdInOut* cmdInOut)
 
 static acdStatus RdGlobalVars(CmdInOut* cmdInOut)
 {
-    if (!IsRdGlobalVarsValid(cmdInOut->in.params))
+    if (!IsRdGlobalVarsValid(cmdInOut->in.params, &cmdInOut->validatorParams))
     {
         return ACD_INVALID_GLOBAL_VARS_PARAMS;
     }
@@ -965,7 +1057,7 @@ static acdStatus RdGlobalVars(CmdInOut* cmdInOut)
 
 static acdStatus SaveStrVars(CmdInOut* cmdInOut)
 {
-    if (!IsSaveStrVarsValid(cmdInOut->in.params))
+    if (!IsSaveStrVarsValid(cmdInOut->in.params, &cmdInOut->validatorParams))
     {
         return ACD_INVALID_SAVE_STR_VARS_PARAMS;
     }
@@ -992,28 +1084,34 @@ static uint64_t getPayloadExp(CmdInOut* cmdInOut)
 static acdStatus LogTor(CmdInOut* cmdInOut)
 {
     cmdInOut->out.size = sizeof(uint8_t);
-    GenerateJsonPath(cmdInOut, cmdInOut->root, cmdInOut->logger);
-    if (getIsCrashdumpEnableResult(cmdInOut) &&
-        getNumCrashdumpAgentsResult(cmdInOut) &&
-        getCrashdumpGUIDResult(cmdInOut) &&
-        getCrashdumpPayloadSizeResult(cmdInOut))
+    if (GenerateJsonPath(cmdInOut, cmdInOut->root, cmdInOut->logger, false) ==
+        ACD_SUCCESS)
     {
-        uint8_t u8PayloadExp = getPayloadExp(cmdInOut);
-        if (u8PayloadExp > TOR_MAX_PAYLOAD_EXP ||
-            u8PayloadExp == TOR_INVALID_PAYLOAD_EXP)
+        if (getIsCrashdumpEnableResult(cmdInOut) &&
+            getNumCrashdumpAgentsResult(cmdInOut) &&
+            getCrashdumpGUIDResult(cmdInOut) &&
+            getCrashdumpPayloadSizeResult(cmdInOut))
         {
-            CRASHDUMP_PRINT(
-                ERR, stderr,
-                "Error during discovery (Invalid exponent value: %d)\n",
-                u8PayloadExp);
-            return ACD_FAILURE;
+            uint8_t u8PayloadExp = getPayloadExp(cmdInOut);
+            if (u8PayloadExp > TOR_MAX_PAYLOAD_EXP ||
+                u8PayloadExp == TOR_INVALID_PAYLOAD_EXP)
+            {
+                CRASHDUMP_PRINT(
+                    ERR, stderr,
+                    "Error during discovery (Invalid exponent value: %d)\n",
+                    u8PayloadExp);
+                return ACD_FAILURE;
+            }
+            uint8_t u8PayloadBytes = (1 << u8PayloadExp);
+            return logTorSection(cmdInOut->cpuInfo,
+                                 cmdInOut->logger->nameProcessing.jsonOutput,
+                                 u8PayloadBytes);
         }
-        uint8_t u8PayloadBytes = (1 << u8PayloadExp);
-        return logTorSection(cmdInOut->cpuInfo,
-                             cmdInOut->logger->nameProcessing.lastLevel,
-                             u8PayloadBytes);
     }
-
+    else
+    {
+        CRASHDUMP_PRINT(ERR, stderr, "Could not log Tor, path is Null.\n");
+    }
     return ACD_FAILURE;
 }
 
@@ -1023,6 +1121,7 @@ static acdStatus (*cmds[CD_NUM_OF_PECI_CMDS])() = {
     (acdStatus(*)())Ping,
     (acdStatus(*)())GetCPUID,
     (acdStatus(*)())RdEndPointConfigMmio,
+    (acdStatus(*)())RdPCIConfigLocal,
     (acdStatus(*)())RdEndPointConfigPciLocal,
     (acdStatus(*)())WrEndPointConfigPciLocal,
     (acdStatus(*)())RdIAMSR,
@@ -1045,6 +1144,7 @@ static char* inputCMDs[CD_NUM_OF_PECI_CMDS] = {
     "Ping",
     "GetCPUID",
     "RdEndpointConfigMMIO",
+    "RdPCIConfigLocal",
     "RdEndpointConfigPCILocal",
     "WrEndPointConfigPciLocal",
     "RdIAMSR",

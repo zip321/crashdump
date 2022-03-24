@@ -22,18 +22,20 @@ import collections
 
 
 class Uncore(Section):
-    def __init__(self, jOutput):
+    def __init__(self, jOutput, cpu, cpuid):
         Section.__init__(self, jOutput, "uncore")
 
         self.bdfs = {}
         self.verifySection()
 
         self.rootNodes = ""
+        self.cpu = cpu
+        self.cpuid = cpuid
 
     @classmethod
-    def createUncore(cls, jOutput):
+    def createUncore(cls, jOutput, cpu, cpuid):
         if "uncore" in jOutput:
-            return cls(jOutput)
+            return cls(jOutput, cpu, cpuid)
         else:
             warnings.warn(
                 f"Uncore section was not found in this file"
@@ -93,6 +95,11 @@ class Uncore(Section):
             elif error in uncoreTableInfo:
                 uncoreTableInfo[error] = uncoreTableInfo[error] + level[error]
 
+        comments = []
+        _specialBDFs = ['B00_D01_F0', 'B00_D03_F0',
+                        'B00_D05_F0', 'B00_D07_F0']
+        self.cpuid = self.cpuid[:-1].lower()
+
         for bdf in self.bdfs:
             tableInfo = {
                 "Section": f"{self.sectionName}-{bdf}",
@@ -107,8 +114,44 @@ class Uncore(Section):
                     if error not in tableInfo:
                         percentage = round((level[error]*100)/self.bdfs[bdf]['total'], 1)
                         tableInfo[error] = f"{percentage}% ({level[error]})"
+
+                if (bdf in _specialBDFs) and (self.cpu == 'cpu0') and (self.cpuid == '0x806f'):
+                    tableInfo["comments"] = "PI5.PXP0.PCIEG5 registers for " +\
+                                            "SPR-SP on Socket0 are not " +\
+                                            "accessible. This is expected."
                 lUncoreObjs.append(tableInfo)
 
             lUncoreObjs.insert(0, uncoreTableInfo)
 
         return lUncoreObjs
+
+    def getSummaryInfo(self):
+        summaryInfo = {}
+        summaryInfo["chop"] = self.getChop()
+        return summaryInfo
+
+    def getChop(self):
+        # According to documentation, physical chop in SPR and ICX
+        # corresponds to bits 7:6 of reg B31_D30_F3_0x94
+        if "B31_D30_F3_0x94" in self.sectionInfo:
+            _reg_capid = 0
+            try:
+                _reg_capid = int(self.sectionInfo["B31_D30_F3_0x94"], 16)
+            except ValueError as e:
+                if self.sectionInfo["B31_D30_F3_0x94"] == "N/A":
+                    return "N/A"
+                else:
+                    raise e
+            _chop = (_reg_capid & 0xC0) >> 6
+            if _chop == 0b11:       # XCC
+                return "XCC"
+            elif _chop == 0b10:     # HCC
+                return "HCC"
+            elif _chop == 0b01:     # MCC
+                return "MCC"
+            elif _chop == 0b00:     # LCC
+                return "LCC"
+        else:
+            warnings.warn(
+                f"B31_D30_F3_0x94 was not found in uncore"
+            )

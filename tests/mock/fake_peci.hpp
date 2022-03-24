@@ -73,6 +73,21 @@ class FakePeciBase
     {
         return PECI_CC_SUCCESS;
     }
+
+    
+    virtual EPECIStatus peci_WrPkgConfig(uint8_t target, uint8_t u8Index,
+                                         uint16_t u16Param, uint32_t u32Value,
+                                         uint8_t u8WriteLen, uint8_t* cc)
+    {
+        return PECI_CC_SUCCESS;
+    }
+
+    virtual EPECIStatus peci_RdPkgConfig(uint8_t target, uint8_t u8Index,
+                                         uint16_t u16Param, uint32_t u32Value,
+                                         uint8_t u8WriteLen, uint8_t* cc)
+    {
+        return PECI_CC_SUCCESS;
+    }
 };
 
 class FakePeci : public FakePeciBase

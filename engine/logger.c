@@ -21,7 +21,7 @@
 
 acdStatus GetPath(cJSON* section, LoggerStruct* loggerStruct)
 {
-    loggerStruct->nameProcessing.rootAtLevel = 0;
+    loggerStruct->nameProcessing.rootAtLevel = 255; // Default set to invalid
     if (section != NULL)
     {
         cJSON* RootAtLevelJson =
@@ -78,7 +78,7 @@ acdStatus ParsePath(LoggerStruct* loggerStruct)
 
 acdStatus ParseNameSection(CmdInOut* cmdInOut, LoggerStruct* loggerStruct)
 {
-    cJSON* it;
+    cJSON* it = NULL;
     int position = 0;
     loggerStruct->nameProcessing.extraLevel = false;
     loggerStruct->nameProcessing.sizeFromOutput = false;
@@ -117,25 +117,34 @@ acdStatus ParseNameSection(CmdInOut* cmdInOut, LoggerStruct* loggerStruct)
     return ACD_SUCCESS;
 }
 
-void GenerateJsonPath(CmdInOut* cmdInOut, cJSON* root,
-                      LoggerStruct* loggerStruct)
+acdStatus GenerateJsonPath(CmdInOut* cmdInOut, cJSON* root,
+                           LoggerStruct* loggerStruct, bool useRootPath)
 {
     char jsonItemString[LOGGER_JSON_STRING_LEN];
     cJSON* cjsonLevels[MAX_NUM_PATH_LEVELS];
-    cJSON* lastLevelJSON;
-    cjsonLevels[0] = root;
-    if (loggerStruct->nameProcessing.rootAtLevel >
-        loggerStruct->pathParsing.numberOfTokens)
+    cJSON* lastLevelJSON = NULL;
+    uint8_t itemsToProcess = 0;
+    for (uint8_t i = 0; i < MAX_NUM_PATH_LEVELS; i++)
     {
-        loggerStruct->nameProcessing.rootAtLevel =
-            loggerStruct->pathParsing.numberOfTokens;
+        cjsonLevels[i] = NULL;
     }
+    cjsonLevels[0] = root;
+
     if (!loggerStruct->nameProcessing.sizeFromOutput)
     {
         loggerStruct->nameProcessing.size = cmdInOut->out.size;
     }
 
-    for (int i = 0; i < loggerStruct->pathParsing.numberOfTokens; i++)
+    itemsToProcess = loggerStruct->pathParsing.numberOfTokens;
+    if (useRootPath)
+    {
+        if (loggerStruct->nameProcessing.rootAtLevel <=
+            loggerStruct->pathParsing.numberOfTokens)
+        {
+            itemsToProcess = loggerStruct->nameProcessing.rootAtLevel;
+        }
+    }
+    for (int i = 0; i < itemsToProcess; i++)
     {
         cd_snprintf_s(jsonItemString, LOGGER_JSON_STRING_LEN, "%s",
                       loggerStruct->pathParsing.pathLevelToken[i]);
@@ -193,36 +202,29 @@ void GenerateJsonPath(CmdInOut* cmdInOut, cJSON* root,
             cJSON_AddItemToObject(cjsonLevels[i], jsonItemString,
                                   cjsonLevels[i + 1] = cJSON_CreateObject());
         }
-        if (loggerStruct->nameProcessing.rootAtLevel != 0 &&
-            loggerStruct->nameProcessing.rootAtLevel == i)
-        {
-            loggerStruct->nameProcessing.rootCommonJson = cjsonLevels[i];
-        }
     }
-    lastLevelJSON = cjsonLevels[loggerStruct->pathParsing.numberOfTokens];
-    if (lastLevelJSON == NULL)
+    loggerStruct->nameProcessing.jsonOutput = cjsonLevels[itemsToProcess];
+    if (useRootPath)
     {
-        lastLevelJSON = root;
-        CRASHDUMP_PRINT(ERR, stderr, "Error generating json path.\n");
+        loggerStruct->nameProcessing.extraLevel = false;
     }
     if (loggerStruct->nameProcessing.extraLevel)
     {
         cd_snprintf_s(jsonItemString, LOGGER_JSON_STRING_LEN, "%s",
                       loggerStruct->nameProcessing.sectionName);
         if ((lastLevelJSON = cJSON_GetObjectItemCaseSensitive(
-                 cjsonLevels[loggerStruct->pathParsing.numberOfTokens],
-                 jsonItemString)) == NULL)
+                 cjsonLevels[itemsToProcess], jsonItemString)) == NULL)
         {
-            cJSON_AddItemToObject(
-                cjsonLevels[loggerStruct->pathParsing.numberOfTokens],
-                jsonItemString, lastLevelJSON = cJSON_CreateObject());
+            cJSON_AddItemToObject(cjsonLevels[itemsToProcess], jsonItemString,
+                                  lastLevelJSON = cJSON_CreateObject());
         }
+        loggerStruct->nameProcessing.jsonOutput = lastLevelJSON;
     }
-    if (loggerStruct->nameProcessing.rootAtLevel == 0)
+    if (loggerStruct->nameProcessing.jsonOutput == NULL)
     {
-        loggerStruct->nameProcessing.rootCommonJson = lastLevelJSON;
+        return ACD_FAILURE;
     }
-    loggerStruct->nameProcessing.lastLevel = lastLevelJSON;
+    return ACD_SUCCESS;
 }
 
 void GenerateRegisterName(char* registerName, LoggerStruct* loggerStruct)
@@ -288,11 +290,7 @@ void LogValue(char* registerName, CmdInOut* cmdInOut,
               LoggerStruct* loggerStruct, cJSON* parent)
 {
     char jsonItemString[LOGGER_JSON_STRING_LEN];
-    if (parent == NULL)
-    {
-        CRASHDUMP_PRINT(ERR, stderr, "Could not log Value, parent is Null.\n");
-        return;
-    }
+    char jsonNameString[LOGGER_JSON_STRING_LEN];
     if (cmdInOut->out.printString)
     {
         cJSON_AddStringToObject(parent, registerName, cmdInOut->out.stringVal);
@@ -315,6 +313,32 @@ void LogValue(char* registerName, CmdInOut* cmdInOut,
     }
     if (loggerStruct->contextLogger.skipFlag)
     {
+        if (cmdInOut->runTimeInfo->maxGlobalRunTimeReached &&
+            cmdInOut->runTimeInfo->globalMaxPrint)
+        {
+            cd_snprintf_s(jsonNameString, LOGGER_JSON_STRING_LEN,
+                          LOGGER_GLOBAL_TIMEOUT,
+                          loggerStruct->contextLogger.cpu,
+                          loggerStruct->contextLogger.currentSectionName);
+            cd_snprintf_s(jsonItemString, LOGGER_JSON_STRING_LEN,
+                          LOGGER_INFO_TIMEOUT,
+                          cmdInOut->runTimeInfo->maxGlobalTime);
+            cJSON_AddStringToObject(parent, jsonNameString, jsonItemString);
+            cmdInOut->runTimeInfo->globalMaxPrint = false;
+        }
+        if (cmdInOut->runTimeInfo->maxSectionRunTimeReached &&
+            cmdInOut->runTimeInfo->sectionMaxPrint)
+        {
+            cd_snprintf_s(jsonNameString, LOGGER_JSON_STRING_LEN,
+                          LOGGER_SECTION_TIMEOUT,
+                          loggerStruct->contextLogger.cpu,
+                          loggerStruct->contextLogger.currentSectionName);
+            cd_snprintf_s(jsonItemString, LOGGER_JSON_STRING_LEN,
+                          LOGGER_INFO_TIMEOUT,
+                          cmdInOut->runTimeInfo->maxSectionTime);
+            cJSON_AddStringToObject(parent, jsonNameString, jsonItemString);
+            cmdInOut->runTimeInfo->sectionMaxPrint = false;
+        }
         cd_snprintf_s(jsonItemString, LOGGER_JSON_STRING_LEN, LOGGER_NA);
         cJSON_AddStringToObject(parent, registerName, jsonItemString);
     }
@@ -343,10 +367,16 @@ void LogValue(char* registerName, CmdInOut* cmdInOut,
 void Logger(CmdInOut* cmdInOut, cJSON* root, LoggerStruct* loggerStruct)
 {
     char registerName[64];
-    GenerateJsonPath(cmdInOut, root, loggerStruct);
-    GenerateRegisterName(&registerName, loggerStruct);
-    LogValue(&registerName, cmdInOut, loggerStruct,
-             loggerStruct->nameProcessing.lastLevel);
+    if (GenerateJsonPath(cmdInOut, root, loggerStruct, false) == ACD_SUCCESS)
+    {
+        GenerateRegisterName(&registerName, loggerStruct);
+        LogValue(&registerName, cmdInOut, loggerStruct,
+                 loggerStruct->nameProcessing.jsonOutput);
+    }
+    else
+    {
+        CRASHDUMP_PRINT(ERR, stderr, "Could not log Value, path is Null.\n");
+    }
 }
 
 void GenerateVersion(cJSON* Section, int* Version)
@@ -389,32 +419,26 @@ void logVersion(CmdInOut* cmdInOut, cJSON* root, LoggerStruct* loggerStruct)
     if (loggerStruct->contextLogger.version != 0)
     {
         loggerStruct->nameProcessing.extraLevel = false;
-        GenerateJsonPath(cmdInOut, root, loggerStruct);
-        loggerStruct->contextLogger.skipFlag = false;
-        cmdInOut->out.cc = PECI_DEV_CC_SUCCESS;
-        cmdInOut->out.ret = PECI_CC_SUCCESS;
-        cmdInOut->out.val.u64 = loggerStruct->contextLogger.version;
-        loggerStruct->nameProcessing.size = 4;
-        cmdInOut->out.printString = false;
-        if (loggerStruct->nameProcessing.rootAtLevel == 0)
+        if (GenerateJsonPath(cmdInOut, root, loggerStruct, true) == ACD_SUCCESS)
         {
+            loggerStruct->contextLogger.skipFlag = false;
+            cmdInOut->out.cc = PECI_DEV_CC_SUCCESS;
+            cmdInOut->out.ret = PECI_CC_SUCCESS;
+            cmdInOut->out.val.u64 = loggerStruct->contextLogger.version;
+            loggerStruct->nameProcessing.size = 4;
+            cmdInOut->out.printString = false;
             cJSON* previousVersion = cJSON_GetObjectItemCaseSensitive(
-                loggerStruct->nameProcessing.lastLevel, "_version");
+                loggerStruct->nameProcessing.jsonOutput, "_version");
             if (previousVersion == NULL)
             {
                 LogValue(VersionStr, cmdInOut, loggerStruct,
-                         loggerStruct->nameProcessing.lastLevel);
+                         loggerStruct->nameProcessing.jsonOutput);
             }
         }
         else
         {
-            cJSON* previousVersion = cJSON_GetObjectItemCaseSensitive(
-                loggerStruct->nameProcessing.rootCommonJson, "_version");
-            if (previousVersion == NULL)
-            {
-                LogValue(VersionStr, cmdInOut, loggerStruct,
-                         loggerStruct->nameProcessing.rootCommonJson);
-            }
+            CRASHDUMP_PRINT(ERR, stderr,
+                            "Could not log Version, path is Null.\n");
         }
     }
 }
@@ -423,15 +447,21 @@ void logRecordDisabled(CmdInOut* cmdInOut, cJSON* root,
                        LoggerStruct* loggerStruct)
 {
     loggerStruct->nameProcessing.extraLevel = false;
-    GenerateJsonPath(cmdInOut, root, loggerStruct);
-    if (loggerStruct->nameProcessing.lastLevel == NULL)
+    if (GenerateJsonPath(cmdInOut, root, loggerStruct, true) == ACD_SUCCESS)
+    {
+        cJSON* previousVersion = cJSON_GetObjectItemCaseSensitive(
+            loggerStruct->nameProcessing.jsonOutput, RECORD_ENABLE);
+        if (previousVersion == NULL)
+        {
+            cJSON_AddBoolToObject(loggerStruct->nameProcessing.jsonOutput,
+                                  RECORD_ENABLE, false);
+        }
+    }
+    else
     {
         CRASHDUMP_PRINT(ERR, stderr,
-                        "Could not log Record Disable, parent is Null.\n");
-        return;
+                        "Could not log Record Disable, path is Null.\n");
     }
-    cJSON_AddBoolToObject(loggerStruct->nameProcessing.lastLevel, RECORD_ENABLE,
-                          false);
 }
 
 void logSectionRunTime(cJSON* parent, struct timespec* start, char* key)

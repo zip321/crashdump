@@ -21,8 +21,18 @@ from lib.Region import Region
 class Summary(Region):
     def processRequest(self, request, report):
         if "summary" in request["regions"]:
-            metadataObj = request["sections"]["metadata"]
-            if metadataObj:
-                if hasattr(metadataObj, 'getSummaryInfo'):
-                    report["summary"] = metadataObj.getSummaryInfo()
+            report["summary"] = {}
+            for key in request["sections"]:
+                if key == "metadata":
+                    metadataObj = request["sections"]["metadata"]
+                    if metadataObj:
+                        if hasattr(metadataObj, 'getSummaryInfo'):
+                            report["summary"]["metadata"] = metadataObj.getSummaryInfo()
+                if "cpu" in key:
+                    report["summary"][key] = {}
+                    if "uncore" in request["sections"][key]:
+                        uncoreObj = request["sections"][key]["uncore"]
+                        if hasattr(uncoreObj, 'getSummaryInfo'):
+                            report["summary"][key]["uncore"] = uncoreObj.getSummaryInfo()
+
             return True

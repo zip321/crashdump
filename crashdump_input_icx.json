@@ -1,490 +1,25 @@
 {
-  "crash_data": {
-    "cpu": "icx2",
-    "AccessMethod":  "/dev/peci-wire",
-    "Version": "release",
-    "ServiceName": "crashdump",
-    "DefaultState": "Enable",
-    "UseSections": true,
-    "MCA": {
-      "_record_enable": true,
-      "_skip_on_fail": true,
-      "core": {
-        "header_info": ["bank_name", "reg_name", "addr"],
-        "reg_list": [
-          ["MC0", "mc0_status", "0x401"],
-          ["MC0", "mc0_ctl", "0x400"],
-          ["MC0", "mc0_addr", "0x402"],
-          ["MC0", "mc0_misc", "0x403"],
-          ["MC0", "mc0_ctl2", "0x280"],
-          ["MC1", "mc1_status", "0x405"],
-          ["MC1", "mc1_ctl", "0x404"],
-          ["MC1", "mc1_addr", "0x406"],
-          ["MC1", "mc1_misc", "0x407"],
-          ["MC1", "mc1_ctl2", "0x281"],
-          ["MC2", "mc2_status", "0x409"],
-          ["MC2", "mc2_ctl", "0x408"],
-          ["MC2", "mc2_addr", "0x40a"],
-          ["MC2", "mc2_misc", "0x40b"],
-          ["MC2", "mc2_ctl2", "0x282"],
-          ["MC3", "mc3_status", "0x40d"],
-          ["MC3", "mc3_ctl", "0x40c"],
-          ["MC3", "mc3_addr", "0x40e"],
-          ["MC3", "mc3_misc", "0x40f"],
-          ["MC3", "mc3_ctl2", "0x283"]
-        ]
-      },
-      "uncore": {
-        "header_info": ["reg_name", "addr", "instance_id"],
-        "reg_list": {
-            "MC4": [
-              ["mc4_status", "0x411", 0],
-              ["mc4_ctl", "0x410", 0],
-              ["mc4_addr", "0x412", 0],
-              ["mc4_misc", "0x413", 0],
-              ["mc4_ctl2", "0x284", 0]],
-          "MC5": [
-              ["mc5_status", "0x415", 0],
-              ["mc5_ctl", "0x414", 0],
-              ["mc5_addr", "0x416", 0],
-              ["mc5_misc", "0x417", 0],
-              ["mc5_ctl2", "0x285", 0]],
-          "MC6": [
-              ["mc6_status", "0x419", 0],
-              ["mc6_ctl", "0x418", 0],
-              ["mc6_addr", "0x41a", 0],
-              ["mc6_misc", "0x41b", 0],
-              ["mc6_ctl2", "0x286", 0]],
-          "MC7": [
-              ["mc7_status", "0x41d", 1],
-              ["mc7_ctl", "0x41c", 1],
-              ["mc7_addr", "0x41e", 1],
-              ["mc7_misc", "0x41f", 1],
-              ["mc7_ctl2", "0x287", 1]],
-          "MC8": [
-              ["mc8_status", "0x421", 2],
-              ["mc8_ctl", "0x420", 2],
-              ["mc8_addr", "0x422", 2],
-              ["mc8_misc", "0x423", 2],
-              ["mc8_ctl2", "0x288", 2]],
-          "MC9": [
-              ["mc9_status", "0x425", 0],
-              ["mc9_ctl2", "0x289", 0]],
-          "MC10": [
-              ["mc10_status", "0x429", 0],
-              ["mc10_ctl2", "0x28a", 0]],
-          "MC11": [
-              ["mc11_status", "0x42d", 0],
-              ["mc11_ctl2", "0x28b", 0]],
-          "MC12": [
-              ["mc12_status", "0x431", 0],
-              ["mc12_ctl", "0x430", 0],
-              ["mc12_addr", "0x432", 0],
-              ["mc12_misc", "0x433", 0],
-              ["mc12_ctl2", "0x28c", 0]],
-          "MC13": [
-              ["mc13_status", "0x435", 0],
-              ["mc13_ctl", "0x434", 0],
-              ["mc13_addr", "0x436", 0],
-              ["mc13_misc", "0x437", 0],
-              ["mc13_ctl2", "0x28d", 0]],
-          "MC14": [
-              ["mc14_status", "0x439", 0],
-              ["mc14_ctl", "0x438", 0],
-              ["mc14_addr", "0x43a", 0],
-              ["mc14_misc", "0x43b", 0],
-              ["mc14_ctl2", "0x28e", 0]],
-          "MC16": [
-              ["mc16_status", "0x441", 1],
-              ["mc16_ctl", "0x440", 1],
-              ["mc16_addr", "0x442", 1],
-              ["mc16_misc", "0x443", 1],
-              ["mc16_ctl2", "0x290", 1]],
-          "MC17": [
-              ["mc17_status", "0x445", 1],
-              ["mc17_ctl", "0x444", 1],
-              ["mc17_addr", "0x446", 1],
-              ["mc17_misc", "0x447", 1],
-              ["mc17_ctl2", "0x291", 1]],
-          "MC18": [
-              ["mc18_status", "0x449", 1],
-              ["mc18_ctl", "0x448", 1],
-              ["mc18_addr", "0x44a", 1],
-              ["mc18_misc", "0x44b", 1],
-              ["mc18_ctl2", "0x292", 1]],
-          "MC20": [
-              ["mc20_status", "0x451", 2],
-              ["mc20_ctl", "0x450", 2],
-              ["mc20_addr", "0x452", 2],
-              ["mc20_misc", "0x453", 2],
-              ["mc20_ctl2", "0x294", 2]],
-          "MC21": [
-              ["mc21_status", "0x455", 2],
-              ["mc21_ctl", "0x454", 2],
-              ["mc21_addr", "0x456", 2],
-              ["mc21_misc", "0x457", 2],
-              ["mc21_ctl2", "0x295", 2]],
-          "MC22": [
-              ["mc22_status", "0x459", 2],
-              ["mc22_ctl", "0x458", 2],
-              ["mc22_addr", "0x45a", 2],
-              ["mc22_misc", "0x45b", 2],
-              ["mc22_ctl2", "0x296", 2]],
-          "MC24": [
-              ["mc24_status", "0x461", 3],
-              ["mc24_ctl", "0x460", 3],
-              ["mc24_addr", "0x462", 3],
-              ["mc24_misc", "0x463", 3],
-              ["mc24_ctl2", "0x298", 3]],
-          "MC25": [
-              ["mc25_status", "0x465", 3],
-              ["mc25_ctl", "0x464", 3],
-              ["mc25_addr", "0x466", 3],
-              ["mc25_misc", "0x467", 3],
-              ["mc25_ctl2", "0x299", 3]],
-          "MC26": [
-              ["mc26_status", "0x469", 3],
-              ["mc26_ctl", "0x468", 3],
-              ["mc26_addr", "0x46a", 3],
-              ["mc26_misc", "0x46b", 3],
-              ["mc26_ctl2", "0x29a", 3]]
-          }
-      },
-      "cbo": {
-        "header_info": ["reg_name", "addr"],
-        "reg_list":[
-          ["status", "0x8001"],
-          ["ctl", "0x8000"],
-          ["addr", "0x8002"],
-          ["misc", "0x8003"],
-          ["ctl2", "0x8004"]]
-      }
-    },
-    "METADATA": {
-      "_record_enable": true
-    },
-    "PM_info": {
-      "_record_enable": true,
-      "_skip_on_fail": true,
-      "pci": {
-        "header_info": ["reg_name", "core_scope", "param"],
-        "reg_list": [
-          ["pm_0x001", false, "0x001"],
-          ["pm_0x002", false, "0x002"],
-          ["pm_0x003", false, "0x003"],
-          ["pm_0x004", true, "0x004"],
-          ["pm_0x005", true, "0x005"],
-          ["pm_0x006", true, "0x006"],
-          ["pm_0x007", false, "0x007"],
-          ["pm_0x008", false, "0x008"],
-          ["pm_0x009", false, "0x009"],
-          ["pm_0x00a", false, "0x00a"],
-          ["pm_0x101", false, "0x101"],
-          ["pm_0x102", false, "0x102"],
-          ["pm_0x107", false, "0x107"],
-          ["pm_0x201", false, "0x201"],
-          ["pm_0x202", false, "0x202"],
-          ["pm_0x207", false, "0x207"],
-          ["pm_0x307", false, "0x307"],
-          ["pm_0x407", false, "0x407"],
-          ["pm_0x507", false, "0x507"],
-          ["pm_0x607", false, "0x607"]
-        ]
-      },
-      "pll": {
-        "header_info": ["sec_name", "reg_name", "param"],
-        "reg_list": [
-          ["pm_index0", "pm_subindex_0x010b",  "0x010b"],
-          ["pm_index0", "pm_subindex_0x110b",  "0x110b"],
-          ["pm_index0", "pm_subindex_0x210b",  "0x210b"],
-          ["pm_index0", "pm_subindex_0x310b",  "0x310b"],
-          ["pm_index0", "pm_subindex_0x410b",  "0x410b"],
-          ["pm_index0", "pm_subindex_0x510b",  "0x510b"],
-          ["pm_index1", "pm_subindex_0x020b",  "0x020b"],
-          ["pm_index1", "pm_subindex_0x120b",  "0x120b"],
-          ["pm_index1", "pm_subindex_0x220b",  "0x220b"],
-          ["pm_index1", "pm_subindex_0x320b",  "0x320b"],
-          ["pm_index1", "pm_subindex_0x420b",  "0x420b"],
-          ["pm_index1", "pm_subindex_0x520b",  "0x520b"],
-          ["pm_index2", "pm_subindex_0x030b",  "0x030b"],
-          ["pm_index2", "pm_subindex_0x130b",  "0x130b"],
-          ["pm_index2", "pm_subindex_0x230b",  "0x230b"],
-          ["pm_index2", "pm_subindex_0x330b",  "0x330b"],
-          ["pm_index2", "pm_subindex_0x430b",  "0x430b"],
-          ["pm_index2", "pm_subindex_0x530b",  "0x530b"],
-          ["pm_index3", "pm_subindex_0x000c",  "0x000c"],
-          ["pm_index3", "pm_subindex_0x100c",  "0x100c"],
-          ["pm_index3", "pm_subindex_0x200c",  "0x200c"],
-          ["pm_index3", "pm_subindex_0x300c",  "0x300c"],
-          ["pm_index3", "pm_subindex_0x400c",  "0x400c"],
-          ["pm_index3", "pm_subindex_0x500c",  "0x500c"],
-          ["pm_index4", "pm_subindex_0x010c",  "0x010c"],
-          ["pm_index4", "pm_subindex_0x110c",  "0x110c"],
-          ["pm_index4", "pm_subindex_0x210c",  "0x210c"],
-          ["pm_index4", "pm_subindex_0x310c",  "0x310c"],
-          ["pm_index4", "pm_subindex_0x410c",  "0x410c"],
-          ["pm_index4", "pm_subindex_0x510c",  "0x510c"],
-          ["pm_index5", "pm_subindex_0x020c",  "0x020c"],
-          ["pm_index5", "pm_subindex_0x120c",  "0x120c"],
-          ["pm_index5", "pm_subindex_0x220c",  "0x220c"],
-          ["pm_index5", "pm_subindex_0x320c",  "0x320c"],
-          ["pm_index5", "pm_subindex_0x420c",  "0x420c"],
-          ["pm_index5", "pm_subindex_0x520c",  "0x520c"],
-          ["pm_index6", "pm_subindex_0x030c",  "0x030c"],
-          ["pm_index6", "pm_subindex_0x130c",  "0x130c"],
-          ["pm_index6", "pm_subindex_0x230c",  "0x230c"],
-          ["pm_index6", "pm_subindex_0x330c",  "0x330c"],
-          ["pm_index6", "pm_subindex_0x430c",  "0x430c"],
-          ["pm_index6", "pm_subindex_0x530c",  "0x530c"],
-          ["pm_index7", "pm_subindex_0x000d",  "0x000d"],
-          ["pm_index7", "pm_subindex_0x100d",  "0x100d"],
-          ["pm_index7", "pm_subindex_0x200d",  "0x200d"],
-          ["pm_index7", "pm_subindex_0x300d",  "0x300d"],
-          ["pm_index7", "pm_subindex_0x400d",  "0x400d"],
-          ["pm_index7", "pm_subindex_0x500d",  "0x500d"],
-          ["pm_index7", "pm_subindex_0x600d",  "0x600d"],
-          ["pm_index8", "pm_subindex_0x010d",  "0x010d"],
-          ["pm_index8", "pm_subindex_0x110d",  "0x110d"],
-          ["pm_index8", "pm_subindex_0x210d",  "0x210d"],
-          ["pm_index8", "pm_subindex_0x310d",  "0x310d"],
-          ["pm_index8", "pm_subindex_0x410d",  "0x410d"],
-          ["pm_index8", "pm_subindex_0x510d",  "0x510d"],
-          ["pm_index8", "pm_subindex_0x610d",  "0x610d"],
-          ["pm_index9", "pm_subindex_0x020d",  "0x020d"],
-          ["pm_index9", "pm_subindex_0x120d",  "0x120d"],
-          ["pm_index9", "pm_subindex_0x220d",  "0x220d"],
-          ["pm_index9", "pm_subindex_0x320d",  "0x320d"],
-          ["pm_index9", "pm_subindex_0x420d",  "0x420d"],
-          ["pm_index9", "pm_subindex_0x520d",  "0x520d"],
-          ["pm_index9", "pm_subindex_0x620d",  "0x620d"],
-          ["pm_index10", "pm_subindex_0x030d",  "0x030d"],
-          ["pm_index10", "pm_subindex_0x130d",  "0x130d"],
-          ["pm_index10", "pm_subindex_0x230d",  "0x230d"],
-          ["pm_index10", "pm_subindex_0x330d",  "0x330d"],
-          ["pm_index10", "pm_subindex_0x430d",  "0x430d"],
-          ["pm_index10", "pm_subindex_0x530d",  "0x530d"],
-          ["pm_index10", "pm_subindex_0x630d",  "0x630d"],
-          ["pm_index11", "pm_subindex_0x050d",  "0x050d"],
-          ["pm_index11", "pm_subindex_0x150d",  "0x150d"],
-          ["pm_index11", "pm_subindex_0x250d",  "0x250d"],
-          ["pm_index11", "pm_subindex_0x350d",  "0x350d"],
-          ["pm_index11", "pm_subindex_0x450d",  "0x450d"],
-          ["pm_index11", "pm_subindex_0x550d",  "0x550d"],
-          ["pm_index11", "pm_subindex_0x650d",  "0x650d"],
-          ["pm_index12", "pm_subindex_0x040d",  "0x040d"],
-          ["pm_index12", "pm_subindex_0x140d",  "0x140d"],
-          ["pm_index12", "pm_subindex_0x240d",  "0x240d"],
-          ["pm_index12", "pm_subindex_0x340d",  "0x340d"],
-          ["pm_index12", "pm_subindex_0x440d",  "0x440d"],
-          ["pm_index12", "pm_subindex_0x540d",  "0x540d"],
-          ["pm_index12", "pm_subindex_0x640d",  "0x640d"],
-          ["pm_index13", "pm_subindex_0x000f",  "0x000f"],
-          ["pm_index13", "pm_subindex_0x100f",  "0x100f"],
-          ["pm_index13", "pm_subindex_0x200f",  "0x200f"],
-          ["pm_index13", "pm_subindex_0x300f",  "0x300f"],
-          ["pm_index13", "pm_subindex_0x400f",  "0x400f"],
-          ["pm_index13", "pm_subindex_0x500f",  "0x500f"],
-          ["pm_index13", "pm_subindex_0x600f",  "0x600f"],
-          ["pm_index14", "pm_subindex_0x010f",  "0x010f"],
-          ["pm_index14", "pm_subindex_0x110f",  "0x110f"],
-          ["pm_index14", "pm_subindex_0x210f",  "0x210f"],
-          ["pm_index14", "pm_subindex_0x310f",  "0x310f"],
-          ["pm_index14", "pm_subindex_0x410f",  "0x410f"],
-          ["pm_index14", "pm_subindex_0x510f",  "0x510f"],
-          ["pm_index14", "pm_subindex_0x610f",  "0x610f"],
-          ["pm_index15", "pm_subindex_0x020f",  "0x020f"],
-          ["pm_index15", "pm_subindex_0x120f",  "0x120f"],
-          ["pm_index15", "pm_subindex_0x220f",  "0x220f"],
-          ["pm_index15", "pm_subindex_0x320f",  "0x320f"],
-          ["pm_index15", "pm_subindex_0x420f",  "0x420f"],
-          ["pm_index15", "pm_subindex_0x520f",  "0x520f"],
-          ["pm_index15", "pm_subindex_0x620f",  "0x620f"],
-          ["pm_index16", "pm_subindex_0x030f",  "0x030f"],
-          ["pm_index16", "pm_subindex_0x130f",  "0x130f"],
-          ["pm_index16", "pm_subindex_0x230f",  "0x230f"],
-          ["pm_index16", "pm_subindex_0x330f",  "0x330f"],
-          ["pm_index16", "pm_subindex_0x430f",  "0x430f"],
-          ["pm_index16", "pm_subindex_0x530f",  "0x530f"],
-          ["pm_index16", "pm_subindex_0x630f",  "0x630f"],
-          ["pm_index17", "pm_subindex_0x050f",  "0x050f"],
-          ["pm_index17", "pm_subindex_0x150f",  "0x150f"],
-          ["pm_index17", "pm_subindex_0x250f",  "0x250f"],
-          ["pm_index17", "pm_subindex_0x350f",  "0x350f"],
-          ["pm_index17", "pm_subindex_0x450f",  "0x450f"],
-          ["pm_index17", "pm_subindex_0x550f",  "0x550f"],
-          ["pm_index17", "pm_subindex_0x650f",  "0x650f"],
-          ["pm_index18", "pm_subindex_0x040f",  "0x040f"],
-          ["pm_index18", "pm_subindex_0x140f",  "0x140f"],
-          ["pm_index18", "pm_subindex_0x240f",  "0x240f"],
-          ["pm_index18", "pm_subindex_0x340f",  "0x340f"],
-          ["pm_index18", "pm_subindex_0x440f",  "0x440f"],
-          ["pm_index18", "pm_subindex_0x540f",  "0x540f"],
-          ["pm_index18", "pm_subindex_0x640f",  "0x640f"],
-          ["pm_index19", "pm_subindex_0x000e",  "0x000e"],
-          ["pm_index19", "pm_subindex_0x100e",  "0x100e"],
-          ["pm_index19", "pm_subindex_0x200e",  "0x200e"],
-          ["pm_index19", "pm_subindex_0x300e",  "0x300e"],
-          ["pm_index19", "pm_subindex_0x400e",  "0x400e"],
-          ["pm_index19", "pm_subindex_0x500e",  "0x500e"],
-          ["pm_index19", "pm_subindex_0x600e",  "0x600e"],
-          ["pm_index20", "pm_subindex_0x010e",  "0x010e"],
-          ["pm_index20", "pm_subindex_0x110e",  "0x110e"],
-          ["pm_index20", "pm_subindex_0x210e",  "0x210e"],
-          ["pm_index20", "pm_subindex_0x310e",  "0x310e"],
-          ["pm_index20", "pm_subindex_0x410e",  "0x410e"],
-          ["pm_index20", "pm_subindex_0x510e",  "0x510e"],
-          ["pm_index20", "pm_subindex_0x610e",  "0x610e"],
-          ["pm_index21", "pm_subindex_0x020e",  "0x020e"],
-          ["pm_index21", "pm_subindex_0x120e",  "0x120e"],
-          ["pm_index21", "pm_subindex_0x220e",  "0x220e"],
-          ["pm_index21", "pm_subindex_0x320e",  "0x320e"],
-          ["pm_index21", "pm_subindex_0x420e",  "0x420e"],
-          ["pm_index21", "pm_subindex_0x520e",  "0x520e"],
-          ["pm_index21", "pm_subindex_0x620e",  "0x620e"]
-        ]
-      },
-      "dispatch": {
-        "header_info": ["sec_name", "reg_name", "param"],
-        "reg_list": [
-        ]
-      }
-    },
-    "TOR": {
-      "_record_enable": true,
-      "_skip_on_fail": true
-    },
-    "address_map": {
-      "_record_enable": true,
-      "header_info": ["reg_name", "bus", "device", "function", "offset", "size"],
-      "reg_list": [
-        ["MMCFG_BASE", 0, 0, 0, "0x90", 8],
-        ["MMCFG_LIMIT", 0, 0, 0, "0x98", 8],
-        ["TSEG", 0, 0, 0, "0xA8", 8],
-        ["TOCM", 0, 0, 0, "0xC0", 1],
-        ["TOHM", 0, 0, 0, "0xC8", 8],
-        ["TOLM", 0, 0, 0, "0xD0", 4],
-        ["TOMMIOL", 0, 0, 0, "0xD8", 4],
-        ["NCMEM_BASE", 0, 0, 0, "0xE0", 8],
-        ["NCMEM_LIMIT", 0, 0, 0, "0xE8", 8],
-        ["MMIO_BASE", 30, 0, 1, "0xD0", 4],
-        ["SCF_BAR", 30, 0, 1, "0xD4", 4],
-        ["MEM0_BAR", 30, 0, 1, "0xD8", 4],
-        ["MEM1_BAR", 30, 0, 1, "0xDC", 4],
-        ["MEM2_BAR", 30, 0, 1, "0xE0", 4],
-        ["MEM3_BAR", 30, 0, 1, "0xE4", 4],
-        ["MEM4_BAR", 30, 0, 1, "0xE8", 4],
-        ["MEM5_BAR", 30, 0, 1, "0xEC", 4],
-        ["MEM6_BAR", 30, 0, 1, "0xF0", 4],
-        ["MEM7_BAR", 30, 0, 1, "0xF4", 4],
-        ["SBREG_BAR", 30, 0, 1, "0xF8", 4],
-        ["PCU_BAR", 30, 0, 1, "0xFC", 4],
-        ["PAM0123_CFG", 31, 29, 0, "0x80", 4],
-        ["PAM456_CFG", 31, 29, 0, "0x84", 4],
-        ["MESEG_BASE_CFG", 31, 29, 0, "0x90", 8],
-        ["MESEG_LIMIT_CFG", 31, 29, 0, "0x98", 8],
-        ["SMMSEG_BASE_CFG", 31, 29, 0, "0xA0", 8],
-        ["SMMSEG_LIMIT_CFG", 31, 29, 0, "0xA8", 8],
-        ["DRAM_RULE_CFG_0", 31, 29, 0, "0x108", 4],
-        ["INTERLEAVE_LIST_CFG_0", 31, 29, 0, "0x10C", 4],
-        ["DRAM_RULE_CFG_1", 31, 29, 0, "0x110", 4],
-        ["INTERLEAVE_LIST_CFG_1", 31, 29, 0, "0x114", 4],
-        ["DRAM_RULE_CFG_2", 31, 29, 0, "0x118", 4],
-        ["INTERLEAVE_LIST_CFG_2", 31, 29, 0, "0x11C", 4],
-        ["DRAM_RULE_CFG_3", 31, 29, 0, "0x120", 4],
-        ["INTERLEAVE_LIST_CFG_3", 31, 29, 0, "0x124", 4],
-        ["DRAM_RULE_CFG_4", 31, 29, 0, "0x128", 4],
-        ["INTERLEAVE_LIST_CFG_4", 31, 29, 0, "0x12C", 4],
-        ["DRAM_RULE_CFG_5", 31, 29, 0, "0x130", 4],
-        ["INTERLEAVE_LIST_CFG_5", 31, 29, 0, "0x134", 4],
-        ["DRAM_RULE_CFG_6", 31, 29, 0, "0x138", 4],
-        ["INTERLEAVE_LIST_CFG_6", 31, 29, 0, "0x13C", 4],
-        ["DRAM_RULE_CFG_7", 31, 29, 0, "0x140", 4],
-        ["INTERLEAVE_LIST_CFG_7", 31, 29, 0, "0x144", 4],
-        ["DRAM_RULE_CFG_8", 31, 29, 0, "0x148", 4],
-        ["INTERLEAVE_LIST_CFG_8", 31, 29, 0, "0x14C", 4],
-        ["DRAM_RULE_CFG_9", 31, 29, 0, "0x150", 4],
-        ["INTERLEAVE_LIST_CFG_9", 31, 29, 0, "0x154", 4],
-        ["DRAM_RULE_CFG_10", 31, 29, 0, "0x158", 4],
-        ["INTERLEAVE_LIST_CFG_10", 31, 29, 0, "0x15C", 4],
-        ["DRAM_RULE_CFG_11", 31, 29, 0, "0x160", 4],
-        ["INTERLEAVE_LIST_CFG_11", 31, 29, 0, "0x164", 4],
-        ["DRAM_RULE_CFG_12", 31, 29, 0, "0x168", 4],
-        ["INTERLEAVE_LIST_CFG_12", 31, 29, 0, "0x16C", 4],
-        ["DRAM_RULE_CFG_13", 31, 29, 0, "0x170", 4],
-        ["INTERLEAVE_LIST_CFG_13", 31, 29, 0, "0x174", 4],
-        ["DRAM_RULE_CFG_14", 31, 29, 0, "0x178", 4],
-        ["INTERLEAVE_LIST_CFG_14", 31, 29, 0, "0x17C", 4],
-        ["DRAM_RULE_CFG_15", 31, 29, 0, "0x180", 4],
-        ["INTERLEAVE_LIST_CFG_15", 31, 29, 0, "0x184", 4],
-        ["IOPORT_TARGET_LIST_CFG_0", 31, 29, 0, "0x2C0", 4],
-        ["IOPORT_TARGET_LIST_CFG_1", 31, 29, 0, "0x2C4", 4],
-        ["IOPORT_TARGET_LIST_CFG_2", 31, 29, 0, "0x2C8", 4],
-        ["IOPORT_TARGET_LIST_CFG_3", 31, 29, 0, "0x2CC", 4],
-        ["MMCFG_RULE_CFG", 31, 29, 1, "0xC0", 8],
-        ["MMCFG_LOCAL_RULE_ADDRESS_CFG_0", 31, 29, 1, "0xC8", 4],
-        ["MMCFG_LOCAL_RULE_ADDRESS_CFG_1", 31, 29, 1, "0xCC", 4],
-        ["MMCFG_LOCAL_RULE_CFG", 31, 29, 1, "0xE4", 4],
-        ["MMCFG_TARGET_LIST_CFG", 31, 29, 1, "0xEC", 4],
-        ["LT_CONTROL_CFG", 31, 29, 1, "0xF0", 4],
-        ["SAD_CONTROL_CFG", 31, 29, 1, "0xF4", 4],
-        ["SAD_TARGET_CFG", 31, 29, 1, "0xF8", 4],
-        ["MMIO_TARGET_LIST_CFG_0", 31, 29, 1, "0x1A0", 4],
-        ["MMIO_TARGET_LIST_CFG_1", 31, 29, 1, "0x1A4", 4],
-        ["MMIO_RULE_CFG_0", 31, 29, 1, "0x108", 8],
-        ["MMIO_RULE_CFG_1", 31, 29, 1, "0x110", 8],
-        ["MMIO_RULE_CFG_2", 31, 29, 1, "0x118", 8],
-        ["MMIO_RULE_CFG_3", 31, 29, 1, "0x120", 8],
-        ["MMIO_RULE_CFG_4", 31, 29, 1, "0x128", 8],
-        ["MMIO_RULE_CFG_5", 31, 29, 1, "0x130", 8],
-        ["MMIO_RULE_CFG_6", 31, 29, 1, "0x138", 8],
-        ["MMIO_RULE_CFG_7", 31, 29, 1, "0x140", 8],
-        ["MMIO_RULE_CFG_8", 31, 29, 1, "0x148", 8],
-        ["MMIO_RULE_CFG_9", 31, 29, 1, "0x150", 8],
-        ["MMIO_RULE_CFG_10", 31, 29, 1, "0x158", 8],
-        ["MMIO_RULE_CFG_11", 31, 29, 1, "0x160", 8],
-        ["MMIO_RULE_CFG_12", 31, 29, 1, "0x168", 8],
-        ["MMIO_RULE_CFG_13", 31, 29, 1, "0x170", 8],
-        ["MMIO_UBOX_RULE_CFG", 31, 29, 1, "0x180", 8],
-        ["MMIOH_RULE_CFG_0", 31, 29, 1, "0x1D8", 8],
-        ["MMIOH_RULE_CFG_1", 31, 29, 1, "0x1E0", 8],
-        ["MMIOH_RULE_CFG_2", 31, 29, 1, "0x1E8", 8],
-        ["MMIOH_RULE_CFG_3", 31, 29, 1, "0x1F0", 8],
-        ["MMIOH_RULE_CFG_4", 31, 29, 1, "0x1F8", 8],
-        ["MMIOH_RULE_CFG_5", 31, 29, 1, "0x200", 8],
-        ["MMIOH_RULE_CFG_6", 31, 29, 1, "0x208", 8],
-        ["MMIOH_RULE_CFG_7", 31, 29, 1, "0x210", 8],
-        ["MMIOH_RULE_CFG_8", 31, 29, 1, "0x218", 8],
-        ["MMIOH_RULE_CFG_9", 31, 29, 1, "0x220", 8],
-        ["MMIOH_RULE_CFG_10", 31, 29, 1, "0x228", 8],
-        ["MMIOH_RULE_CFG_11", 31, 29, 1, "0x230", 8],
-        ["MMIOH_RULE_CFG_12", 31, 29, 1, "0x238", 8],
-        ["IOAPIC_TARGET_LIST_CFG_0", 31, 29, 1, "0xD0", 4],
-        ["IOAPIC_TARGET_LIST_CFG_1", 31, 29, 1, "0xD4", 4],
-        ["IOAPIC_TARGET_LIST_CFG_2", 31, 29, 1, "0xD8", 4],
-        ["IOAPIC_TARGET_LIST_CFG_3", 31, 29, 1, "0xDC", 4]
-      ]
-    },
-    "uncore": {
-      "_record_enable": true,
-      "_version": "0x28",
-      "pci": {
-        "_max_time_sec" : 30,
-        "header_info": ["reg_name", "bus", "device", "function", "offset", "size"],
-        "reg_list": []
-      },
-      "mmio": {
-        "_max_time_sec" : 30,
-        "header_info": ["reg_name", "bar_id", "bus", "device", "function", "offset", "addr_type", "size"],
-        "reg_list": []
-      },
-      "rdiamsr": {
-        "_max_time_sec" : 15,
-        "header_info": ["reg_name", "address", "thread_id", "size"],
-        "reg_list": []
-      }
-    },
-    "Sections": [
-      {
+  "cpu": "icx2",
+  "AccessMethod":  "/dev/peci-wire",
+  "Version": "release",
+  "ServiceName": "crashdump",
+  "DefaultState": "Enable",
+  "PECIHeaders": {
+    "CrashDump_Discovery": ["Target", "Opcode", "Param0", "Param1", "Param2", "ReadLen"],
+    "CrashDump_GetFrame": ["Target", "Param0", "Param1", "Param2", "ReadLen"],
+    "Ping": ["Target"],
+    "GetCPUID": ["Target"],
+    "RdIAMSR": ["Target", "Thread", "Address"],
+    "RdPkgConfig": ["Target", "Index", "Param", "ReadLen"],
+    "RdPCIConfigLocal": ["Target", "Bus", "Dev", "Func", "Reg", "ReadLen"],
+    "RdEndPointConfigPciLocal": ["Target", "Seg", "Bus", "Dev", "Func", "Reg", "ReadLen"],
+    "WrEndPointPCIConfigLocal": ["Target", "Seg", "Bus", "Dev", "Func", "Reg", "ReadLen", "Value"],
+    "RdEndPointConfigMMIO": ["Target", "Seg", "Bus", "Dev", "Func", "Bar", "AType", "Offset", "ReadLen"],
+    "Telemetry_Discovery": ["Target", "Opcode", "Param0", "Param1", "Param2", "ReadLen"]
+  },
+  "MaxTimeInSec": 1200,
+  "Sections": [
+    {
       "MCA_UNCORE":{
         "RecordEnable": true,
         "RecordType": "0x3e",
@@ -492,7 +27,7 @@
         "Revision": "0x01",
         "SkipOnFail": false,
         "LoopOnCPU": true,
-        "MaxTimeSec": 30,
+        "MaxTimeSec": 200,
         "RootAtLevel": 4,
         "OutputPath": "crash_data/PROCESSORS/cpu%d/MCA/uncore",
         "PreReq": {
@@ -595,7 +130,9 @@
             ]
           }
         ]
-      },
+      }
+    },
+    {
       "MCA_CBO": {
         "RecordEnable": true,
         "SkipOnFail": true,
@@ -617,51 +154,14 @@
             ]
           }
         ]
-      },
-      "MCA_CORE": {
-        "RecordEnable": true,
-        "SkipOnFail": true,
-        "LoopOnCore": true,
-        "LoopOnThread": true,
-        "SkipCrashedCores": true,
-        "MaxTimeSec": 50,
-        "RootAtLevel":4,
-        "OutputPath": "crash_data/PROCESSORS/cpu%d/MCA/core%d/thread%d",
-        "PreReq": {
-          "PECICmds": []
-        },
-        "PECICmds": [
-          {
-            "RdIAMSR": [
-              {"Params": ["Target", "(CORE*2)+THREAD", "0x401"],"Output": {"Size": 8, "Name":["mc0_status", "MC0"]}},
-              {"Params": ["Target", "(CORE*2)+THREAD", "0x400"],"Output": {"Size": 8, "Name":["mc0_ctl", "MC0"]}},
-              {"Params": ["Target", "(CORE*2)+THREAD", "0x402"],"Output": {"Size": 8, "Name":["mc0_addr", "MC0"]}},
-              {"Params": ["Target", "(CORE*2)+THREAD", "0x403"],"Output": {"Size": 8, "Name":["mc0_misc", "MC0"]}},
-              {"Params": ["Target", "(CORE*2)+THREAD", "0x280"],"Output": {"Size": 8, "Name":["mc0_ctl2", "MC0"]}},
-              {"Params": ["Target", "(CORE*2)+THREAD", "0x405"],"Output": {"Size": 8, "Name":["mc1_status", "MC1"]}},
-              {"Params": ["Target", "(CORE*2)+THREAD", "0x404"],"Output": {"Size": 8, "Name":["mc1_ctl", "MC1"]}},
-              {"Params": ["Target", "(CORE*2)+THREAD", "0x406"],"Output": {"Size": 8, "Name":["mc1_addr", "MC1"]}},
-              {"Params": ["Target", "(CORE*2)+THREAD", "0x407"],"Output": {"Size": 8, "Name":["mc1_misc", "MC1"]}},
-              {"Params": ["Target", "(CORE*2)+THREAD", "0x281"],"Output": {"Size": 8, "Name":["mc1_ctl2", "MC1"]}},
-              {"Params": ["Target", "(CORE*2)+THREAD", "0x409"],"Output": {"Size": 8, "Name":["mc2_status", "MC2"]}},
-              {"Params": ["Target", "(CORE*2)+THREAD", "0x408"],"Output": {"Size": 8, "Name":["mc2_ctl", "MC2"]}},
-              {"Params": ["Target", "(CORE*2)+THREAD", "0x40a"],"Output": {"Size": 8, "Name":["mc2_addr", "MC2"]}},
-              {"Params": ["Target", "(CORE*2)+THREAD", "0x40b"],"Output": {"Size": 8, "Name":["mc2_misc", "MC2"]}},
-              {"Params": ["Target", "(CORE*2)+THREAD", "0x282"],"Output": {"Size": 8, "Name":["mc2_ctl2", "MC2"]}},
-              {"Params": ["Target", "(CORE*2)+THREAD", "0x40d"],"Output": {"Size": 8, "Name":["mc3_status", "MC3"]}},
-              {"Params": ["Target", "(CORE*2)+THREAD", "0x40c"],"Output": {"Size": 8, "Name":["mc3_ctl", "MC3"]}},
-              {"Params": ["Target", "(CORE*2)+THREAD", "0x40e"],"Output": {"Size": 8, "Name":["mc3_addr", "MC3"]}},
-              {"Params": ["Target", "(CORE*2)+THREAD", "0x40f"],"Output": {"Size": 8, "Name":["mc3_misc", "MC3"]}},
-              {"Params": ["Target", "(CORE*2)+THREAD", "0x283"],"Output": {"Size": 8, "Name":["mc3_ctl2", "MC3"]}}
-            ]
-          }
-        ]
-      },
+      }
+    },
+    {
       "Uncore_PCI": {
         "RecordEnable": true,
         "RecordType": "0x08",
         "ProductType": "0x1a",
-        "Revision": "0x28",
+        "Revision": "0x29",
         "SkipOnFail": false,
         "LoopOnCPU": true,
         "MaxTimeSec": 30,
@@ -4116,7 +3616,9 @@
               ]
             }
           ]
-      },
+      }
+    },
+    {
       "Uncore_MMIO": {
         "RecordEnable": true,
         "SkipOnFail": false,
@@ -5565,7 +5067,9 @@
             ]
           }
         ]
-      },
+      }
+    },
+    {
       "Uncore_RdIAMSR": {
         "RecordEnable": true,
         "SkipOnFail": false,
@@ -5634,7 +5138,9 @@
             ]
           }
         ]
-      },
+      }
+    },
+    {
       "Uncore_RdIAMSR_CHA": {
         "RecordEnable": true,
         "SkipOnFail": true,
@@ -5645,18 +5151,17 @@
           "PECICmds": []
         },
         "PECICmds": [
-         {
+          {
           "RdIAMSR": [
             {"Params": ["Target", "CHA", "0x8005"],"Output": {"Size": 8, "Name":["RDIAMSR_cha%d_0x8005"]}}
             ]
           }
         ]
-      },
+      }
+    },
+    {
       "Uncore_RdTAD": {
         "RecordEnable": true,
-        "RecordType": "0x08",
-        "ProductType": "0x1a",
-        "Revision": "0x28",
         "SkipOnFail": false,
         "LoopOnCPU": true,
         "MaxTimeSec": 30,
@@ -5826,7 +5331,48 @@
           {"WrEndPointConfigPciLocal": [{"Params": ["Target", 0, 30, 15, 0, "0x238", 4, "0x53"]}]},
           {"RdEndpointConfigPCILocal": [{"Params": ["Target", 0, 30, 15, 0, "0x238", 4], "Output": {"Name": ["B30_D15_F0_0x238_19"]}}]}
         ]
-      },
+      }
+    },
+    {
+      "TOR": {
+        "RecordEnable": true,
+        "RecordType": "0x09",
+        "ProductType": "0x1a",
+        "_skip_on_fail": true,
+        "OutputPath": "crash_data/PROCESSORS/cpu%d/TOR/",
+        "PreReq": {
+          "PECICmds": [
+            {
+              "CrashDump_Discovery" : [
+                {
+                  "Params" : ["Target", 0, 0, 0, 0, 1],
+                  "InternalVar": "IsCrashdumpEnable",
+                  "Comment" : "Check and return if big core related crashdump is enabled"
+                }, {
+                  "Params" : ["Target", 1, 0, 0, 0, 2],
+                  "InternalVar": "NumCrashdumpAgents",
+                  "Comment" : "Get number of supported crash agents"
+                }, {
+                  "Params" : ["Target", 2, 0, 1, 0, 8],
+                  "InternalVar": "CrashdumpGUID",
+                  "Comment" : "Get the unique ID (GUID)"
+                }, {
+                  "Params" : ["Target", 2, 1, 1, 0, 8],
+                  "InternalVar": "CrashdumpPayloadSize",
+                  "Comment" : "Get the payload size"
+                }
+              ]
+            }
+          ]
+        },
+        "PECICmds": [
+          {
+            "LogTor": {"Params": ["IsCrashdumpEnable", "NumCrashdumpAgents", "CrashdumpGUID", "CrashdumpPayloadSize"]}
+          }
+        ]
+      }
+    },
+    {
       "PowerManagement_PCI": {
         "RecordEnable": true,
         "RecordType": "0x0c",
@@ -5862,7 +5408,9 @@
             ]
           }
         ]
-      },
+      }
+    },
+    {
       "PowerManagement_PCI_core": {
         "RecordEnable": true,
         "SkipOnFail": true,
@@ -5882,7 +5430,9 @@
             ]
           }
         ]
-      },
+      }
+    },
+    {
       "PowerManagement_Pll": {
         "RecordEnable": true,
         "SkipOnFail": true,
@@ -6046,7 +5596,9 @@
               ]
             }
           ]
-      },
+      }
+    },
+    {
       "Address_Map": {
         "RecordEnable": true,
         "SkipOnFail": true,
@@ -6170,7 +5722,9 @@
               ]
             }
           ]
-      },
+      }
+    },
+    {
       "BigCore" : {
         "RecordEnable": true,
         "RecordType": "0x04",
@@ -6430,7 +5984,50 @@
               ]
           }
         ]
-      },
+      }
+    },
+    {
+      "MCA_CORE": {
+        "RecordEnable": true,
+        "SkipOnFail": true,
+        "LoopOnCore": true,
+        "LoopOnThread": true,
+        "SkipCrashedCores": true,
+        "MaxTimeSec": 50,
+        "RootAtLevel":4,
+        "OutputPath": "crash_data/PROCESSORS/cpu%d/MCA/core%d/thread%d",
+        "PreReq": {
+          "PECICmds": []
+        },
+        "PECICmds": [
+          {
+            "RdIAMSR": [
+              {"Params": ["Target", "(CORE*2)+THREAD", "0x401"],"Output": {"Size": 8, "Name":["mc0_status", "MC0"]}},
+              {"Params": ["Target", "(CORE*2)+THREAD", "0x400"],"Output": {"Size": 8, "Name":["mc0_ctl", "MC0"]}},
+              {"Params": ["Target", "(CORE*2)+THREAD", "0x402"],"Output": {"Size": 8, "Name":["mc0_addr", "MC0"]}},
+              {"Params": ["Target", "(CORE*2)+THREAD", "0x403"],"Output": {"Size": 8, "Name":["mc0_misc", "MC0"]}},
+              {"Params": ["Target", "(CORE*2)+THREAD", "0x280"],"Output": {"Size": 8, "Name":["mc0_ctl2", "MC0"]}},
+              {"Params": ["Target", "(CORE*2)+THREAD", "0x405"],"Output": {"Size": 8, "Name":["mc1_status", "MC1"]}},
+              {"Params": ["Target", "(CORE*2)+THREAD", "0x404"],"Output": {"Size": 8, "Name":["mc1_ctl", "MC1"]}},
+              {"Params": ["Target", "(CORE*2)+THREAD", "0x406"],"Output": {"Size": 8, "Name":["mc1_addr", "MC1"]}},
+              {"Params": ["Target", "(CORE*2)+THREAD", "0x407"],"Output": {"Size": 8, "Name":["mc1_misc", "MC1"]}},
+              {"Params": ["Target", "(CORE*2)+THREAD", "0x281"],"Output": {"Size": 8, "Name":["mc1_ctl2", "MC1"]}},
+              {"Params": ["Target", "(CORE*2)+THREAD", "0x409"],"Output": {"Size": 8, "Name":["mc2_status", "MC2"]}},
+              {"Params": ["Target", "(CORE*2)+THREAD", "0x408"],"Output": {"Size": 8, "Name":["mc2_ctl", "MC2"]}},
+              {"Params": ["Target", "(CORE*2)+THREAD", "0x40a"],"Output": {"Size": 8, "Name":["mc2_addr", "MC2"]}},
+              {"Params": ["Target", "(CORE*2)+THREAD", "0x40b"],"Output": {"Size": 8, "Name":["mc2_misc", "MC2"]}},
+              {"Params": ["Target", "(CORE*2)+THREAD", "0x282"],"Output": {"Size": 8, "Name":["mc2_ctl2", "MC2"]}},
+              {"Params": ["Target", "(CORE*2)+THREAD", "0x40d"],"Output": {"Size": 8, "Name":["mc3_status", "MC3"]}},
+              {"Params": ["Target", "(CORE*2)+THREAD", "0x40c"],"Output": {"Size": 8, "Name":["mc3_ctl", "MC3"]}},
+              {"Params": ["Target", "(CORE*2)+THREAD", "0x40e"],"Output": {"Size": 8, "Name":["mc3_addr", "MC3"]}},
+              {"Params": ["Target", "(CORE*2)+THREAD", "0x40f"],"Output": {"Size": 8, "Name":["mc3_misc", "MC3"]}},
+              {"Params": ["Target", "(CORE*2)+THREAD", "0x283"],"Output": {"Size": 8, "Name":["mc3_ctl2", "MC3"]}}
+            ]
+          }
+        ]
+      }
+    },
+    {
       "Metadata_Cpu": {
         "RecordEnable": true,
         "RecordType": "0x0b",
@@ -6454,7 +6051,9 @@
                 {"Params": ["Target", 0, 14, 30, 4, "0xF8", 4], "InternalVar": "firstierrtsc_low"},
                 {"Params": ["Target", 0, 14, 30, 4, "0xFC", 4], "InternalVar": "firstierrtsc_high"},
                 {"Params": ["Target", 0, 14, 30, 4, "0xF0", 4], "InternalVar": "firstmcerrtsc_low"},
-                {"Params": ["Target", 0, 14, 30, 4, "0xF4", 4], "InternalVar": "firstmcerrtsc_high"}
+                {"Params": ["Target", 0, 14, 30, 4, "0xF4", 4], "InternalVar": "firstmcerrtsc_high"},
+                {"Params": ["Target", 0, 31, 30, 3, "0x9c", 4], "InternalVar": "chamask0"},
+                {"Params": ["Target", 0, 31, 30, 3, "0xa0", 4], "InternalVar": "chamask1"}
               ]
             }
           ]
@@ -6481,6 +6080,7 @@
           },
           {
             "RdAndConcatenate": [
+              {"Params": ["chamask0", "chamask1"], "Output": {"Size": 8,"Name": ["cha_mask"]}},
               {"Params": ["ppin_low", "ppin_high"], "Output": {"Size": 8,"Name": ["ppin"]}},
               {"Params": ["firstierrtsc_low", "firstierrtsc_high"], "Output": {"Size": 8,"Name": ["firstierrtsc"]}},
               {"Params": ["firstmcerrtsc_low", "firstmcerrtsc_high"], "Output": {"Size": 8,"Name": ["firstmcerrtsc"]}}
@@ -6500,45 +6100,7 @@
             ]
           }
         ]
-      },
-      "TOR": {
-        "RecordEnable": true,
-        "RecordType": "0x09",
-        "ProductType": "0x1a",
-        "_skip_on_fail": true,
-        "OutputPath": "crash_data/PROCESSORS/cpu%d/TOR/",
-        "PreReq": {
-          "PECICmds": [
-            {
-              "CrashDump_Discovery" : [
-                {
-                  "Params" : ["Target", 0, 0, 0, 0, 1],
-                  "InternalVar": "IsCrashdumpEnable",
-                  "Comment" : "Check and return if big core related crashdump is enabled"
-                }, {
-                  "Params" : ["Target", 1, 0, 0, 0, 2],
-                  "InternalVar": "NumCrashdumpAgents",
-                  "Comment" : "Get number of supported crash agents"
-                }, {
-                  "Params" : ["Target", 2, 0, 1, 0, 8],
-                  "InternalVar": "CrashdumpGUID",
-                  "Comment" : "Get the unique ID (GUID)"
-                }, {
-                  "Params" : ["Target", 2, 1, 1, 0, 8],
-                  "InternalVar": "CrashdumpPayloadSize",
-                  "Comment" : "Get the payload size"
-                }
-              ]
-            }
-          ]
-        },
-        "PECICmds": [
-          {
-            "LogTor": {"Params": ["IsCrashdumpEnable", "NumCrashdumpAgents", "CrashdumpGUID", "CrashdumpPayloadSize"]}
-          }
-        ]
       }
-      }
-    ]
-  }
+    }
+  ]
 }

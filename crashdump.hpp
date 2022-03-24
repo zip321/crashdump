@@ -31,14 +31,13 @@
 extern "C" {
 #include <cjson/cJSON.h>
 
-#include "CrashdumpSections/crashdump.h"
-#include "CrashdumpSections/utils.h"
+#include "engine/crashdump.h"
+#include "engine/utils.h"
 #include "safe_str_lib.h"
 }
 
 #include "utils_dbusplus.hpp"
 
-#define ICXD_MODEL 0x606C0
 
 namespace crashdump
 {
@@ -72,7 +71,7 @@ const std::filesystem::path crashdumpDir = "/tmp/crashdump/output";
 const std::string crashdumpFileRoot{"crashdump_ondemand_"};
 const std::string crashdumpTelemetryFileRoot{"telemetry_"};
 const std::string crashdumpPrefix{"crashdump_"};
-
+void getCPUData(std::vector<CPUInfo>& cpuInfo, cpuidState cpuState);
 void getClientAddrs(std::vector<CPUInfo>& cpuInfo);
 std::string newTimestamp(void);
 void initCPUInfo(std::vector<CPUInfo>& cpuInfo);

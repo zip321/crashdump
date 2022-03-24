@@ -1,35 +1,30 @@
-# Whitley CrashDump
+# Autonomous CrashDump
 
 ## Overview
 
-This source code implements crashdump for the Whitley platform and supports the
-Ice Lake Server and Cooper Lake Server processors**. The crashdump application
-collects debug data from the processors over the PECI bus when executed. Some
-specific system level data may be collected as defined in the METADATA record
-type. The intention of the usage model is that the crashDump application will
-be called upon the BMC detecting an error event.
-
-** Support is included in the code for Skylake and Cascades Lake processors
-for reference and usage with an Whitley Platform SKX/CLX Interposer. This code
-is not intended for production use on the Purley platform. This is due to
-differences in the decoding tools used for the final JSON output.
+This source code implements crashdump for the Intel Xeon Server platforms. The
+crashdump application collects debug data from the processors over the PECI
+bus when executed. Some specific system level data may be collected as defined
+in the METADATA record type. The intention of the usage model is that the
+crashDump application will be called upon the BMC detecting an error event.
 
 ## Implementation
 
 ### Source Description
 
-This source consists of the main file, crashdump.cpp, a PECI interface library
-of functions, a utility file, and a set of files under the directory
-CrashDumpSections that each are used for the specific record types of the
-output file. The record types generated are as follows:
+This source consists of the main file, crashdump.cpp, utility files, and a set
+of files under the directory engine that each are used for parsing the input
+file and generate the crashdump output. The record types as follows:
 
 - METADATA
-- address_map
-- big_core
 - MCA
-- PM_Info
-- TOR
 - Uncore
+- TOR
+- PM_Info
+- big_core
+- crashlog
+- NVD
+
 
 ### System Requirements
 
@@ -43,16 +38,6 @@ be called after BMC has been booted.
 System resets and/or power cycling the CPU's in reaction to an error event must
 be disabled or delayed until after crashdump collection has completed.
 
-### PECI Interface Library (libpeci.c)
-
-These functions serve as an interface to the PECI Driver and provide a higher
-level interface to the PECI processor commands used for the extraction of data.
-
-### Standalone PECI Executable (peci_cmds.c)
-
-A standalone PECI interface is provided for manual testing of commands, see
-the Usage comments in the file for input parameter definitions.
-
 ### Data Extraction Dependencies
 
 PECI Access to record data is restricted according to the following table.
@@ -63,7 +48,7 @@ PECI Access to record data is restricted according to the following table.
 | Address_map | None    |
 | Big_Core    | 3strike |
 | MCA         | None    |
-| PM_Info     | None    |
+| PM_Info     | IERR    |
 | TOR         | IERR    |
 | Uncore      | None    |
 |             |         |
@@ -133,10 +118,10 @@ TBD
 
 ## Interpreting Output
 
-The Whitley decoder/analyzer/summarizer tools is provide in Whitley CScripts.
+The decoder/analyzer/summarizer tool is provided in the CScripts.
 See CScripts python Script:
 
-- \cscripts\icelakex\toolext\cd_summarizer.py
+- \cscripts\cpu name\toolext\cd_summarizer.py
 
 ## Security/Privacy
 
@@ -154,15 +139,3 @@ Examples of big_core data collected.
 - Control registers: CR0,CR2,CR3,CR4
 - Other Misc. control registers
 
-## References
-
-- Icelake Server External Design Specification (EDS), Volume One: Architecture
-    (Document Number: 574451)
-- Icelake Server External Design Specification (EDS), Volume Two: Registers
-    (Document Number: 574942)
-- Cooper Lake Processor External Design Specification (EDS), Volume One
-    Architecture (Document Number: 604785)
-- Cooper Lake Processor External Design Specification (EDS), Volume Two
-    Registers Part A (Document Number: 604926)
-- Cooper Lake Processor External Design Specification (EDS), Volume Two
-    Registers Part B (Document Number: 605073)

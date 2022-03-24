@@ -23,12 +23,12 @@
 extern "C" {
 #include <search.h>
 
-#include "CrashdumpSections/crashdump.h"
-#include "CrashdumpSections/utils.h"
 #include "engine/cmdprocessor.h"
+#include "engine/crashdump.h"
 #include "engine/flow.h"
 #include "engine/inputparser.h"
 #include "engine/logger.h"
+#include "engine/utils.h"
 }
 
 #include "gmock/gmock.h"
@@ -49,7 +49,7 @@ class ProcessCmdTestFixture : public ::testing::Test
     {
         UTFile = fs::current_path();
         UTFile = UTFile.parent_path();
-        UTFile /= "tests/UnitTestFiles/ut_uncore_input_sample_spr.json";
+        UTFile /= "tests/UnitTestFiles/ut_uncore.json";
         inRoot = readInputFile(UTFile.c_str());
         if (inRoot == NULL)
         {
@@ -137,150 +137,4 @@ TEST_F(ProcessCmdTestFixture, SimpleCmdPassFailTest)
     cJSON* val = cJSON_GetObjectItem(cmdInOut.internalVarsTracker, "UINT64Var");
     EXPECT_STREQ(val->valuestring, "0x1122334455667788");
     hdestroy();
-}
-
-TEST_F(ProcessCmdTestFixture, InputFileUncoreFullTest)
-{
-    TestCrashdump crashdump(cpusInfo);
-    uint8_t cc = PECI_DEV_CC_SUCCESS;
-    ENTRY entry;
-    LoggerStruct loggerStruct;
-    status = BuildCmdsTable(&entry);
-    EXPECT_EQ(ACD_SUCCESS, status);
-    struct timespec sectionStart;
-    uint32_t maxTime = 0xFFFFFFFF;
-    uint8_t threadsPerCore = 1;
-    // Notes: peci_cmds values for post enum bus registers
-    // peci_cmds RdEndpointConfigPCILocal 0 8 3 0 0x1a0
-    //    cc:0x40 0xc0000f3f
-    // peci_cmds -a 0x30 RdEndpointConfigPCILocal 0 8 3 0 0x1cc
-    //    cc:0x40 0x7f7e0000
-
-    uint8_t busValid[4] = {0x3f, 0x0f, 0x00, 0xc0}; // 0xc0000f3f;
-    uint8_t busno7[4] = {0x00, 0x00, 0x7e, 0x7f};   // 0x7f7e0000;
-
-    EXPECT_CALL(*crashdump.libPeciMock, peci_RdEndPointConfigPciLocal)
-        .WillOnce(DoAll(SetArrayArgument<7>(busValid, busValid + 4),
-                        SetArgPointee<8>(cc), Return(PECI_CC_SUCCESS)))
-        .WillOnce(DoAll(SetArrayArgument<7>(busno7, busno7 + 4),
-                        SetArgPointee<8>(cc), Return(PECI_CC_SUCCESS)))
-        .WillOnce(DoAll(SetArrayArgument<7>(busValid, busValid + 4),
-                        SetArgPointee<8>(cc), Return(PECI_CC_SUCCESS)))
-        .WillOnce(DoAll(SetArrayArgument<7>(busno7, busno7 + 4),
-                        SetArgPointee<8>(cc), Return(PECI_CC_SUCCESS)))
-        .WillRepeatedly(DoAll(SetArrayArgument<7>(busValid, busValid + 4),
-                              SetArgPointee<8>(cc), Return(PECI_CC_SUCCESS)));
-    EXPECT_CALL(*crashdump.libPeciMock, peci_RdIAMSR)
-        .WillRepeatedly(DoAll(SetArgPointee<3>(0x1122334455667788),
-                              SetArgPointee<4>(cc), Return(PECI_CC_SUCCESS)));
-    EXPECT_CALL(*crashdump.libPeciMock, peci_RdEndPointConfigMmio)
-        .WillRepeatedly(DoAll(SetArgPointee<10>(cc), Return(PECI_CC_SUCCESS)));
-
-    loggerStruct.contextLogger.skipOnFailFromInputFile = false;
-    InputParserErrInfo errInfo = {};
-    errInfo.sectionName = "Uncore";
-    cJSON* sections = getCrashDataSection(inRoot, "Sections", &enable);
-    cJSON* section = NULL;
-
-    cJSON_ArrayForEach(section, sections)
-    {
-        CmdInOut cmdInOut = {};
-        LoopOnFlags loopOnFlags;
-        cmdInOut.out.ret = PECI_CC_INVALID_REQ;
-        CmdInOut preReqCmdInOut = {};
-        preReqCmdInOut.out.ret = PECI_CC_INVALID_REQ;
-        ReadLoops(cJSON_GetObjectItemCaseSensitive(section, "Uncore"),
-                  &loopOnFlags);
-        GenerateVersion(cJSON_GetObjectItemCaseSensitive(section, "Uncore"),
-                        &loggerStruct.contextLogger.version);
-        GetPath(cJSON_GetObjectItemCaseSensitive(section, "Uncore"),
-                &loggerStruct);
-
-        EXPECT_EQ(ACD_SUCCESS, status);
-        status = ParsePath(&loggerStruct);
-        EXPECT_EQ(ACD_SUCCESS, status);
-        cJSON* maxTimeJson = cJSON_GetObjectItemCaseSensitive(
-            cJSON_GetObjectItemCaseSensitive(section, "Uncore"), "MaxTimeSec");
-        if (maxTimeJson != NULL)
-        {
-            maxTime = maxTimeJson->valueint;
-        }
-        cJSON* skipOnErrorJson = cJSON_GetObjectItemCaseSensitive(
-            cJSON_GetObjectItemCaseSensitive(section, "Uncore"), "SkipOnFail");
-        if (skipOnErrorJson != NULL)
-        {
-            loggerStruct.contextLogger.skipOnFailFromInputFile =
-                cJSON_IsTrue(skipOnErrorJson);
-        }
-        clock_gettime(CLOCK_MONOTONIC, &sectionStart);
-        cJSON* preReq = cJSON_GetObjectItemCaseSensitive(
-            cJSON_GetObjectItemCaseSensitive(
-                cJSON_GetObjectItemCaseSensitive(section, "Uncore"), "PreReq"),
-            "PECICmds");
-        cJSON* peciCmds = cJSON_GetObjectItemCaseSensitive(
-            cJSON_GetObjectItemCaseSensitive(section, "Uncore"), "PECICmds");
-        for (int cpu = 0; cpu < (int)cpusInfo.size(); cpu++)
-        {
-            loggerStruct.contextLogger.cpu = cpu;
-            logVersion(&cmdInOut, outRoot, &loggerStruct);
-            loggerStruct.contextLogger.skipFlag = false;
-            // Process Uncore PreReq PECICmds section
-            preReqCmdInOut.internalVarsTracker = cJSON_CreateObject();
-            ProcessPECICmds(&entry, &cpusInfo[cpu], preReq, &preReqCmdInOut,
-                            &errInfo, &loggerStruct, outRoot, &sectionStart,
-                            &maxTime);
-
-            // Make PreReq internalVars visible to Sections->PECICmds
-            cmdInOut.internalVarsTracker = preReqCmdInOut.internalVarsTracker;
-
-            if (loopOnFlags.loopOnCHA)
-            {
-                for (size_t cha = 0; cha < cpusInfo[cpu].chaCount; cha++)
-                {
-                    loggerStruct.contextLogger.cha = (uint8_t)cha;
-                    ProcessPECICmds(&entry, &cpusInfo[cpu], peciCmds, &cmdInOut,
-                                    &errInfo, &loggerStruct, outRoot,
-                                    &sectionStart, &maxTime);
-                    loggerStruct.contextLogger.skipFlag = false;
-                }
-            }
-            else if (loopOnFlags.loopOnCore)
-            {
-                for (uint32_t u32CoreNum = 0;
-                     (cpusInfo[cpu].coreMask >> u32CoreNum) != 0; u32CoreNum++)
-                {
-                    if (!CHECK_BIT(cpusInfo[cpu].coreMask, u32CoreNum))
-                    {
-                        continue;
-                    }
-                    loggerStruct.contextLogger.core = (uint8_t)u32CoreNum;
-                    if (loopOnFlags.loopOnThread)
-                    {
-                        threadsPerCore = 2;
-                    }
-                    for (uint8_t threadNum = 0; threadNum < threadsPerCore;
-                         threadNum++)
-                    {
-                        loggerStruct.contextLogger.thread = threadNum;
-                        ProcessPECICmds(&entry, &cpusInfo[cpu], peciCmds,
-                                        &cmdInOut, &errInfo, &loggerStruct,
-                                        outRoot, &sectionStart, &maxTime);
-                        loggerStruct.contextLogger.skipFlag = false;
-                    }
-                }
-            }
-            else
-            {
-                ProcessPECICmds(&entry, &cpusInfo[cpu], peciCmds, &cmdInOut,
-                                &errInfo, &loggerStruct, outRoot, &sectionStart,
-                                &maxTime);
-                loggerStruct.contextLogger.skipFlag = false;
-            }
-            logSectionRunTime(loggerStruct.nameProcessing.lastLevel,
-                              &sectionStart, "_time");
-            cJSON_Delete(cmdInOut.internalVarsTracker);
-        }
-    }
-    hdestroy();
-    Logging(outRoot, "outRoot:");
 }

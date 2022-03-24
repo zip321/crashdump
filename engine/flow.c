@@ -22,7 +22,7 @@
 void ProcessPECICmds(ENTRY* entry, CPUInfo* cpuInfo, cJSON* peciCmds,
                      CmdInOut* cmdInOut, InputParserErrInfo* errInfo,
                      LoggerStruct* loggerStruct, cJSON* outRoot,
-                     struct timespec* start, uint32_t* maxTime)
+                     RunTimeInfo* runTimeInfo)
 {
     cJSON* cmdGroup = NULL;
     cJSON_ArrayForEach(cmdGroup, peciCmds)
@@ -30,7 +30,7 @@ void ProcessPECICmds(ENTRY* entry, CPUInfo* cpuInfo, cJSON* peciCmds,
         entry->key = cmdGroup->child->string;
         errInfo->cmdGroup = entry->key;
         errInfo->cmdGroupPos = 0;
-        executionStatus execStatus;
+        executionStatus sectionExecStatus, globalExecStatus;
         cJSON* paramsGroup =
             cJSON_GetObjectItemCaseSensitive(cmdGroup, cmdGroup->child->string);
         cJSON* params = NULL;
@@ -61,10 +61,20 @@ void ProcessPECICmds(ENTRY* entry, CPUInfo* cpuInfo, cJSON* peciCmds,
             UpdateParams(cpuInfo, cmdInOut, loggerStruct, errInfo);
             for (int n = 1; n <= repeats; n++)
             {
-                execStatus = checkMaxTimeElapsed(*maxTime, *start);
-                if (execStatus == EXECUTION_ABORTED)
+                sectionExecStatus = checkMaxTimeElapsed(
+                    runTimeInfo->maxSectionTime, runTimeInfo->sectionRunTime);
+                globalExecStatus = checkMaxTimeElapsed(
+                    runTimeInfo->maxGlobalTime, runTimeInfo->globalRunTime);
+                cmdInOut->runTimeInfo = runTimeInfo;
+                if (globalExecStatus == EXECUTION_ABORTED)
                 {
                     loggerStruct->contextLogger.skipFlag = true;
+                    cmdInOut->runTimeInfo->maxGlobalRunTimeReached = true;
+                }
+                if (sectionExecStatus == EXECUTION_ABORTED)
+                {
+                    loggerStruct->contextLogger.skipFlag = true;
+                    cmdInOut->runTimeInfo->maxSectionRunTimeReached = true;
                 }
                 if (!loggerStruct->contextLogger.skipFlag)
                 {
@@ -93,157 +103,149 @@ void ProcessPECICmds(ENTRY* entry, CPUInfo* cpuInfo, cJSON* peciCmds,
 }
 
 acdStatus fillNewSection(cJSON* root, CPUInfo* cpuInfo, uint8_t cpu,
-                         char* sectionName, struct timespec* sectionStart,
-                         char* timeStr)
+                         RunTimeInfo* runTimeInfo, uint8_t sectionIndex)
 {
+    bool validateInput = readInputFileFlag(cpuInfo[0].inputFile.bufferPtr, true,
+                                           VALIDATE_ENABLE_KEY);
+    cJSON* sections = cJSON_GetObjectItemCaseSensitive(
+        cpuInfo[0].inputFile.bufferPtr, "Sections");
+    cJSON* section = NULL;
+    runTimeInfo->maxGlobalRunTimeReached = false;
+    section = cJSON_GetArrayItem(sections, sectionIndex);
+    if (section == NULL)
+    {
+        return ACD_SUCCESS;
+    }
     ENTRY entry;
     LoggerStruct loggerStruct;
     BuildCmdsTable(&entry);
-    uint32_t maxTime = 0xFFFFFFFF;
     uint8_t threadsPerCore = 1;
+    runTimeInfo->maxSectionTime = 0xFFFFFFFF;
+    runTimeInfo->maxSectionRunTimeReached = false;
+    runTimeInfo->sectionMaxPrint = true;
+    runTimeInfo->globalMaxPrint = true;
     loggerStruct.contextLogger.skipOnFailFromInputFile = false;
     InputParserErrInfo errInfo = {};
-    cJSON* sections = cJSON_GetObjectItemCaseSensitive(
-        cJSON_GetObjectItemCaseSensitive(cpuInfo[0].inputFile.bufferPtr,
-                                         "crash_data"),
-        "Sections");
-    cJSON* section = NULL;
-    cJSON_ArrayForEach(section, sections)
+    CmdInOut cmdInOut;
+    ValidatorParams validParams;
+    validParams.validateInput = validateInput;
+    cmdInOut.validatorParams = &validParams;
+    LoopOnFlags loopOnFlags;
+    cmdInOut.cpuInfo = cpuInfo;
+    cmdInOut.root = root;
+    cmdInOut.logger = &loggerStruct;
+    cmdInOut.out.ret = PECI_CC_INVALID_REQ;
+    CmdInOut preReqCmdInOut;
+    preReqCmdInOut.out.ret = PECI_CC_INVALID_REQ;
+
+    cJSON* sectionEnable =
+        cJSON_GetObjectItemCaseSensitive(section->child, "RecordEnable");
+    if (sectionEnable != NULL)
     {
-        CmdInOut cmdInOut;
-        LoopOnFlags loopOnFlags;
-        cmdInOut.cpuInfo = cpuInfo;
-        cmdInOut.root = root;
-        cmdInOut.logger = &loggerStruct;
-        cmdInOut.out.ret = PECI_CC_INVALID_REQ;
-        CmdInOut preReqCmdInOut;
-        preReqCmdInOut.out.ret = PECI_CC_INVALID_REQ;
-        cJSON* sectionNameEnable = cJSON_GetObjectItemCaseSensitive(
-            cJSON_GetObjectItemCaseSensitive(section, sectionName),
-            "RecordEnable");
-        if (sectionNameEnable != NULL)
+        if (!cJSON_IsTrue(sectionEnable))
         {
-            if (!cJSON_IsTrue(sectionNameEnable))
+            if (GetPath(section->child, &loggerStruct) == ACD_SUCCESS)
             {
-                if (GetPath(
-                        cJSON_GetObjectItemCaseSensitive(section, sectionName),
-                        &loggerStruct) == ACD_SUCCESS)
-                {
-                    loggerStruct.contextLogger.cpu = cpu;
-                    ParsePath(&loggerStruct);
-                    logRecordDisabled(&cmdInOut, root, &loggerStruct);
-                }
-                break;
+                loggerStruct.contextLogger.cpu = cpu;
+                ParsePath(&loggerStruct);
+                logRecordDisabled(&cmdInOut, root, &loggerStruct);
             }
+            return ACD_SUCCESS;
         }
-        else
+    }
+    else
+    {
+        return ACD_SUCCESS;
+    }
+    ReadLoops(section->child, &loopOnFlags);
+    GenerateVersion(section->child, &loggerStruct.contextLogger.version);
+    GetPath(section->child, &loggerStruct);
+    ParsePath(&loggerStruct);
+    cJSON* maxTimeJson =
+        cJSON_GetObjectItemCaseSensitive(section->child, "MaxTimeSec");
+    if (maxTimeJson != NULL)
+    {
+        runTimeInfo->maxSectionTime = maxTimeJson->valueint;
+    }
+    cJSON* skipOnErrorJson =
+        cJSON_GetObjectItemCaseSensitive(section->child, "SkipOnFail");
+    if (skipOnErrorJson != NULL)
+    {
+        loggerStruct.contextLogger.skipOnFailFromInputFile =
+            cJSON_IsTrue(skipOnErrorJson);
+    }
+    loggerStruct.contextLogger.skipCrashCores = false;
+    cJSON* skipCrashedCores =
+        cJSON_GetObjectItemCaseSensitive(section->child, "SkipCrashedCores");
+    if (skipCrashedCores != NULL)
+    {
+        loggerStruct.contextLogger.skipCrashCores =
+            cJSON_IsTrue(skipCrashedCores);
+    }
+    cJSON* preReq = cJSON_GetObjectItemCaseSensitive(
+        cJSON_GetObjectItemCaseSensitive(section->child, "PreReq"), "PECICmds");
+    cJSON* peciCmds =
+        cJSON_GetObjectItemCaseSensitive(section->child, "PECICmds");
+    CRASHDUMP_PRINT(ERR, stderr, "Logging %s on PECI address %d\n",
+                    section->child->string, cpuInfo->clientAddr);
+    loggerStruct.contextLogger.currentSectionName = section->child->string;
+    loggerStruct.contextLogger.cpu = cpu;
+    logVersion(&cmdInOut, root, &loggerStruct);
+    loggerStruct.contextLogger.skipFlag = false;
+    preReqCmdInOut.internalVarsTracker = cJSON_CreateObject();
+    ProcessPECICmds(&entry, cpuInfo, preReq, &preReqCmdInOut, &errInfo,
+                    &loggerStruct, root, runTimeInfo);
+    cmdInOut.internalVarsTracker = preReqCmdInOut.internalVarsTracker;
+    if (loopOnFlags.loopOnCHA)
+    {
+        for (size_t cha = 0; cha < cpuInfo->chaCount; cha++)
         {
-            break;
-        }
-        ReadLoops(cJSON_GetObjectItemCaseSensitive(section, sectionName),
-                  &loopOnFlags);
-        GenerateVersion(cJSON_GetObjectItemCaseSensitive(section, sectionName),
-                        &loggerStruct.contextLogger.version);
-        GetPath(cJSON_GetObjectItemCaseSensitive(section, sectionName),
-                &loggerStruct);
-        ParsePath(&loggerStruct);
-        cJSON* maxTimeJson = cJSON_GetObjectItemCaseSensitive(
-            cJSON_GetObjectItemCaseSensitive(section, sectionName),
-            "MaxTimeSec");
-        if (maxTimeJson != NULL)
-        {
-            maxTime = maxTimeJson->valueint;
-        }
-        cJSON* skipOnErrorJson = cJSON_GetObjectItemCaseSensitive(
-            cJSON_GetObjectItemCaseSensitive(section, sectionName),
-            "SkipOnFail");
-        if (skipOnErrorJson != NULL)
-        {
-            loggerStruct.contextLogger.skipOnFailFromInputFile =
-                cJSON_IsTrue(skipOnErrorJson);
-        }
-        loggerStruct.contextLogger.skipCrashCores = false;
-        cJSON* skipCrashedCores = cJSON_GetObjectItemCaseSensitive(
-            cJSON_GetObjectItemCaseSensitive(section, sectionName),
-            "SkipCrashedCores");
-        if (skipCrashedCores != NULL)
-        {
-            loggerStruct.contextLogger.skipCrashCores =
-                cJSON_IsTrue(skipCrashedCores);
-        }
-        cJSON* preReq = cJSON_GetObjectItemCaseSensitive(
-            cJSON_GetObjectItemCaseSensitive(
-                cJSON_GetObjectItemCaseSensitive(section, sectionName),
-                "PreReq"),
-            "PECICmds");
-        cJSON* peciCmds = cJSON_GetObjectItemCaseSensitive(
-            cJSON_GetObjectItemCaseSensitive(section, sectionName), "PECICmds");
-        CRASHDUMP_PRINT(ERR, stderr, "Logging %s on PECI address %d\n",
-                        sectionName, cpuInfo->clientAddr);
-        loggerStruct.contextLogger.cpu = cpu;
-        logVersion(&cmdInOut, root, &loggerStruct);
-        loggerStruct.contextLogger.skipFlag = false;
-        preReqCmdInOut.internalVarsTracker = cJSON_CreateObject();
-        ProcessPECICmds(&entry, cpuInfo, preReq, &preReqCmdInOut, &errInfo,
-                        &loggerStruct, root, sectionStart, &maxTime);
-        cmdInOut.internalVarsTracker = preReqCmdInOut.internalVarsTracker;
-        if (loopOnFlags.loopOnCHA)
-        {
-            for (size_t cha = 0; cha < cpuInfo->chaCount; cha++)
-            {
-                loggerStruct.contextLogger.cha = (uint8_t)cha;
-                ProcessPECICmds(&entry, cpuInfo, peciCmds, &cmdInOut, &errInfo,
-                                &loggerStruct, root, sectionStart, &maxTime);
-                loggerStruct.contextLogger.skipFlag = false;
-            }
-        }
-        else if (loopOnFlags.loopOnCore)
-        {
-            for (uint8_t u8CoreNum = 0; u8CoreNum < MAX_CORE_MASK; u8CoreNum++)
-            {
-                if (!CHECK_BIT(cpuInfo->coreMask, u8CoreNum))
-                {
-                    continue;
-                }
-                if (loggerStruct.contextLogger.skipCrashCores &&
-                    CHECK_BIT(cpuInfo->crashedCoreMask, u8CoreNum))
-                {
-                    continue;
-                }
-                loggerStruct.contextLogger.core = u8CoreNum;
-                if (loopOnFlags.loopOnThread)
-                {
-                    threadsPerCore = 2;
-                }
-                for (uint8_t threadNum = 0; threadNum < threadsPerCore;
-                     threadNum++)
-                {
-                    loggerStruct.contextLogger.thread = threadNum;
-                    ProcessPECICmds(&entry, cpuInfo, peciCmds, &cmdInOut,
-                                    &errInfo, &loggerStruct, root, sectionStart,
-                                    &maxTime);
-                }
-                loggerStruct.contextLogger.skipFlag = false;
-            }
-        }
-        else
-        {
+            loggerStruct.contextLogger.cha = (uint8_t)cha;
             ProcessPECICmds(&entry, cpuInfo, peciCmds, &cmdInOut, &errInfo,
-                            &loggerStruct, root, sectionStart, &maxTime);
+                            &loggerStruct, root, runTimeInfo);
             loggerStruct.contextLogger.skipFlag = false;
         }
-        if (loggerStruct.nameProcessing.rootAtLevel == 0)
-        {
-            logSectionRunTime(loggerStruct.nameProcessing.lastLevel,
-                              sectionStart, timeStr);
-        }
-        else
-        {
-            logSectionRunTime(loggerStruct.nameProcessing.rootCommonJson,
-                              sectionStart, timeStr);
-        }
-        cJSON_Delete(cmdInOut.internalVarsTracker);
     }
+    else if (loopOnFlags.loopOnCore)
+    {
+        for (uint8_t u8CoreNum = 0; u8CoreNum < MAX_CORE_MASK; u8CoreNum++)
+        {
+            if (!CHECK_BIT(cpuInfo->coreMask, u8CoreNum))
+            {
+                continue;
+            }
+            if (loggerStruct.contextLogger.skipCrashCores &&
+                CHECK_BIT(cpuInfo->crashedCoreMask, u8CoreNum))
+            {
+                continue;
+            }
+            loggerStruct.contextLogger.core = u8CoreNum;
+            if (loopOnFlags.loopOnThread)
+            {
+                threadsPerCore = 2;
+            }
+            for (uint8_t threadNum = 0; threadNum < threadsPerCore; threadNum++)
+            {
+                loggerStruct.contextLogger.thread = threadNum;
+                ProcessPECICmds(&entry, cpuInfo, peciCmds, &cmdInOut, &errInfo,
+                                &loggerStruct, root, runTimeInfo);
+            }
+            loggerStruct.contextLogger.skipFlag = false;
+        }
+    }
+    else
+    {
+        ProcessPECICmds(&entry, cpuInfo, peciCmds, &cmdInOut, &errInfo,
+                        &loggerStruct, root, runTimeInfo);
+        loggerStruct.contextLogger.skipFlag = false;
+    }
+    loggerStruct.nameProcessing.extraLevel = false;
+    if (GenerateJsonPath(&cmdInOut, root, &loggerStruct, true) == ACD_SUCCESS)
+    {
+        logSectionRunTime(loggerStruct.nameProcessing.jsonOutput,
+                          &runTimeInfo->sectionRunTime, TIME_KEY);
+    }
+    cJSON_Delete(cmdInOut.internalVarsTracker);
     hdestroy();
     return ACD_SUCCESS;
 }

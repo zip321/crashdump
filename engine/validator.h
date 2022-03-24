@@ -20,25 +20,45 @@
 #ifndef CRASHDUMP_VALIDATOR_H
 #define CRASHDUMP_VALIDATOR_H
 
-#include "../CrashdumpSections/crashdump.h"
+#include "../engine/crashdump.h"
 
-bool IsMaxTimeValid(uint32_t maxTime);
-bool IsCrashDump_DiscoveryParamsValid(cJSON* params);
-bool IsCrashDump_GetFrameParamsValid(cJSON* params);
-bool IsGetCPUIDParamsValid(cJSON* params);
-bool IsPingParamsValid(cJSON* params);
-bool IsRdEndPointConfigMmioParamsValid(cJSON* params);
-bool IsRdEndPointConfigPciLocalParamsValid(cJSON* params);
-bool IsWrEndPointConfigPciLocalParamsValid(cJSON* params);
-bool IsRdIAMSRParamsValid(cJSON* params);
-bool IsRdPkgConfigParamsValid(cJSON* params);
-bool IsRdPkgConfigCoreParamsValid(cJSON* params);
-bool IsRdPostEnumBusParamsValid(cJSON* params);
-bool IsRdChaCountParamsValid(cJSON* params);
+typedef struct
+{
+    bool validateInput;
+} ValidatorParams;
+
+bool IsMaxTimeValid(uint32_t maxTime, const ValidatorParams* ValidatorParams);
+bool IsCrashDump_DiscoveryParamsValid(cJSON* params,
+                                      const ValidatorParams* ValidatorParams);
+bool IsCrashDump_GetFrameParamsValid(cJSON* params,
+                                     const ValidatorParams* ValidatorParams);
+bool IsGetCPUIDParamsValid(cJSON* params,
+                           const ValidatorParams* ValidatorParams);
+bool IsPingParamsValid(cJSON* params, const ValidatorParams* ValidatorParams);
+bool IsRdPciConfigLocalParamsValid(cJSON* params,
+                                   const ValidatorParams* ValidatorParams);
+bool IsRdEndPointConfigMmioParamsValid(cJSON* params,
+                                       const ValidatorParams* ValidatorParams);
+bool IsRdEndPointConfigPciLocalParamsValid(
+    cJSON* params, const ValidatorParams* ValidatorParams);
+bool IsWrEndPointConfigPciLocalParamsValid(
+    cJSON* params, const ValidatorParams* ValidatorParams);
+bool IsRdIAMSRParamsValid(cJSON* params,
+                          const ValidatorParams* ValidatorParams);
+bool IsRdPkgConfigParamsValid(cJSON* params,
+                              const ValidatorParams* ValidatorParams);
+bool IsRdPkgConfigCoreParamsValid(cJSON* params,
+                                  const ValidatorParams* ValidatorParams);
+bool IsRdPostEnumBusParamsValid(cJSON* params,
+                                const ValidatorParams* ValidatorParams);
+bool IsRdChaCountParamsValid(cJSON* params,
+                             const ValidatorParams* ValidatorParams);
 bool IsValidHexString(char* str);
-bool IsTelemetry_DiscoveryParamsValid(cJSON* params);
-bool IsRdAndConcatenateParamsValid(cJSON* params);
-bool IsRdGlobalVarsValid(cJSON* params);
-bool IsSaveStrVarsValid(cJSON* params);
+bool IsTelemetry_DiscoveryParamsValid(cJSON* params,
+                                      const ValidatorParams* ValidatorParams);
+bool IsRdAndConcatenateParamsValid(cJSON* params,
+                                   const ValidatorParams* ValidatorParams);
+bool IsRdGlobalVarsValid(cJSON* params, const ValidatorParams* ValidatorParams);
+bool IsSaveStrVarsValid(cJSON* params, const ValidatorParams* ValidatorParams);
 
 #endif // CRASHDUMP_VALIDATOR_H

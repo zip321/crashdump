@@ -226,6 +226,13 @@ EPECIStatus peci_RdPkgConfig(uint8_t target, uint8_t u8Index, uint16_t u16Value,
         target, u8Index, u16Value, u8ReadLen, pPkgConfig, cc);
 }
 
+EPECIStatus peci_WrPkgConfig(uint8_t target, uint8_t u8Index, uint16_t u16Param,
+                             uint32_t u32Value, uint8_t u8WriteLen, uint8_t* cc)
+{
+    return TestCrashdump::libPeciMock->peci_WrPkgConfig(
+        target, u8Index, u16Param, u32Value, u8WriteLen, cc);
+}
+
 EPECIStatus peci_RdIAMSR(uint8_t target, uint8_t threadID, uint16_t MSRAddress,
                          uint64_t* u64MsrVal, uint8_t* cc)
 {

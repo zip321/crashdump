@@ -13,6 +13,7 @@
 # implied warranties, other than those that are expressly stated in the License.
 #
 
+
 cmake_minimum_required (VERSION 3.6)
 option (YOCTO_DEPENDENCIES "Use YOCTO dependencies system" OFF)
 option (CRASHDUMP_BUILD_UT "Enable Building Unit tests" OFF)
@@ -59,6 +60,7 @@ if (NOT ${YOCTO_DEPENDENCIES})
         CONFIGURE_COMMAND ""
         BUILD_COMMAND ""
         INSTALL_COMMAND ""
+        DOWNLOAD_COMMAND ""
     )
     externalproject_get_property (Boost SOURCE_DIR)
     include_directories (SYSTEM ${SOURCE_DIR})
@@ -69,7 +71,7 @@ if (NOT ${YOCTO_DEPENDENCIES})
         sdbusplus-project
         PREFIX ${CMAKE_BINARY_DIR}/sdbusplus-project
         GIT_REPOSITORY https://github.com/openbmc/sdbusplus.git
-        GIT_TAG 0f19c87276e46b56edbae70a71749353d401ed39
+        GIT_TAG 6adfe948ee55ffde8457047042d0d55aa3d8b4a7
         SOURCE_DIR ${CMAKE_BINARY_DIR}/sdbusplus-src
         BINARY_DIR ${CMAKE_BINARY_DIR}/sdbusplus-build
         CONFIGURE_COMMAND ""
@@ -109,14 +111,12 @@ if (NOT ${YOCTO_DEPENDENCIES})
         libpeci-project
         PREFIX ${CMAKE_BINARY_DIR}/libpeci-project
         GIT_REPOSITORY https://github.com/openbmc/libpeci.git
-        GIT_TAG ff44e549c44c7658ec11e0c19c13c4c45900cfe4
+        GIT_TAG 6a00e9aa72f75d66eb8b9572c7fd3894f91c6bba
         INSTALL_COMMAND ""
         # For this step to work, meta-restricted repository needs to be clone at
         # same level as openbmc-crashdump
         PATCH_COMMAND
             git apply
-            ${CMAKE_BINARY_DIR}/../../meta-restricted/recipes-core/libpeci/libpeci/0001-Add-CPUIDs.patch
-            && git apply
             ${CMAKE_BINARY_DIR}/../../meta-restricted/recipes-core/libpeci/libpeci/0002-Add-PECI-Telemetry-command.patch
         LOG_DOWNLOAD ON
     )
@@ -198,28 +198,21 @@ endif ()
 
 set (
     SRC_FILES
-    CrashdumpSections/AddressMap.c
-    CrashdumpSections/TorDump.c
-    CrashdumpSections/BigCore.c
-    CrashdumpSections/MetaData.c
-    CrashdumpSections/CoreMca.c
-    CrashdumpSections/UncoreMca.c
-    CrashdumpSections/Uncore.c
-    CrashdumpSections/PowerManagement.c
-    CrashdumpSections/OemData.c
-    CrashdumpSections/utils.c
-    CrashdumpSections/crashdump.c
+    engine/TorDump.c
+    engine/BigCore.c
+    engine/utils.c
+    engine/crashdump.c
     engine/cmdprocessor.c
     engine/logger.c
     engine/inputparser.c
     engine/validator.c
     engine/flow.c
-    CrashdumpSections/Crashlog.c
-    CrashdumpSections/base64Encode.c
+    engine/Crashlog.c
+    engine/base64Encode.c
 )
 
 if (${NVD_SECTION})
-    set (SRC_FILES ${SRC_FILES} CrashdumpSections/nvd.c)
+    set (SRC_FILES ${SRC_FILES} engine/nvd.c)
     add_definitions (-DNVD_SECTION)
     set (NVD_LIB fis)
 endif ()
@@ -309,7 +302,7 @@ if (NOT ${YOCTO_DEPENDENCIES})
         externalproject_add (
             googletest-project
             GIT_REPOSITORY "https://github.com/google/googletest.git"
-            GIT_TAG 2134e3fd857d952e03ce76064fad5ac6e9036104
+            GIT_TAG 6b74da4757a549563d7c37c8fae3e704662a043b
             CMAKE_ARGS
                 -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/googletest-build
             SOURCE_DIR "${CMAKE_BINARY_DIR}/googletest-src"
@@ -343,21 +336,16 @@ if (NOT ${YOCTO_DEPENDENCIES})
             tests/mock/test_crashdump.cpp
             tests/test_utils.cpp
             tests/test_main.cpp
-            tests/CrashdumpSections/BigCore_test.cpp
-            tests/CrashdumpSections/Uncore_test.cpp
-            tests/CrashdumpSections/AddressMap_test.cpp
-            tests/CrashdumpSections/MetaData_test.cpp
-            tests/CrashdumpSections/TorDump_test.cpp
-            tests/CrashdumpSections/crashdump_test.cpp
-            tests/CrashdumpSections/PowerManagement_test.cpp
-            tests/CrashdumpSections/UncoreMca_test.cpp
-            tests/CrashdumpSections/utils_test.cpp
             tests/engine/cmdprocessor_test.cpp
+            tests/engine/TorDump_test.cpp
+            tests/engine/BigCore_test.cpp
             tests/engine/logger_test.cpp
             tests/engine/inputparser_test.cpp
             tests/engine/validator_test.cpp
             tests/engine/flow_test.cpp
-            tests/CrashdumpSections/Crashlog_test.cpp
+            tests/engine/Crashlog_test.cpp
+            tests/engine/MaxSize_test.cpp
+            tests/engine/crashdump_test.cpp
         )
 
         add_definitions (-DCOMPILE_UNIT_TESTS)

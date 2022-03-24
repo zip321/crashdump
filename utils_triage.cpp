@@ -24,8 +24,8 @@
 extern "C" {
 #include <cjson/cJSON.h>
 
-#include "CrashdumpSections/crashdump.h"
-#include "CrashdumpSections/utils.h"
+#include "engine/crashdump.h"
+#include "engine/utils.h"
 }
 
 void appendTriageSection(std::string& storedLogContents)
@@ -59,11 +59,16 @@ void appendTriageSection(std::string& storedLogContents)
         cJSON_AddStringToObject(content, TRIAGE_KEY, jsonStr);
         CRASHDUMP_PRINT(ERR, stderr, "Get triage info failed! (%d)\n", status);
     }
+
+    char* out;
 #ifdef CRASHDUMP_PRINT_UNFORMATTED
-    storedLogContents.assign(cJSON_PrintUnformatted(content));
+    out = cJSON_PrintUnformatted(content);
+    storedLogContents.assign(out);
 #else
-    storedLogContents.assign(cJSON_Print(content));
+    out = cJSON_Print(content);
+    storedLogContents.assign(out);
 #endif
+    cJSON_free(out);
     cJSON_Delete(content);
     if (triageInfo != NULL)
     {
@@ -103,11 +108,15 @@ void appendSummarySection(std::string& storedLogContents)
         cJSON_AddStringToObject(content, SUMMARY_KEY, jsonStr);
         CRASHDUMP_PRINT(ERR, stderr, "Get summary info failed! (%d)\n", status);
     }
+    char* out;
 #ifdef CRASHDUMP_PRINT_UNFORMATTED
-    storedLogContents.assign(cJSON_PrintUnformatted(content));
+    out = cJSON_PrintUnformatted(content);
+    storedLogContents.assign(out);
 #else
-    storedLogContents.assign(cJSON_Print(content));
+    out = cJSON_Print(content);
+    storedLogContents.assign(out);
 #endif
+    cJSON_free(out);
     cJSON_Delete(content);
     if (summaryInfo != NULL)
     {

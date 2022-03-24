@@ -17,6 +17,8 @@
 
 from lib.Region import Region
 
+import warnings
+
 
 class Table(Region):
     def processRequest(self, request, report):

@@ -19,8 +19,7 @@
 
 #include "utils_dbusplus.hpp"
 extern "C" {
-#include "CrashdumpSections/MetaData.h"
-#include "CrashdumpSections/utils.h"
+#include "engine/utils.h"
 }
 
 using PropertyValue =
@@ -272,6 +271,7 @@ static int sysInfoCommonJson(cJSON* pJsonChild)
     }
     return ret;
 }
+
 /******************************************************************************
  *
  *   logSysInfoCommon
