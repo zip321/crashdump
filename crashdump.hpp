@@ -38,7 +38,6 @@ extern "C" {
 
 #include "utils_dbusplus.hpp"
 
-
 namespace crashdump
 {
 constexpr char const* dbgStatusItemName = "status";
@@ -93,6 +92,7 @@ bool isPECIAvailable();
 void setResetDetected();
 acdStatus loadInputFiles(std::vector<CPUInfo>& cpuInfo,
                          InputFileInfo* inputFileInfo, bool isTelemetry);
+void updateTotalTime(std::string& storedLogContents, timespec* crashdumpStart);
 void createCrashdump(std::vector<CPUInfo>& cpuInfo,
                      std::string& crashdumpContents,
                      const std::string& triggerType, std::string& timestamp,

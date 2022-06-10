@@ -25,9 +25,9 @@ from lib.Big_core import Big_core
 
 
 class Preprocessor():
-    def __init__(self, outputData):
+    def __init__(self, outputData, checks=None):
         self.sections = {
-            "metadata": Metadata.createMetadata(outputData)
+            "metadata": Metadata.createMetadata(outputData, checks)
         }
 
         cpus = self.getCPUs(outputData)
@@ -39,10 +39,10 @@ class Preprocessor():
                     "uncore": Uncore.createUncore(
                         cpus[cpu], cpu,
                         self.sections['metadata'].sectionInfo[cpu]['cpuid']),
-                    "mca": Mca.createMCA(cpus[cpu]),
+                    "mca": Mca.createMCA(cpus[cpu], checks),
                     "pm_info": PM_info.createPM_info(cpus[cpu]),
                     "address_map": Address_map.createAdress_map(cpus[cpu]),
-                    "big_core": Big_core.createBig_core(cpus[cpu])
+                    "big_core": Big_core.createBig_core(cpus[cpu], checks)
                 }
             else:
                 self.sections[cpu] = {
@@ -50,9 +50,9 @@ class Preprocessor():
                     "uncore": Uncore.createUncore(
                         cpus[cpu], cpu,
                         self.sections['metadata'].sectionInfo[cpu]['cpuid']),
-                    "mca": Mca.createMCA(cpus[cpu]),
+                    "mca": Mca.createMCA(cpus[cpu], checks),
                     "pm_info": PM_info.createPM_info(cpus[cpu]),
-                    "big_core": Big_core.createBig_core(cpus[cpu])
+                    "big_core": Big_core.createBig_core(cpus[cpu], checks)
             }
 
     def getCPUs(self, outputData):

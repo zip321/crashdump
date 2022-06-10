@@ -45,6 +45,7 @@ typedef struct
     bool sizeFromOutput;
     int rootAtLevel;
     cJSON* jsonOutput;
+    bool zeroPaddedPrint;
 } NameProcessing;
 
 typedef struct

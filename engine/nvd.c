@@ -435,7 +435,7 @@ acdStatus logSmartHealthInfoSection(const CPUInfo* const cpuInfo,
 }
 
 acdStatus fillNVDSection(CPUInfo* cpuInfo, const uint8_t cpuNum,
-                         cJSON* jsonChild)
+                         cJSON* jsonChild, RunTimeInfo* runTimeInfo)
 {
     acdStatus status = ACD_SUCCESS;
     bool autoDiscovery = false;
@@ -465,11 +465,26 @@ acdStatus fillNVDSection(CPUInfo* cpuInfo, const uint8_t cpuNum,
         {
             continue;
         }
+
         cJSON* dimmSection = NULL;
         char jsonStr[NVD_JSON_STRING_LEN];
         cd_snprintf_s(jsonStr, sizeof(jsonStr), dimmMap[dimm], cpuNum);
         cJSON_AddItemToObject(jsonChild, jsonStr,
                               dimmSection = cJSON_CreateObject());
+
+        uint32_t globalRemainingTime = (uint32_t)getTimeRemainingFromStart(
+            runTimeInfo->maxGlobalTime, runTimeInfo->globalRunTime);
+        if (globalRemainingTime == 0)
+        {
+            char jsonItemString[NVD_JSON_STRING_LEN];
+            runTimeInfo->maxGlobalRunTimeReached = true;
+            cd_snprintf_s(jsonItemString, NVD_JSON_STRING_LEN, "%ds",
+                          runTimeInfo->maxGlobalTime);
+            cJSON_AddStringToObject(dimmSection, "_nvd_global_timeout",
+                                    jsonItemString);
+            break;
+        }
+
         logCSRSection(cpuInfo, dimm, dimmSection);
         logIdentifyDimm(cpuInfo, dimm, dimmSection);
         logErrLogSection(cpuInfo, dimm, dimmSection);

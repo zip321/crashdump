@@ -2,6 +2,31 @@
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.0.1] - 06/07/2022
+
+### Bug Fix
+
+- NVD Section time (_time) had incorrect value.
+- If crashdump starts when CPU’s are powered off, it fails to collect the CPUID information.
+Later when an event occurs, the CPUID information is not recollected.
+The fix is to re-Collect the CPUID information during the Event.
+- SPRHBM input file, Fix Read of Post Enum Bus Valid bit for Bus 30, Uncore MMIO data.
+- ICX/SPR/SPRHBM input files; Fix Uncore registers TAD Section Write/Read sizes. Write (1), Read (8).
+- ICX: Fix Uncore registers TAD Section, Bus number. 30 -> 13.
+
+### New
+
+- Split MetaData into 2 sections in the input file, MetaData_early/late to get some data early and some late. For better observation of state.
+- Acd_verify, add checks for 3-strike.
+
+### Changed
+
+- Save a value of 0 for enumerated bus, when Bus is not valid.
+- Add “RecordEnable” key for the NVD section.
+- Add Global timeout check for the NVD section.
+- Added special key to pad PPIN with 0’s to 64 bits.
+- Remove duplicate section in HBM input file.
+- SPR/SPRHBM: Add additional Uncore registers.
 
 ## [2.0] - 03/28/2022
 

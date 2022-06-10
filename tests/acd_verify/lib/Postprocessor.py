@@ -44,6 +44,9 @@ class Postprocessor():
             elif region == "selfCheck":
                 sReport = sReport + "\n" + \
                     self.txtSelfCheck(self.report[region])
+            elif region == "checks":
+                sReport = sReport + \
+                    self.txtChecks(self.report["checks"])
             elif region == "missCompares":
                 sReport = sReport + "\n" + \
                     self.txtCompareInfo(self.report[region])
@@ -52,17 +55,21 @@ class Postprocessor():
             f.write(sReport)
             f.close()
             print(f"Report saved: {self.filePath}\n")
+            return True
         except Exception as e:
             eMessage = "An error ocurred while trying to save " +\
                          "the file {self.filePath}"
-            print(eMessage)
-            raise e
+            warnings.warn(eMessage)
+            return False
 
     def saveFile(self):
         if self.fileType == "txt":
-            self.formatTXT()
+            return self.formatTXT()
         else:
-            raise Exception("File type not supported")
+            warnings.warn(
+                f"File type not supported"
+            )
+            return False
 
     def txtSummary(self, summary):
         title = "Summary of File Contents:"
@@ -195,14 +202,8 @@ class Postprocessor():
         return headers
 
     def txtSelfCheck(self, errorList):
-        sErrors = "\nSelf-check:\t"
+        sErrors = ""
         errors = 0
-
-        if self.verbose:
-            sErrors += "All errors found"
-        else:
-            sErrors += "First 3 errors of each record are:" +\
-                        "    (use –-verbose for all)"
 
         for key in errorList:
             if key == "metadata":
@@ -230,10 +231,36 @@ class Postprocessor():
                         else:
                             sErrors += f"\n\t\t{key}.{section}: {error}"
                             errors += 1
+
+        sTitle = "\nSelf-check:\n\tHealth check:"
         if errors == 0:
-            sErrors += "\n\t\tPASS"
+            sTitle += " Pass"
+        else:
+            sTitle += " Failed"
+
+            if self.verbose:
+                sErrors += "All errors found"
+            else:
+                sErrors += "First 3 errors of each record are:" +\
+                            "    (use --verbose for all)"
+
+        return sTitle + sErrors
+
+    def txtCheck3Strike(self, checkList, fPass):
+        status = "Pass" if fPass else "Failed"
+        sErrors = f"\n\t3-Strike check: {status}"
+
+        for error in checkList:
+            sErrors += f"\n\t\t{error}"
 
         return sErrors
+
+    def txtChecks(self, checks):
+        sChecks = "\n"
+        if "check3strike" in checks:
+            sChecks += self.txtCheck3Strike(checks["check3strike"]["list"],
+                                            checks["check3strike"]["pass"])
+        return sChecks
 
     def txtCompareInfo(self, missCompares):
         sErrors = "\nCompare Data:\t"

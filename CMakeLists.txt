@@ -24,6 +24,10 @@ option (TRIAGE_SECTION "Add triage section to the crashdump contents." OFF)
 option (BAFI_NDA_OUTPUT
         "See docs/build_instructions.md before using this feature." OFF
 )
+option (BHS_EGS_BUILD
+        "For Whitley build turn this OFF, see
+        docs/build_instructions.md for more information." ON
+)
 
 project (crashdump)
 include (ExternalProject)
@@ -39,7 +43,7 @@ set (CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}")
 # Include the sanitizer module
 include (code-coverage)
 
-set (CMAKE_CXX_STANDARD 17)
+set (CMAKE_CXX_STANDARD 20)
 set (CMAKE_CXX_STANDARD_REQUIRED ON)
 set (EXTERNAL_PACKAGES Boost cjson-project sdbusplus-project safeclib-project
                        libpeci-project
@@ -207,8 +211,6 @@ set (
     engine/inputparser.c
     engine/validator.c
     engine/flow.c
-    engine/Crashlog.c
-    engine/base64Encode.c
 )
 
 if (${NVD_SECTION})
@@ -225,6 +227,13 @@ if (${TRIAGE_SECTION} OR ${BAFI_NDA_OUTPUT})
     if (${BAFI_NDA_OUTPUT})
         add_definitions (-DBAFI_NDA_OUTPUT)
     endif ()
+endif ()
+
+if (${BHS_EGS_BUILD})
+    set (SRC_FILES ${SRC_FILES} engine/Crashlog.c
+                                engine/base64Encode.c
+    )
+    add_definitions (-DBHS_EGS_BUILD)
 endif ()
 
 if (NOT ${CRASHDUMP_BUILD_UT})
@@ -336,6 +345,7 @@ if (NOT ${YOCTO_DEPENDENCIES})
             tests/mock/test_crashdump.cpp
             tests/test_utils.cpp
             tests/test_main.cpp
+            tests/engine/utils_test.cpp
             tests/engine/cmdprocessor_test.cpp
             tests/engine/TorDump_test.cpp
             tests/engine/BigCore_test.cpp

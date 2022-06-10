@@ -53,6 +53,10 @@ bool IsGetCPUIDParamsValid(cJSON* params,
 {
     if (validatorParams->validateInput)
     {
+        if (cJSON_GetArraySize(params) > 1)
+        {
+            return false;
+        }
         return true;
     }
     return true;
@@ -62,6 +66,10 @@ bool IsPingParamsValid(cJSON* params, const ValidatorParams* validatorParams)
 {
     if (validatorParams->validateInput)
     {
+        if (cJSON_GetArraySize(params) > 1)
+        {
+            return false;
+        }
         return true;
     }
     return true;

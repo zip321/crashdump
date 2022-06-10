@@ -18,13 +18,15 @@
 from lib.Summary import Summary
 from lib.Table import Table
 from lib.SelfCheck import SelfCheck
+from lib.Checks import Checks
 from lib.OutFileCompare import OutFileCompare
 from lib.Region import EndOfReport
 
 
 class Processor():
     def __init__(self, sections, compareSections=None,
-                 ignoreList=False, reportRegions=None):
+                 ignoreList=False, reportRegions=None,
+                 checks=None, checksScope=None):
         self.sections = sections
 
         self.compareSections = compareSections
@@ -34,24 +36,42 @@ class Processor():
             self.reportRegions = ["summary", "table", "selfCheck"]
             if compareSections:
                 self.reportRegions.append("compare")
+            if checks:
+                self.reportRegions.append("checks")
         else:
             self.reportRegions = reportRegions
             if compareSections and ("compare" not in reportRegions):
                 self.self.reportRegions.append("compare")
 
-        self.report = self.fillReport()
+        self.report = self.fillReport(checks, checksScope)
 
-    def fillReport(self):
+    def fillReport(self, checks=None, checksScope=None):
         request = {
             "regions": None,
             "sections": self.sections,
             "compare": self.compareSections,
             "ignoreList": self.ignoreList
         }
+        if checks:
+            request["checks"] = checks
+            if checksScope:
+                request["checksScope"] = checksScope
+            else:
+                request["checksScope"] = ""
         report = {}
-        handler = OutFileCompare(SelfCheck(Table(Summary(EndOfReport))))
+        handler = OutFileCompare(
+                    Checks(SelfCheck(Table(Summary(EndOfReport)))))
         for region in self.reportRegions:
             request["regions"] = [region]
             handler.handle(request, report)
 
         return report
+
+    def getCheck3strikeResult(self):
+        if 'checks' in self.report:
+            if "check3strike" in self.report['checks']:
+                return self.report['checks']["check3strike"]["pass"]
+            else:
+                return None
+        else:
+            return None

@@ -164,7 +164,6 @@ static acdStatus Ping(CmdInOut* cmdInOut)
     {
         return ACD_INVALID_PING_PARAMS;
     }
-
     cmdInOut->out.ret = peci_Ping(cmdInOut->in.params->valueint);
     return ACD_SUCCESS;
 }
@@ -173,9 +172,8 @@ static acdStatus GetCPUID(CmdInOut* cmdInOut)
 {
     if (!IsGetCPUIDParamsValid(cmdInOut->in.params, &cmdInOut->validatorParams))
     {
-        return ACD_INVALID_PING_PARAMS;
+        return ACD_INVALID_GETCPUID_PARAMS;
     }
-
     cmdInOut->out.ret = peci_GetCPUID(
         cmdInOut->in.params->valueint, &cmdInOut->out.cpuID.cpuModel,
         &cmdInOut->out.cpuID.stepping, &cmdInOut->out.cc);
@@ -295,7 +293,7 @@ static acdStatus RdPkgConfigCore(CmdInOut* cmdInOut)
                 cmdInOut->out.size = params.rx_len;
                 break;
             default:
-                return ACD_INVALID_RDPKGCONFIG_PARAMS;
+                return ACD_INVALID_RDPKGCONFIGCORE_PARAMS;
         }
         position++;
     }
@@ -594,16 +592,19 @@ static acdStatus RdPostEnumBus(CmdInOut* cmdInOut)
         }
         position++;
     }
+    cmdInOut->out.size = sizeof(uint8_t);
     if (0 == CHECK_BIT(params.cpubusno_valid, params.bitToCheck))
     {
         CRASHDUMP_PRINT(ERR, stderr,
-                        "Bus %d does not contain valid post enumerated bus"
-                        "number! (0x%x)\n",
+                        "RdPostEnumBus: Bit %d not enable in post"
+                        " enumerated bus 0x%x.\n",
                         params.bitToCheck, params.cpubusno_valid);
-        return ACD_FAILURE;
+        cmdInOut->out.val.u32[0] = 0;
     }
-    cmdInOut->out.size = sizeof(uint8_t);
-    cmdInOut->out.val.u32[0] = ((params.cpubusno >> params.shift) & 0xff);
+    else
+    {
+        cmdInOut->out.val.u32[0] = ((params.cpubusno >> params.shift) & 0xff);
+    }
     UpdateInternalVar(cmdInOut);
 
     // Set ret & cc to success for logger
@@ -653,6 +654,7 @@ static acdStatus RdChaCount(CmdInOut* cmdInOut)
 
 static acdStatus Telemetry_Discovery(CmdInOut* cmdInOut)
 {
+    #ifdef BHS_EGS_BUILD
     struct peci_telemetry_disc_msg params = {0};
     int position = 0;
     cJSON* it = NULL;
@@ -712,6 +714,7 @@ static acdStatus Telemetry_Discovery(CmdInOut* cmdInOut)
         UpdateInternalVar(cmdInOut);
     }
 
+    #endif
     return ACD_SUCCESS;
 }
 
@@ -759,6 +762,7 @@ uint8_t getNumberofCrashlogAgents(CmdInOut* cmdInOut)
 
 static acdStatus LogCrashlog(CmdInOut* cmdInOut)
 {
+    #ifdef BHS_EGS_BUILD
     cmdInOut->out.size = sizeof(uint8_t);
     if (GenerateJsonPath(cmdInOut, cmdInOut->root, cmdInOut->logger, false) ==
         ACD_SUCCESS)
@@ -776,6 +780,9 @@ static acdStatus LogCrashlog(CmdInOut* cmdInOut)
     }
 
     return ACD_FAILURE;
+    #else
+    return ACD_SUCCESS;
+    #endif
 }
 
 static bool getIsCrashdumpEnableResult(CmdInOut* cmdInOut)
@@ -1140,7 +1147,7 @@ static acdStatus (*cmds[CD_NUM_OF_PECI_CMDS])() = {
 
 static char* inputCMDs[CD_NUM_OF_PECI_CMDS] = {
     "CrashDump_Discovery",
-    "CrashDumpGetFrame",
+    "CrashDump_GetFrame",
     "Ping",
     "GetCPUID",
     "RdEndpointConfigMMIO",
@@ -1191,6 +1198,5 @@ acdStatus Execute(ENTRY* entry, CmdInOut* cmdInOut)
         CRASHDUMP_PRINT(ERR, stderr, "Invalid PECICmd:(%s)\n", entry->key);
         return ACD_INVALID_CMD;
     }
-    cmds[(size_t)(ep->data)](cmdInOut);
-    return ACD_SUCCESS;
+    return cmds[(size_t)(ep->data)](cmdInOut);
 }

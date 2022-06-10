@@ -31,7 +31,11 @@ class Section():
         self.eHandler = Error()
         self.rootNodes = 0
         self.nRegs = 0
-        self.healthCheckErrors = []
+        self.healthCheckErrors = {
+            "selfCheck": [],
+            "ierr": []
+        }
+        self.checks = {}
         self.ignoreList = []
         self.diffList = {}
 
@@ -41,11 +45,14 @@ class Section():
         if type(value) == dict:
             for vKey in value:
                 self.search(f"{key}.{vKey}", value[vKey])
-        elif (valueIsValidType and not value.startswith('_')):
-            self.nRegs += 1  # count regs
-            if self.eHandler.isError(value):
-                error = self.eHandler.extractError(value)
-                self.eHandler.errors[key] = error
+        elif valueIsValidType:
+            if type(value) != str:
+                value = str(value)
+            if not value.startswith('_'):
+                self.nRegs += 1  # count regs
+                if self.eHandler.isError(value):
+                    error = self.eHandler.extractError(value)
+                    self.eHandler.errors[key] = error
 
     def verifySection(self):
         for key in self.sectionInfo:
@@ -78,8 +85,9 @@ class Section():
             if not self.eHandler.isError(version):
                 self.checkVersion(version)
         else:
-            self.healthCheckErrors.append("_version key not present in " +
-                                          self.sectionName)
+            errMessage = "_version key not present in " +\
+                         self.sectionName
+            self.healthCheckErrors["selfCheck"].append(errMessage)
 
     def checkVersion(self, sVersion):
         version = sVersion.lstrip("0x0")
@@ -101,22 +109,29 @@ class Section():
 
         _validProducts = ("2A", "2B", "1A", "1B", "1C",
                           "2C", "2D", "33", "22", "23",
-                          "34")
+                          "34", "6F")
 
         if self.sectionName in _revision:
             if not (revision == _revision[self.sectionName]):
                 # Revision doesn't match
                 errMessage = f"Revision for {self.sectionName}'s version " + \
                             "doesn't match with section detected"
-                self.healthCheckErrors.append(errMessage)
+                self.healthCheckErrors["selfCheck"].append(errMessage)
             if not (product in _validProducts):
                 # Product invalid
                 errMessage = f"Product 0x{product} in {self.sectionName}'s " +\
                             "version is an invalid product"
-                self.healthCheckErrors.append(errMessage)
+                self.healthCheckErrors["selfCheck"].append(errMessage)
 
     def getSelfCheckInfo(self):
-        return self.healthCheckErrors
+        return self.healthCheckErrors["selfCheck"]
+
+    def initCheckInfo(self, checkName):
+        if checkName not in self.checks:
+            self.checks[checkName] = {
+                "pass": False,
+                "list": []
+            }
 
     def getCompareInfo(self, compareSections, ignoreList=False):
         # Load Ignore list
@@ -129,25 +144,30 @@ class Section():
         else:
             self.ignoreList = []
 
-        # sectionInfo is equal in both files
-        if compareSections.sectionInfo == self.sectionInfo:
-            pass
-        # Something is diff
+        # compareSections != None
+        if compareSections is None:
+            for key in self.sectionInfo:
+                self.diffList[key] = ["", "Not present"]
         else:
-            for key in compareSections.sectionInfo:
-                # First check key(reg) exists in both files
-                if key not in self.sectionInfo:
-                    # [file process, file compare]
-                    valueComp = ""
-                    if (type(compareSections.sectionInfo[key]) == str):
-                        valueComp = compareSections.sectionInfo[key]
-                    self.diffList[key] = ["Not present", valueComp]
-                # When key is in both files
-                else:
-                    sectionComp = compareSections.sectionInfo[key]
-                    sectionProc = self.sectionInfo[key]
+            # sectionInfo is equal in both files
+            if compareSections.sectionInfo == self.sectionInfo:
+                pass
+            # Something is diff
+            else:
+                for key in compareSections.sectionInfo:
+                    # First check key(reg) exists in both files
+                    if key not in self.sectionInfo:
+                        # [file process, file compare]
+                        valueComp = ""
+                        if (type(compareSections.sectionInfo[key]) == str):
+                            valueComp = compareSections.sectionInfo[key]
+                        self.diffList[key] = ["Not present", valueComp]
+                    # When key is in both files
+                    else:
+                        sectionComp = compareSections.sectionInfo[key]
+                        sectionProc = self.sectionInfo[key]
 
-                    self.__recCompare(key, sectionComp, sectionProc)
+                        self.__recCompare(key, sectionComp, sectionProc)
         return self.diffList
 
     def __recCompare(self, parent, sectionA, sectionB):
@@ -190,3 +210,14 @@ class Section():
 
     def getDiffNum(self):
         return len(self.diffList)
+
+    def checkRegValue(self, key, value, mask, checkName=None):
+        hVal = int(value, 16)
+        isValidVal = (hVal & mask) == mask
+        if checkName:
+            sValue = f"{key}: {value}"
+            self.checks[checkName]["list"].append(sValue)
+        if isValidVal:
+            return True
+        else:
+            return False

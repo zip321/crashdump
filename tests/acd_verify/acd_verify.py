@@ -22,6 +22,108 @@ from lib.Postprocessor import Postprocessor
 import json
 import os
 import argparse
+import sys
+import warnings
+
+
+def processJsonFile(rProcess, fVerbose=False, fCompare=False, rCompare='',
+                    ignoreList=None,
+                    checks=None, checksScope=None):
+    '''
+    Process the given file with acd_verify.
+    This function is now the entry point to acd_verify.
+
+    Parameters:
+        rProcess (str): The file to process.
+        fVerbose (bool): Flag that triggers verbosed report.
+        fCompare (bool): Flag that triggers compare mode.
+        rCompare (str): Path to the compare file.
+        fCheck3strike (bool): Flag that triggers 3strike check.
+        ignoreList
+
+    Returns:
+        results (dic): A dictionary containing:
+            reportSaved (bool): Indicates if report was able to be saved.
+            check3strike: Result of 3strike check when check was performed
+                          [True|False], or None.
+
+    [Example] How to import and run processJsonFile:
+        From /crashdump/myscript.py do:
+                >>> import sys
+                >>> sys.path.append('tests/acd_verify')
+                >>> from acd_verify import processJsonFile
+                >>> rProcess = "JsonFileIWant2Process.json"
+                >>> processJsonFile(rProcess)
+    '''
+    print("Processing file: ", rProcess)
+    reportSaved = False
+    processor = None
+    try:
+
+        # Check file is valid
+        rProcessIsFile = os.path.isfile(rProcess)
+        rProcessIsJsonFile = rProcess.endswith('.json')
+        isProcessFileValid = rProcessIsFile and rProcessIsJsonFile
+
+        if (not isProcessFileValid):
+            results = {
+                "reportSaved": reportSaved,
+                "check3strike": None
+            }
+            warnings.warn(f"The path given is not a json file {rProcess}")
+            return results
+
+        # Check flags
+        if (fCompare and ("check3strike" in checks)):
+            results = {
+                "reportSaved": reportSaved,
+                "check3strike": None
+            }
+            warnings.warn("Error: --compare and -check3strike given. " +
+                          "Only use one at a time")
+            return results
+
+        # Flags valid and file to process is valid
+        f = open(rProcess)
+        jOutput = json.load(f)
+        acdData = jOutput["crash_data"]
+
+        # Compare
+        compareFileName = None
+        preprocessorCompare = None
+        if fCompare:
+            compareIsFile = os.path.isfile(rCompare)
+            compareIsJsonFile = rCompare.endswith('.json')
+            if compareIsFile and compareIsJsonFile:
+                print("Comparing vs file: ", rCompare)
+                f = open(rCompare)
+                jCompare = json.load(f)
+                compareData = jCompare["crash_data"]
+                compareFileName = os.path.splitext(
+                        os.path.basename(rCompare))[0]
+                preprocessorCompare = Preprocessor(compareData)
+            else:
+                print(f"Compare path given is not valid: {rCompare}")
+
+        preprocessor = Preprocessor(acdData, checks)
+        processor = Processor(preprocessor.sections,
+                              preprocessorCompare, ignoreList,
+                              checks=checks, checksScope=checksScope)
+        postprocessor = Postprocessor(
+            processor.report, rProcess,
+            "txt", fVerbose, compareFileName)
+
+        reportSaved = postprocessor.saveFile()
+    except Exception as e:
+        warnings.warn(
+            f"An error ocurred during acd_verify execution:\n{e}"
+        )
+
+    results = {
+        "reportSaved": reportSaved,
+        "check3strike": processor.getCheck3strikeResult()
+    }
+    return results
 
 
 def main():
@@ -39,6 +141,18 @@ def main():
         parser.add_argument("--ignoreList",
                             action = 'store_true',
                             help = "Use ignore list")
+        parser.add_argument("--check3strike",
+                            action = 'store_true',
+                            help = "Do checks for 3strike")
+        parser.add_argument("--check_cpu",
+                            type = str,
+                            help = "Do Checks only in this CPU")
+        parser.add_argument("--check_core",
+                            type = str,
+                            help = "Do Checks only in this core")
+        parser.add_argument("--check_thread",
+                            type = str,
+                            help = "Do Checks only in this thread")
         args = parser.parse_args()
 
         rootPath = ""
@@ -49,67 +163,35 @@ def main():
         if not args.path:
             rootPath = os.getcwd()
 
+        fCompare = True if args.compare else False
+        rCompare = args.compare if fCompare else ""
+
+        checksScope = ""
+        if args.check_cpu:
+            checksScope += f"{args.check_cpu}."
+        if args.check_core:
+            checksScope += f"{args.check_core}."
+        if args.check_thread:
+            checksScope += f"{args.check_thread}."
+
+        checks = []
+        if args.check3strike:
+            checks.append("check3strike")
+
         # Path given is a json file
         if os.path.isfile(rootPath) and rootPath.endswith('.json'):
-            print("Processing file: ", rootPath)
-            f = open(rootPath)
-            jOutput = json.load(f)
-            acdData = jOutput["crash_data"]
-
-            # Compare
-            compareFileName = None
-            preprocessorCompare = None
-            if args.compare:
-                compareIsFile = os.path.isfile(args.compare)
-                compareIsJsonFile = args.compare.endswith('.json')
-                if compareIsFile and compareIsJsonFile:
-                    print("Comparing vs file: ", args.compare)
-                    f = open(args.compare)
-                    jCompare = json.load(f)
-                    compareData = jCompare["crash_data"]
-                    compareFileName = os.path.splitext(
-                            os.path.basename(args.compare))[0]
-                    preprocessorCompare = Preprocessor(compareData)
-
-            preprocessor = Preprocessor(acdData)
-            processor = Processor(preprocessor.sections,
-                                  preprocessorCompare, args.ignoreList)
-            postprocessor = Postprocessor(
-                processor.report, rootPath,
-                "txt", args.verbose, compareFileName)
-            postprocessor.saveFile()
+            processJsonFile(rootPath, args.verbose, fCompare,
+                            rCompare, args.ignoreList,
+                            checks, checksScope)
         # Path given is a directory
         elif os.path.isdir(rootPath):
-            jsonFiles = [f for f in os.listdir(rootPath) if f.endswith('.json')]
+            jsonFiles = \
+                [f for f in os.listdir(rootPath) if f.endswith('.json')]
 
             for jsonFile in jsonFiles:
-                print("Processing file: ", jsonFile)
-                f = open(os.path.join(rootPath, jsonFile))
-                jOutput = json.load(f)
-                acdData = jOutput["crash_data"]
-
-                # Compare
-                compareFileName = None
-                preprocessorCompare = None
-                if args.compare:
-                    compareIsFile = os.path.isfile(args.compare)
-                    compareIsJsonFile = args.compare.endswith('.json')
-                    if compareIsFile and compareIsJsonFile:
-                        print("Comparing vs file: ", args.compare)
-                        f = open(args.compare)
-                        jCompare = json.load(f)
-                        compareData = jCompare["crash_data"]
-                        compareFileName = os.path.splitext(
-                            os.path.basename(args.compare))[0]
-                        preprocessorCompare = Preprocessor(compareData)
-
-                preprocessor = Preprocessor(acdData)
-                processor = Processor(preprocessor.sections,
-                                      preprocessorCompare, args.ignoreList)
-                postprocessor = Postprocessor(
-                    processor.report, os.path.join(rootPath, jsonFile),
-                    "txt", args.verbose, compareFileName)
-                postprocessor.saveFile()
+                processJsonFile(os.path.join(rootPath, jsonFile), args.verbose,
+                                fCompare, rCompare, args.ignoreList,
+                                checks, checksScope)
         else:
             print("The path given is not a json file" +
                   f" nor a directory: {rootPath}")

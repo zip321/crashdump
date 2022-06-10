@@ -66,9 +66,6 @@
 #define NAME_STR_LEN 255
 #define DEFAULT_VALUE -1
 
-void setFields(uint32_t* value, uint32_t msb, uint32_t lsb, uint32_t inputVal);
-uint32_t getFields(uint32_t value, uint32_t msb, uint32_t lsb);
-uint32_t bitField(uint32_t offset, uint32_t size, uint32_t val);
 int fillInputFile(CPUInfo* cpuInfo, char* cSectionName, cJSON* pJsonChild,
                   InputFileInfo* inputFileInfo);
 int logResetDetected(cJSON* metadata, int cpuNum, int sectionName);
@@ -142,6 +139,8 @@ static const SRegPci sPciReg[] = {
 extern struct timespec crashdumpStart;
 
 cJSON* getNewCrashDataSection(cJSON* root, char* section);
+cJSON* getNewCrashDataSectionObjectOneLevel(cJSON* root, char* section,
+                                            const char* firstLevel);
 bool readInputFileFlag(cJSON* pJsonChild, bool defaultValue, char* sectionName);
 cJSON* readInputFile(const char* filename);
 int cd_snprintf_s(char* str, size_t len, const char* format, ...);
@@ -154,12 +153,10 @@ void storeCrashDataSectionBigCoreSize(cJSON* root, char* version,
 cJSON* selectAndReadInputFile(Model cpuModel, char** filename,
                               bool isTelemetry);
 uint64_t tsToNanosecond(struct timespec* ts);
-void updateMcaRunTime(cJSON* root, struct timespec* start);
 struct timespec calculateTimeRemaining(uint32_t maxWaitTimeFromInputFileInSec);
 uint32_t getDelayFromInputFile(CPUInfo* cpuInfo, char* sectionName);
 int getPciRegister(CPUInfo* cpuInfo, SRegRawData* sRegData, uint8_t u8index);
 bool getSkipFromNewInputFile(CPUInfo* cpuInfo, char* sectionName);
-cJSON* getPeciAccessType(cJSON* root);
 inputField getFlagValueFromInputFile(CPUInfo* cpuInfo, char* sectionName,
                                      char* flagName);
 uint32_t getCollectionTimeFromInputFile(CPUInfo* cpuInfo);
@@ -168,8 +165,8 @@ executionStatus checkMaxTimeElapsed(uint32_t maxTime,
                                     struct timespec sectionStartTime);
 double getTimeRemainingFromStart(uint32_t maxTime,
                                  struct timespec sectionStartTime);
-void adjustTotalTime(struct timespec* crashdumpTime);
 uint8_t getNumberOfSections(CPUInfo* cpuInfo);
+int cJSONToInt(cJSON *cjonObj, int base);
 /* NVD Related functions */
 cJSON* getNVDSection(cJSON* root, const char* const section,
                      bool* const enable);

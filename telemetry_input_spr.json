@@ -19,6 +19,79 @@
   },
   "Sections": [
     {
+      "Metadata_Cpu_Early": {
+        "RecordEnable": true,
+        "RecordType": "0xb",
+        "ProductType": "0x1c",
+        "Revision": "0x01",
+        "SkipOnFail": false,
+        "LoopOnCpu": true,
+        "MaxTimeSec": 10,
+        "RootAtLevel": 3,
+        "OutputPath": "crash_data/METADATA/cpu%d",
+        "PreReq": {
+          "PECICmds": [
+            {
+              "RdPkgConfig": [
+                {"Params": ["Target", 19, 1, 4], "InternalVar": "ppin_low"},
+                {"Params": ["Target", 19, 2, 4], "InternalVar": "ppin_high"}
+              ]
+            },
+            {
+              "RdEndpointConfigPCILocal": [
+                {"Params": ["Target", 0, 31, 30, 3, "0x9c", 4], "InternalVar": "chamask0"},
+                {"Params": ["Target", 0, 31, 30, 3, "0xa0", 4], "InternalVar": "chamask1"},
+                {"Params": ["Target", 0, 31, 30, 4, "0xF8", 4], "InternalVar": "firstierrtsc_low"},
+                {"Params": ["Target", 0, 31, 30, 4, "0xFC", 4], "InternalVar": "firstierrtsc_high"},
+                {"Params": ["Target", 0, 31, 30, 4, "0xF0", 4], "InternalVar": "firstmcerrtsc_low"},
+                {"Params": ["Target", 0, 31, 30, 4, "0xF4", 4], "InternalVar": "firstmcerrtsc_high"}
+              ]
+            }
+          ]
+        },
+        "PECICmds": [
+          {
+            "RdGlobalVars": [
+              {"Params": ["peci_addr"], "Output": {"Name": ["peci_id"]}},
+              {"Params": ["cpuid"], "Output": {"Name": ["cpuid"]}},
+              {"Params": ["cpuid_source"], "Output": {"Name": ["_cpuid_source"]}},
+              {"Params": ["coremask_source"], "Output": {"Name": ["_core_mask_source"]}},
+              {"Params": ["chacount_source"], "Output": {"Name": ["_cha_count_source"]}},
+              {"Params": ["coremask"], "Output": {"Name": ["core_mask"]}},
+              {"Params": ["chacount"], "Output": {"Name": ["cha_count"]}},
+              {"Params": ["corecount"], "Output": {"Name": ["core_count"]}}
+            ]
+          },
+          {
+            "SaveStrVars":[
+              {"Params":["N/A"],"Output":{"Name":["package_id"]}}
+            ]
+          },
+          {
+            "RdAndConcatenate": [
+              {"Params": ["chamask0", "chamask1"], "Output": {"Size": 8,"Name": ["cha_mask"]}},
+              {"Params": ["ppin_low", "ppin_high"], "Output": {"Size": 8,"Name": ["ppin"], "ZeroPadded": true}},
+              {"Params": ["firstierrtsc_low", "firstierrtsc_high"], "Output": {"Size": 8,"Name": ["firstierrtsc"]}},
+              {"Params": ["firstmcerrtsc_low", "firstmcerrtsc_high"], "Output": {"Size": 8,"Name": ["firstmcerrtsc"]}}
+            ]
+          },
+          {
+            "RdEndpointConfigPCILocal": [
+              {"Params": ["Target", 0, 30, 0, 0, "0xA4", 4], "Output": {"Name": ["ierrloggingreg"]}},
+              {"Params": ["Target", 0, 30, 0, 0, "0xA8", 4], "Output": {"Name": ["mcerrloggingreg"]}},
+              {"Params": ["Target", 0, 31, 30, 2, "0xEC", 4], "Output": {"Name": ["mca_err_src_log"]}}
+            ]
+          },
+          {
+            "RdPkgConfig": [
+              {"Params": ["Target", 0, 4, 4],"Output": {"Name":["ucode_patch_ver"]}},
+              {"Params": ["Target", 0, 1, 4],"Output": {"Name":["platform_id"]}}
+            ]
+          }
+        ]
+      }
+    },
+    {
       "MCA_UNCORE":{
         "RecordEnable": false,
         "RootAtLevel": 4,
@@ -741,7 +814,7 @@
       }
     },
     {
-      "Metadata_Cpu": {
+      "Metadata_Cpu_Late": {
         "RecordEnable": true,
         "RecordType": "0xb",
         "ProductType": "0x1c",
@@ -749,67 +822,22 @@
         "SkipOnFail": false,
         "LoopOnCpu": true,
         "MaxTimeSec": 10,
-        "RootAtLevel": 2,
+        "RootAtLevel": 3,
         "OutputPath": "crash_data/METADATA/cpu%d",
         "PreReq": {
           "PECICmds": [
-            {
-              "RdPkgConfig": [
-                {"Params": ["Target", 19, 1, 4], "InternalVar": "ppin_low"},
-                {"Params": ["Target", 19, 2, 4], "InternalVar": "ppin_high"}
-              ]
-            },
-            {
-              "RdEndpointConfigPCILocal": [
-                {"Params": ["Target", 0, 31, 30, 4, "0xF8", 4], "InternalVar": "firstierrtsc_low"},
-                {"Params": ["Target", 0, 31, 30, 4, "0xFC", 4], "InternalVar": "firstierrtsc_high"},
-                {"Params": ["Target", 0, 31, 30, 4, "0xF0", 4], "InternalVar": "firstmcerrtsc_low"},
-                {"Params": ["Target", 0, 31, 30, 4, "0xF4", 4], "InternalVar": "firstmcerrtsc_high"},
-                {"Params": ["Target", 0, 31, 30, 3, "0x9c", 4], "InternalVar": "chamask0"},
-                {"Params": ["Target", 0, 31, 30, 3, "0xa0", 4], "InternalVar": "chamask1"}
-              ]
-            }
           ]
         },
         "PECICmds": [
           {
             "RdGlobalVars": [
-              {"Params": ["peci_addr"], "Output": {"Name": ["peci_id"]}},
-              {"Params": ["cpuid"], "Output": {"Name": ["cpuid"]}},
-              {"Params": ["cpuid_source"], "Output": {"Name": ["_cpuid_source"]}},
-              {"Params": ["coremask_source"], "Output": {"Name": ["_core_mask_source"]}},
-              {"Params": ["chacount_source"], "Output": {"Name": ["_cha_count_source"]}},
-              {"Params": ["coremask"], "Output": {"Name": ["core_mask"]}},
-              {"Params": ["chacount"], "Output": {"Name": ["cha_count"]}},
-              {"Params": ["corecount"], "Output": {"Name": ["core_count"]}},
               {"Params": ["crashcorecount"], "Output": {"Name": ["crashcore_count"]}},
               {"Params": ["crashcoremask"], "Output": {"Name": ["crashcore_mask"]}}
             ]
           },
           {
-            "SaveStrVars":[
-              {"Params":["N/A"],"Output":{"Name":["package_id"]}}
-            ]
-          },
-          {
-            "RdAndConcatenate": [
-              {"Params": ["chamask0", "chamask1"], "Output": {"Size": 8,"Name": ["cha_mask"]}},
-              {"Params": ["ppin_low", "ppin_high"], "Output": {"Size": 8,"Name": ["ppin"]}},
-              {"Params": ["firstierrtsc_low", "firstierrtsc_high"], "Output": {"Size": 8,"Name": ["firstierrtsc"]}},
-              {"Params": ["firstmcerrtsc_low", "firstmcerrtsc_high"], "Output": {"Size": 8,"Name": ["firstmcerrtsc"]}}
-            ]
-          },
-          {
             "RdEndpointConfigPCILocal": [
-              {"Params": ["Target", 0, 30, 0, 0, "0xA4", 4], "Output": {"Name": ["ierrloggingreg"]}},
-              {"Params": ["Target", 0, 30, 0, 0, "0xA8", 4], "Output": {"Name": ["mcerrloggingreg"]}},
-              {"Params": ["Target", 0, 31, 30, 2, "0xEC", 4], "Output": {"Name": ["mca_err_src_log"]}}
-            ]
-          },
-          {
-            "RdPkgConfig": [
-              {"Params": ["Target", 0, 4, 4],"Output": {"Name":["ucode_patch_ver"]}},
-              {"Params": ["Target", 0, 1, 4],"Output": {"Name":["platform_id"]}}
+              {"Params": ["Target", 0, 31, 30, 2, "0xEC", 4], "Output": {"Name": ["final_mca_err_src_log"]}}
             ]
           }
         ]

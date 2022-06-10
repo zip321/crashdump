@@ -32,9 +32,11 @@ class SelfCheck(Region):
                     errorList[key] = {}
                     for section in request["sections"][key]:
                         sectionObj = request["sections"][key][section]
-                        if hasattr(sectionObj, 'getTableInfo'):
-                            errorList[key][section] = sectionObj.getSelfCheckInfo()
+                        hasCheckFunc = hasattr(sectionObj,
+                                               'getSelfCheckInfo')
+                        if hasCheckFunc:
+                            errorList[key][section] =\
+                                sectionObj.getSelfCheckInfo()
 
-            # print(errorList)
             report["selfCheck"] = errorList
             return True

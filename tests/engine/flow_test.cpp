@@ -453,3 +453,72 @@ TEST_F(FlowTestFixture, checkMaxSectionCondition)
         EXPECT_NEAR(2.5, test_value, 0.5);
     }
 }
+
+TEST_F(FlowTestFixture, failPreReqTest)
+{
+    TestCrashdump crashdump(cpusInfo);
+    static cJSON* inRoot;
+    static std::filesystem::path UTFile;
+    UTFile = std::filesystem::current_path();
+    UTFile = UTFile.parent_path();
+    UTFile /= "tests/UnitTestFiles/ut_mmio_fail_prereq.json";
+    inRoot = readInputFile(UTFile.c_str());
+    RunTimeInfo runTimeInfo;
+    cpusInfo[0].inputFile.bufferPtr = inRoot;
+    cpusInfo[1].inputFile.bufferPtr = inRoot;
+    uint8_t busValid[4] = {0x0, 0x00, 0x00, 0x00}; // 0xc0000f3f;
+    uint8_t busno7[4] = {0x00, 0x00, 0x7e, 0x7f};  // 0x7f7e0000;
+    uint8_t busno2[4] = {0x00, 0x00, 0x7e, 0x7f};  // 0x7f7e0000;
+
+    EXPECT_CALL(*crashdump.libPeciMock, peci_RdEndPointConfigPciLocal)
+        .WillOnce(DoAll(SetArrayArgument<7>(busValid, busValid + 4),
+                        SetArgPointee<8>(0x40), Return(PECI_CC_SUCCESS)))
+        .WillOnce(DoAll(SetArrayArgument<7>(busno7, busno7 + 4),
+                        SetArgPointee<8>(0x40), Return(PECI_CC_SUCCESS)))
+        .WillOnce(DoAll(SetArrayArgument<7>(busno2, busno2 + 4),
+                        SetArgPointee<8>(0x40), Return(PECI_CC_SUCCESS)))
+        .WillOnce(DoAll(SetArrayArgument<7>(busValid, busValid + 4),
+                        SetArgPointee<8>(0x40), Return(PECI_CC_SUCCESS)))
+        .WillOnce(DoAll(SetArrayArgument<7>(busno7, busno7 + 4),
+                        SetArgPointee<8>(0x40), Return(PECI_CC_SUCCESS)))
+        .WillOnce(DoAll(SetArrayArgument<7>(busno2, busno2 + 4),
+                        SetArgPointee<8>(0x40), Return(PECI_CC_SUCCESS)));
+    EXPECT_CALL(*crashdump.libPeciMock, peci_RdIAMSR)
+        .WillRepeatedly(DoAll(SetArgPointee<3>(0x1122334455667788),
+                              SetArgPointee<4>(0x40), Return(PECI_CC_SUCCESS)));
+    EXPECT_CALL(*crashdump.libPeciMock, peci_RdEndPointConfigMmio)
+        .WillRepeatedly(
+            DoAll(SetArgPointee<10>(0x40), Return(PECI_CC_SUCCESS)));
+
+    struct timespec sectionStart;
+    struct timespec globalStart;
+
+    clock_gettime(CLOCK_MONOTONIC, &sectionStart);
+    clock_gettime(CLOCK_MONOTONIC, &globalStart);
+    runTimeInfo.globalRunTime = globalStart;
+    runTimeInfo.sectionRunTime = sectionStart;
+    runTimeInfo.maxGlobalTime = 700;
+
+    uint8_t numberOfSections = getNumberOfSections(&cpusInfo[0]);
+    for (uint8_t section = 0; section < numberOfSections; section++)
+    {
+        for (int cpu = 0; cpu < (int)cpusInfo.size(); cpu++)
+        {
+            sleep(1);
+            status = fillNewSection(outRoot, &cpusInfo[cpu], cpu, &runTimeInfo,
+                                    section);
+        }
+    }
+    cJSON* uncore = cJSON_GetObjectItem(
+        cJSON_GetObjectItem(
+            cJSON_GetObjectItem(cJSON_GetObjectItem(outRoot, "crash_data"),
+                                "PROCESSORS"),
+            "cpu0"),
+        "uncore");
+    cJSON* post_enum_bus30 = cJSON_GetObjectItem(uncore, "post_enum_bus30");
+    EXPECT_TRUE(post_enum_bus30 != NULL);
+    if (post_enum_bus30 != NULL)
+    {
+        EXPECT_STREQ(post_enum_bus30->valuestring, "0x0");
+    }
+}

@@ -58,19 +58,16 @@ TEST(CrashdumpTest, test_isPECIAvailable_NO_CPUS)
 TEST(CrashdumpTest, test_initCPUInfo)
 {
     TestCrashdump crashdump(cd_spr);
-    CPUInfo cpuInfo = {.clientAddr = 48,
-                       .model = cd_icxd,
-                       .coreMask = 0x0,
-                       .crashedCoreMask = 0x0,
-                       .chaCount = 0,
-                       .initialPeciWake = ON,
-                       .inputFile = {},
-                       .cpuidRead = {},
-                       .chaCountRead = {},
-                       .coreMaskRead = {},
-                       .dimmMask = 0};
-
-    std::vector<CPUInfo> cpusInfo = {cpuInfo};
+    EXPECT_CALL(*crashdump.libPeciMock, peci_Ping)
+        .WillOnce(DoAll(Return(PECI_CC_SUCCESS)))
+        .WillOnce(DoAll(Return(PECI_CC_TIMEOUT)))
+        .WillOnce(DoAll(Return(PECI_CC_TIMEOUT)))
+        .WillOnce(DoAll(Return(PECI_CC_TIMEOUT)))
+        .WillOnce(DoAll(Return(PECI_CC_TIMEOUT)))
+        .WillOnce(DoAll(Return(PECI_CC_TIMEOUT)))
+        .WillOnce(DoAll(Return(PECI_CC_TIMEOUT)))
+        .WillOnce(DoAll(Return(PECI_CC_TIMEOUT)));
+    std::vector<CPUInfo> cpusInfo;
     initCPUInfo(cpusInfo);
     EXPECT_EQ(cpusInfo[0].cpuidRead.source, 2);
     EXPECT_EQ(cpusInfo[0].coreMaskRead.source, 2);
@@ -275,4 +272,147 @@ TEST(CrashdumpTest, test_getCPUData_invalid)
     EXPECT_EQ(cpusInfo[0].coreMask, coreExpectedValue0);
     EXPECT_EQ(cpusInfo[1].chaCount, chaExpectedValue0);
     EXPECT_EQ(cpusInfo[1].coreMask, coreExpectedValue0);
+}
+
+TEST(CrashdumpTest, test_updateCrashdumpTotalTime_positive)
+{
+    std::string crashdumpContents;
+    cJSON* metaData = NULL;
+    cJSON* crashdata = NULL;
+    cJSON* root = cJSON_CreateObject();
+    cJSON_AddItemToObject(root, "crash_data", crashdata = cJSON_CreateObject());
+    cJSON_AddItemToObject(crashdata, "METADATA",
+                          metaData = cJSON_CreateObject());
+    cJSON_AddStringToObject(metaData, "_total_time", "51.74s");
+    char* out = cJSON_Print(root);
+    if (out != NULL)
+    {
+        crashdumpContents = out;
+    }
+    struct timespec Start;
+    clock_gettime(CLOCK_MONOTONIC, &Start);
+    sleep(2);
+    updateTotalTime(crashdumpContents, &Start);
+    cJSON* validation = cJSON_Parse(crashdumpContents.c_str());
+    cJSON* totaltime = cJSON_GetObjectItem(
+        cJSON_GetObjectItem(cJSON_GetObjectItem(validation, "crash_data"),
+                            "METADATA"),
+        "_total_time");
+    EXPECT_STREQ(totaltime->valuestring, "53.74s");
+    cJSON_Delete(root);
+    FREE(out);
+}
+
+TEST(CrashdumpTest, test_updateCrashdumpTotalTime_negative)
+{
+    std::string crashdumpContents;
+    cJSON* metaData = NULL;
+    cJSON* crashdata = NULL;
+    cJSON* root = cJSON_CreateObject();
+    cJSON_AddItemToObject(root, "crash_data_error",
+                          crashdata = cJSON_CreateObject());
+    cJSON_AddItemToObject(crashdata, "METADATA",
+                          metaData = cJSON_CreateObject());
+    cJSON_AddStringToObject(metaData, "_total_time", "51.74s");
+    char* out = cJSON_Print(root);
+    if (out != NULL)
+    {
+        crashdumpContents = out;
+    }
+    struct timespec Start;
+    clock_gettime(CLOCK_MONOTONIC, &Start);
+    sleep(2);
+    updateTotalTime(crashdumpContents, &Start);
+    cJSON* validation = cJSON_Parse(crashdumpContents.c_str());
+    cJSON* totaltime = cJSON_GetObjectItem(
+        cJSON_GetObjectItem(cJSON_GetObjectItem(validation, "crash_data_error"),
+                            "METADATA"),
+        "_total_time");
+    EXPECT_STREQ(totaltime->valuestring, "51.74s");
+    cJSON_Delete(root);
+    FREE(out);
+}
+
+TEST(CrashdumpTest, test_platformTurnOff)
+{
+    TestCrashdump crashdump(cd_spr);
+    std::vector<CPUInfo> cpusInfo = {};
+    uint8_t coreMaskHigh[4] = {0x05, 0x06, 0x07, 0x08};
+    uint8_t coreMaskLow[4] = {0x01, 0x02, 0x03, 0x04};
+    uint8_t chaMaskHigh[4] = {0x05, 0x06, 0x07, 0x08};
+    uint8_t chaMaskLow[4] = {0x01, 0x02, 0x03, 0x04};
+    EXPECT_CALL(*crashdump.libPeciMock, peci_GetCPUID)
+        .WillOnce(DoAll(
+            SetArgPointee<1>((CPUModel)0x000806F0), SetArgPointee<2>(1),
+            SetArgPointee<3>(PECI_DEV_CC_SUCCESS), Return(PECI_CC_SUCCESS)))
+        .WillOnce(DoAll(
+            SetArgPointee<1>((CPUModel)0x000806F0), SetArgPointee<2>(1),
+            SetArgPointee<3>(PECI_DEV_CC_SUCCESS), Return(PECI_CC_SUCCESS)));
+    EXPECT_CALL(*crashdump.libPeciMock, peci_Ping)
+        .WillOnce(DoAll(Return(PECI_CC_TIMEOUT)))
+        .WillOnce(DoAll(Return(PECI_CC_TIMEOUT)))
+        .WillOnce(DoAll(Return(PECI_CC_TIMEOUT)))
+        .WillOnce(DoAll(Return(PECI_CC_TIMEOUT)))
+        .WillOnce(DoAll(Return(PECI_CC_TIMEOUT)))
+        .WillOnce(DoAll(Return(PECI_CC_TIMEOUT)))
+        .WillOnce(DoAll(Return(PECI_CC_TIMEOUT)))
+        .WillOnce(DoAll(Return(PECI_CC_TIMEOUT)))
+        .WillOnce(DoAll(Return(PECI_CC_SUCCESS)))
+        .WillOnce(DoAll(Return(PECI_CC_SUCCESS)))
+        .WillOnce(DoAll(Return(PECI_CC_TIMEOUT)))
+        .WillOnce(DoAll(Return(PECI_CC_TIMEOUT)))
+        .WillOnce(DoAll(Return(PECI_CC_TIMEOUT)))
+        .WillOnce(DoAll(Return(PECI_CC_TIMEOUT)))
+        .WillOnce(DoAll(Return(PECI_CC_TIMEOUT)))
+        .WillOnce(DoAll(Return(PECI_CC_TIMEOUT)));
+    EXPECT_CALL(*crashdump.libPeciMock, peci_RdEndPointConfigPciLocal)
+        .WillOnce(DoAll(SetArrayArgument<7>(coreMaskHigh, coreMaskHigh + 4),
+                        SetArgPointee<8>(0x40), Return(PECI_CC_SUCCESS)))
+        .WillOnce(DoAll(SetArrayArgument<7>(coreMaskLow, coreMaskLow + 4),
+                        SetArgPointee<8>(0x40), Return(PECI_CC_SUCCESS)))
+        .WillOnce(DoAll(
+            SetArrayArgument<7>(chaMaskHigh, chaMaskHigh + 4), // cha mask 0
+            SetArgPointee<8>(0x40), Return(PECI_CC_SUCCESS)))
+        .WillOnce(
+            DoAll(SetArrayArgument<7>(chaMaskLow, chaMaskLow + 4), // cha mask 1
+                  SetArgPointee<8>(0x40), Return(PECI_CC_SUCCESS)))
+        .WillOnce(DoAll(SetArrayArgument<7>(coreMaskHigh, coreMaskHigh + 4),
+                        SetArgPointee<8>(0x40), Return(PECI_CC_SUCCESS)))
+        .WillOnce(DoAll(SetArrayArgument<7>(coreMaskLow, coreMaskLow + 4),
+                        SetArgPointee<8>(0x40), Return(PECI_CC_SUCCESS)))
+        .WillOnce(DoAll(
+            SetArrayArgument<7>(chaMaskHigh, chaMaskHigh + 4), // cha mask 0
+            SetArgPointee<8>(0x40), Return(PECI_CC_SUCCESS)))
+        .WillOnce(
+            DoAll(SetArrayArgument<7>(chaMaskLow, chaMaskLow + 4), // cha mask 1
+                  SetArgPointee<8>(0x40), Return(PECI_CC_SUCCESS)));
+    initCPUInfo(cpusInfo);
+    getCPUData(cpusInfo, STARTUP);
+    // create_crashdump
+    initCPUInfo(cpusInfo);
+    getCPUData(cpusInfo, EVENT);
+    EXPECT_TRUE(cpusInfo[0].cpuidRead.cpuidValid);
+    EXPECT_TRUE(cpusInfo[1].cpuidRead.cpuidValid);
+    EXPECT_FALSE(cpusInfo[2].cpuidRead.cpuidValid);
+    EXPECT_FALSE(cpusInfo[3].cpuidRead.cpuidValid);
+    EXPECT_FALSE(cpusInfo[4].cpuidRead.cpuidValid);
+    EXPECT_FALSE(cpusInfo[5].cpuidRead.cpuidValid);
+    EXPECT_FALSE(cpusInfo[6].cpuidRead.cpuidValid);
+    EXPECT_FALSE(cpusInfo[7].cpuidRead.cpuidValid);
+    EXPECT_TRUE(cpusInfo[0].chaCountRead.chaCountValid);
+    EXPECT_TRUE(cpusInfo[1].chaCountRead.chaCountValid);
+    EXPECT_FALSE(cpusInfo[2].chaCountRead.chaCountValid);
+    EXPECT_FALSE(cpusInfo[3].chaCountRead.chaCountValid);
+    EXPECT_FALSE(cpusInfo[4].chaCountRead.chaCountValid);
+    EXPECT_FALSE(cpusInfo[5].chaCountRead.chaCountValid);
+    EXPECT_FALSE(cpusInfo[6].chaCountRead.chaCountValid);
+    EXPECT_FALSE(cpusInfo[7].chaCountRead.chaCountValid);
+    EXPECT_TRUE(cpusInfo[0].coreMaskRead.coreMaskValid);
+    EXPECT_TRUE(cpusInfo[1].coreMaskRead.coreMaskValid);
+    EXPECT_FALSE(cpusInfo[2].coreMaskRead.coreMaskValid);
+    EXPECT_FALSE(cpusInfo[3].coreMaskRead.coreMaskValid);
+    EXPECT_FALSE(cpusInfo[4].coreMaskRead.coreMaskValid);
+    EXPECT_FALSE(cpusInfo[5].coreMaskRead.coreMaskValid);
+    EXPECT_FALSE(cpusInfo[6].coreMaskRead.coreMaskValid);
+    EXPECT_FALSE(cpusInfo[7].coreMaskRead.coreMaskValid);
 }

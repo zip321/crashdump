@@ -598,23 +598,31 @@ static void overwriteCPUInfo(std::vector<CPUInfo>& cpuInfo)
 
 void initCPUInfo(std::vector<CPUInfo>& cpuInfo)
 {
-    cpuInfo.reserve(MAX_CPUS);
-    getClientAddrs(cpuInfo);
-    for (CPUInfo& cpu : cpuInfo)
+    if (cpuInfo.empty())
     {
-        cpu.coreMaskRead.coreMaskValid = false;
-        cpu.chaCountRead.chaCountValid = false;
-        cpu.cpuidRead.cpuidValid = false;
-        cpu.coreMaskRead.source = INVALID;
-        cpu.chaCountRead.source = INVALID;
-        cpu.cpuidRead.source = INVALID;
-        cpu.model = (Model)0x0;
-        cpu.cpuidRead.cpuModel = (CPUModel)0x0;
+        cpuInfo.reserve(MAX_CPUS);
+        getClientAddrs(cpuInfo);
+        for (CPUInfo& cpu : cpuInfo)
+        {
+            cpu.coreMaskRead.coreMaskValid = false;
+            cpu.chaCountRead.chaCountValid = false;
+            cpu.cpuidRead.cpuidValid = false;
+            cpu.coreMaskRead.source = INVALID;
+            cpu.chaCountRead.source = INVALID;
+            cpu.cpuidRead.source = INVALID;
+            cpu.model = (Model)0x0;
+            cpu.cpuidRead.cpuModel = (CPUModel)0x0;
+        }
     }
 }
 
 void getCPUData(std::vector<CPUInfo>& cpuInfo, cpuidState cpuState)
 {
+    if (cpuInfo.empty())
+    {
+        CRASHDUMP_PRINT(ERR, stderr,
+                        "cpuInfo is empty, no PECI addresses are available\n");
+    }
     for (CPUInfo& cpu : cpuInfo)
     {
         if (!cpu.cpuidRead.cpuidValid || (cpu.cpuidRead.source == OVERWRITTEN))
@@ -698,6 +706,36 @@ void logInputFileVersion(cJSON* root, CPUInfo cpuInfo,
     }
 }
 
+void logMetaDataVersion(cJSON* metaData, CPUInfo cpuInfo,
+                        InputFileInfo* inputFileInfo)
+{
+    int version = 0;
+    cJSON* sections = cJSON_GetObjectItemCaseSensitive(
+                                    inputFileInfo->buffers[cpuInfo.model],
+                                    "Sections");
+    if (sections != NULL)
+    {
+        cJSON* section = NULL;
+        cJSON_ArrayForEach(section, sections)
+        {
+            if (cJSON_HasObjectItem(section, "Metadata_Cpu_Early"))
+            {
+                GenerateVersion(section->child, &version);
+                char versionString[JSON_VAL_LEN];
+                cd_snprintf_s(versionString, sizeof(versionString), "0x%x",
+                                version);
+                cJSON_AddStringToObject(metaData, "_version", versionString);
+            }
+        }
+    }
+    else {
+        cJSON_AddStringToObject(metaData,"_version",
+                                "ERROR inputFile is missing Sections region");
+    }
+    
+
+}
+
 void fillMetaDataCommon(cJSON* metaData, CPUInfo cpuInfo,
                         InputFileInfo* inputFileInfo,
                         const std::string& triggerType, std::string& timestamp,
@@ -714,8 +752,10 @@ void fillMetaDataCommon(cJSON* metaData, CPUInfo cpuInfo,
         {
             fillInputFile(&cpuInfo, "_input_file", metaData, inputFileInfo);
         }
-        logSectionRunTime(metaData, sectionStart, TIME_KEY);
+        logSectionRunTime(metaData, sectionStart, "_time_Metadata_Common");
         logSectionRunTime(metaData, crashdumpStart, GLOBAL_TIME_KEY);
+
+        logMetaDataVersion(metaData, cpuInfo, inputFileInfo);
     }
 }
 
@@ -726,6 +766,33 @@ static void cleanupInputFiles(InputFileInfo* inputFileInfo)
         FREE(inputFileInfo->filenames[i]);
         cJSON_Delete(inputFileInfo->buffers[i]);
     }
+}
+
+void updateTotalTime(std::string& storedLogContents, timespec* crashdumpStart)
+{
+    cJSON* content = cJSON_Parse(storedLogContents.c_str());
+    if (content != NULL)
+    {
+        cJSON* crashdata = cJSON_GetObjectItem(content, "crash_data");
+        if (crashdata != NULL)
+        {
+            cJSON* metadata = cJSON_GetObjectItem(crashdata, "METADATA");
+            if (metadata != NULL)
+            {
+                cJSON* totaltime = cJSON_GetObjectItem(metadata, "_total_time");
+                if (totaltime != NULL)
+                {
+                    logSectionRunTime(metadata, crashdumpStart,
+                                      GLOBAL_TIME_KEY);
+                    storedLogContents = cJSON_Print(content);
+                    cJSON_Delete(content);
+                    return;
+                }
+            }
+        }
+        cJSON_Delete(content);
+    }
+    CRASHDUMP_PRINT(INFO, stderr, "Could not update _total_time!\n");
 }
 
 void createCrashdump(std::vector<CPUInfo>& cpuInfo,
@@ -748,6 +815,7 @@ void createCrashdump(std::vector<CPUInfo>& cpuInfo,
     clearResetDetected();
 
     CRASHDUMP_PRINT(INFO, stderr, "Crashdump started...\n");
+    crashdump::initCPUInfo(crashdump::cpuInfo);
     crashdump::getCPUData(cpuInfo, EVENT);
     crashdump::savePeciWake(cpuInfo);
     crashdump::setPeciWake(cpuInfo, ON);
@@ -791,8 +859,20 @@ void createCrashdump(std::vector<CPUInfo>& cpuInfo,
 
 #ifdef NVD_SECTION
     cJSON* nvd = NULL;
+
     // Create the NVD section
-    cJSON_AddItemToObject(crashlogData, "NVD", nvd = cJSON_CreateObject());
+    cJSON* nvdRecordEnable = cJSON_GetObjectItemCaseSensitive(
+        cJSON_GetObjectItemCaseSensitive(cpuInfo[0].inputFile.bufferPtr, "NVD"),
+        "RecordEnable");
+    if (nvdRecordEnable != NULL)
+    {
+        // Create the NVD section
+        cJSON_AddItemToObject(crashlogData, "NVD", nvd = cJSON_CreateObject());
+        if (cJSON_IsFalse(nvdRecordEnable))
+        {
+            cJSON_AddFalseToObject(nvd, RECORD_ENABLE);
+        }
+    }
 #endif
     // Include the version field
     logCrashdumpVersion(processors, &cpuInfo[0], RECORD_TYPE_BMCAUTONOMOUS);
@@ -834,16 +914,19 @@ void createCrashdump(std::vector<CPUInfo>& cpuInfo,
         }
     }
 #ifdef NVD_SECTION
-    acdStatus nvdStatus = crashdump::getDIMMInventoryDBus(cpuInfo);
-    if (nvdStatus == ACD_SUCCESS)
+    if ((nvdRecordEnable != NULL) && (cJSON_IsTrue(nvdRecordEnable)))
     {
-        for (size_t j = 0; j < cpuInfo.size(); j++)
+        acdStatus nvdStatus = crashdump::getDIMMInventoryDBus(cpuInfo);
+        if (nvdStatus == ACD_SUCCESS)
         {
-            nvdStatus = fillNVDSection(&cpuInfo[j], j, nvd);
-        }
-        if (nvdStatus != ACD_SECTION_DISABLE)
-        {
-            logRunTime(nvd, &runTimeInfo.sectionRunTime, TIME_KEY);
+            for (size_t j = 0; j < cpuInfo.size(); j++)
+            {
+                nvdStatus = fillNVDSection(&cpuInfo[j], j, nvd, &runTimeInfo);
+            }
+            if (nvdStatus != ACD_SECTION_DISABLE)
+            {
+                logRunTime(nvd, &runTimeInfo.sectionRunTime, TIME_KEY);
+            }
         }
     }
 #endif
@@ -872,6 +955,8 @@ void createCrashdump(std::vector<CPUInfo>& cpuInfo,
         {
             appendTriageSection(crashdumpContents);
         }
+        updateTotalTime(crashdumpContents, &crashdumpStart);
+
 #endif
 #ifdef BAFI_NDA_OUTPUT
         bool summaryEnable = true;
@@ -884,6 +969,7 @@ void createCrashdump(std::vector<CPUInfo>& cpuInfo,
         {
             appendSummarySection(crashdumpContents);
         }
+        updateTotalTime(crashdumpContents, &crashdumpStart);
 #endif
         cJSON_free(out);
         CRASHDUMP_PRINT(INFO, stderr, "Completed!\n");
@@ -1240,10 +1326,12 @@ struct PowerOffException final : public sdbusplus::exception_t
         return "org.freedesktop.DBus.Error.NotSupported: "
                "Power off, cannot access peci";
     };
+    #ifdef BHS_EGS_BUILD
     int get_errno() const noexcept override
     {
         return EOPNOTSUPP;
     }
+    #endif
 };
 /** Exception for when a log is attempted while another is in progress. */
 struct LogInProgressException final : public sdbusplus::exception_t
@@ -1261,10 +1349,12 @@ struct LogInProgressException final : public sdbusplus::exception_t
         return "org.freedesktop.DBus.Error.ObjectPathInUse: "
                "Log in progress";
     };
+    #ifdef BHS_EGS_BUILD
     int get_errno() const noexcept override
     {
         return EBUSY;
     }
+    #endif
 };
 } // namespace crashdump
 
@@ -1462,34 +1552,48 @@ int main()
     });
 
     ifaceTelemetry->initialize();
-
-    // Build up paths for any existing stored logs
-    if (std::filesystem::exists(crashdump::crashdumpDir))
+    try
     {
-        std::regex search("crashdump_([[:digit:]]+)-([[:graph:]]+?).json");
-        std::smatch match;
-        for (auto& p :
-             std::filesystem::directory_iterator(crashdump::crashdumpDir))
+        // Build up paths for any existing stored logs
+        if (std::filesystem::exists(crashdump::crashdumpDir))
         {
-            std::string file = p.path().filename();
-            if (std::regex_match(file, match, search))
+            std::regex search("crashdump_([[:digit:]]+)-([[:graph:]]+?).json");
+            std::smatch match;
+            for (auto& p :
+                std::filesystem::directory_iterator(crashdump::crashdumpDir))
             {
-                // Log Interface
-                std::filesystem::path path =
-                    std::filesystem::path(crashdump::crashdumpPath) /
-                    match.str(1);
-                std::shared_ptr<sdbusplus::asio::dbus_interface> ifaceLog =
-                    crashdump::server->add_interface(
-                        path.c_str(), crashdump::crashdumpInterface);
-                crashdump::storedLogIfaces.emplace_back(file, ifaceLog);
-                // Log Property
-                ifaceLog->register_property("Log", p.path().string());
-                ifaceLog->register_property("Timestamp", match.str(2));
-                ifaceLog->register_property("Filename", file);
-                ifaceLog->initialize();
+                std::string file = p.path().filename();
+                if (std::regex_match(file, match, search))
+                {
+                    // Log Interface
+                    std::filesystem::path path =
+                        std::filesystem::path(crashdump::crashdumpPath) /
+                        match.str(1);
+                    std::shared_ptr<sdbusplus::asio::dbus_interface> ifaceLog =
+                        crashdump::server->add_interface(
+                            path.c_str(), crashdump::crashdumpInterface);
+                    crashdump::storedLogIfaces.emplace_back(file, ifaceLog);
+                    // Log Property
+                    ifaceLog->register_property("Log", p.path().string());
+                    ifaceLog->register_property("Timestamp", match.str(2));
+                    ifaceLog->register_property("Filename", file);
+                    ifaceLog->initialize();
+                }
             }
+            crashdump::dbusRemoveOnDemandLog();
         }
-        crashdump::dbusRemoveOnDemandLog();
+    }
+    catch (const std::regex_error &e)
+    {
+        CRASHDUMP_PRINT(
+            ERR, stderr,
+            "A regex error ocurred while removing previous OnDemand logs\n");
+    }
+    catch (const sdbusplus::exception::SdBusError &e)
+    {
+        CRASHDUMP_PRINT(
+            ERR, stderr,
+            "A SdBusError ocurred while removing previous OnDemand logs\n");
     }
 
     // Send Raw PECI Interface
@@ -1540,7 +1644,16 @@ int main()
     std::shared_ptr<sdbusplus::bus::match::match> hostStateMonitor =
         crashdump::startHostStateMonitor(crashdump::conn);
 
-    crashdump::io.run();
+    try
+    {
+        crashdump::io.run();
+    }
+    catch (const boost::system::system_error &e)
+    {
+        CRASHDUMP_PRINT(
+            ERR, stderr,
+            "Failed to run io\n");
+    }
 
     return ACD_SUCCESS;
 }

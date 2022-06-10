@@ -23,6 +23,13 @@ Else go to step 4.
     tar -xvf crashdump.tar.gz -C ./files/crashdump
     ```
 
+If you are building crashdump EGS code for Whitley (ICX) platform you need to
+add the following to the `crashdump_git.bb` file.
+
+    ```bitbake
+    EXTRA_OECMAKE = "-DYOCTO_DEPENDENCIES=ON -DCRASHDUMP_BUILD_UT=OFF -DBHS_EGS_BUILD=OFF"
+    ```
+
 4. When the `crashdump` module compiles successfully, OpenBMC needs to install
 `crashdump` to the image file. Add the `IMAGE_INSTALL` command to the `local.
 conf.sample` file in the `conf` folder.

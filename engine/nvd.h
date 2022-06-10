@@ -79,7 +79,7 @@ enum PMEM_ERR_LOG
 };
 
 acdStatus fillNVDSection(CPUInfo* cpuInfo, const uint8_t cpuNum,
-                         cJSON* jsonChild);
+                         cJSON* jsonChild, RunTimeInfo* runTimeInfo);
 
 const char dimmMap[NVD_MAX_DIMM][NVD_DIMM_MAP_STR_LEN] = {
     // cpu, imc, channel, slot

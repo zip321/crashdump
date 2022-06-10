@@ -82,6 +82,7 @@ acdStatus ParseNameSection(CmdInOut* cmdInOut, LoggerStruct* loggerStruct)
     int position = 0;
     loggerStruct->nameProcessing.extraLevel = false;
     loggerStruct->nameProcessing.sizeFromOutput = false;
+    loggerStruct->nameProcessing.zeroPaddedPrint = false;
     cJSON* nameJSON =
         cJSON_GetObjectItemCaseSensitive(cmdInOut->in.outputPath, "Name");
     if (nameJSON == NULL)
@@ -98,6 +99,13 @@ acdStatus ParseNameSection(CmdInOut* cmdInOut, LoggerStruct* loggerStruct)
         loggerStruct->nameProcessing.size = sizeJSON->valueint;
         loggerStruct->nameProcessing.sizeFromOutput = true;
     }
+    cJSON* zeroPaddedJSON =
+        cJSON_GetObjectItemCaseSensitive(cmdInOut->in.outputPath, "ZeroPadded");
+    if (zeroPaddedJSON != NULL)
+    {
+        loggerStruct->nameProcessing.zeroPaddedPrint = cJSON_IsTrue(zeroPaddedJSON);
+    }
+
     cJSON_ArrayForEach(it, nameJSON)
     {
         switch (position)
@@ -265,13 +273,13 @@ void GenerateRegisterName(char* registerName, LoggerStruct* loggerStruct)
     {
         cd_snprintf_s(registerName, LOGGER_JSON_STRING_LEN,
                       loggerStruct->nameProcessing.registerName,
-                      loggerStruct->contextLogger.core);
+                      loggerStruct->contextLogger.cpu);
     }
     else if (resultThread == EOK)
     {
         cd_snprintf_s(registerName, LOGGER_JSON_STRING_LEN,
                       loggerStruct->nameProcessing.registerName,
-                      loggerStruct->contextLogger.core);
+                      loggerStruct->contextLogger.thread);
     }
     else if (resultSpecial == EOK)
     {
@@ -358,8 +366,37 @@ void LogValue(char* registerName, CmdInOut* cmdInOut,
     }
     else
     {
-        cd_snprintf_s(jsonItemString, LOGGER_JSON_STRING_LEN,
-                      LOGGER_DATA_64bits, cmdInOut->out.val.u64);
+        if (loggerStruct->nameProcessing.zeroPaddedPrint)
+        {
+            char *formatStr;
+            switch (loggerStruct->nameProcessing.size)
+            {
+                case 1:
+                    formatStr = "0x%02x";
+                    break;
+                case 2:
+                    formatStr = "0x%04x";
+                    break;
+                case 4:
+                    formatStr = "0x%08x";
+                    break;
+                case 8:
+                    formatStr = "0x%016llx";
+                    break;
+                default:
+                    formatStr = "0x%016llx";
+                    break;
+            }
+            cd_snprintf_s(jsonItemString, LOGGER_JSON_STRING_LEN,
+                          formatStr,
+                          cmdInOut->out.val.u64);
+        }
+        else
+        {
+            cd_snprintf_s(jsonItemString, LOGGER_JSON_STRING_LEN,
+                          LOGGER_DATA_64bits, cmdInOut->out.val.u64);
+        }
+        
         cJSON_AddStringToObject(parent, registerName, jsonItemString);
     }
 }
@@ -384,23 +421,12 @@ void GenerateVersion(cJSON* Section, int* Version)
     int productType = 0;
     int recordType = 0;
     int revisionNum = 0;
-    cJSON* productTypeJson =
-        cJSON_GetObjectItemCaseSensitive(Section, "ProductType");
-    if (productTypeJson != NULL)
-    {
-        productType = strtoull(productTypeJson->valuestring, NULL, 16);
-    }
-    cJSON* recordTypeJson =
-        cJSON_GetObjectItemCaseSensitive(Section, "RecordType");
-    if (recordTypeJson != NULL)
-    {
-        recordType = strtoull(recordTypeJson->valuestring, NULL, 16);
-    }
-    cJSON* revisionJson = cJSON_GetObjectItemCaseSensitive(Section, "Revision");
-    if (revisionJson != NULL)
-    {
-        revisionNum = strtoull(revisionJson->valuestring, NULL, 16);
-    }
+    productType = cJSONToInt(cJSON_GetObjectItemCaseSensitive(
+                                 Section, "ProductType"), 16);
+    recordType = cJSONToInt(cJSON_GetObjectItemCaseSensitive(
+                                Section, "RecordType"), 16);
+    revisionNum = cJSONToInt(cJSON_GetObjectItemCaseSensitive(
+                                 Section, "Revision"), 16);
     if (productType == 0 && recordType == 0 && revisionNum == 0)
     {
         *Version = 0;
@@ -421,6 +447,7 @@ void logVersion(CmdInOut* cmdInOut, cJSON* root, LoggerStruct* loggerStruct)
         loggerStruct->nameProcessing.extraLevel = false;
         if (GenerateJsonPath(cmdInOut, root, loggerStruct, true) == ACD_SUCCESS)
         {
+            loggerStruct->nameProcessing.zeroPaddedPrint = false;
             loggerStruct->contextLogger.skipFlag = false;
             cmdInOut->out.cc = PECI_DEV_CC_SUCCESS;
             cmdInOut->out.ret = PECI_CC_SUCCESS;

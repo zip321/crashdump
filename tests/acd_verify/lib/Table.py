@@ -57,6 +57,7 @@ class Table(Region):
                                         if 'regsWE' in bdf:
                                             bdf.pop('regsWE')
                                         tableInfo[key][bdfName] = bdf
+                                errorList[key][section] = sectionObj.getErrorList()
                         else:
                             if hasattr(sectionObj, 'getTableInfo'):
                                 tableInfo[key][section] = sectionObj.getTableInfo()

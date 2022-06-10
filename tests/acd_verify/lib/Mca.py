@@ -24,19 +24,27 @@ import os
 
 
 class Mca(Section):
-    def __init__(self, jOutput):
+    def __init__(self, jOutput, checks=None):
         Section.__init__(self, jOutput, "MCA")
 
         self.nCores = 0
         self.nRegsCores = 0
         self.nRegsUncore = 0
+
+        self._cbo5_status = 0
+        self.ierr = False
+        if checks:
+            if "check3strike" in checks:
+                self.ierr = True
+                self.initCheckInfo("check3strike")
+
         self.verifySection()
         self.rootNodes = f"cores: {self.nCores}"
 
     @classmethod
-    def createMCA(cls, jOutput):
+    def createMCA(cls, jOutput, checks):
         if "MCA" in jOutput:
-            return cls(jOutput)
+            return cls(jOutput, checks)
         else:
             warnings.warn(
                 f"MCA section was not found in this file"
@@ -61,11 +69,17 @@ class Mca(Section):
                 self.searchUncore(f"{key}.{vKey}", value[vKey])
         elif (type(value) == str) and not value.startswith('_'):
             self.nRegsUncore += 1
-            if self.eHandler.isError(value):
+            valueIsError = self.eHandler.isError(value)
+            if valueIsError:
                 error = self.eHandler.extractError(value)
                 if "uncore" not in self.eHandler.errors:
                     self.eHandler.errors["uncore"] = {}
                 self.eHandler.errors["uncore"][key] = error
+
+            if self.ierr:
+                lastKey = (key.split(".")[-1]) if ("." in key) else key
+                if lastKey == "cbo5_status":
+                    self.check3strike(key, value, valueIsError)
 
     def verifySection(self):
         for key in self.sectionInfo:
@@ -136,14 +150,48 @@ class Mca(Section):
         jCompare = json.load(f)
         self.ignoreList = jCompare[self.sectionName]
 
-        # sectionInfo is equal in both files
-        if compareSections.sectionInfo == self.sectionInfo:
-            pass
-        # Something is diff
+        # compareSections != None
+        if compareSections is None:
+            for key in self.sectionInfo:
+                self.diffList[key] = ["", "Not present"]
         else:
-            for key in compareSections.sectionInfo:
-                # First check key(reg) exists in both files
-                if key not in self.sectionInfo:
-                    # [file process, file compare]
-                    self.diffList[key] = ["Not present", ""]
+            # sectionInfo is equal in both files
+            if compareSections.sectionInfo == self.sectionInfo:
+                pass
+            # Something is diff
+            else:
+                for key in compareSections.sectionInfo:
+                    # First check key(reg) exists in both files
+                    if key not in self.sectionInfo:
+                        # [file process, file compare]
+                        self.diffList[key] = ["Not present", ""]
         return self.diffList
+
+    def check3strike(self, key, value, valueIsError):
+        self._cbo5_status += 1
+        mask = 0x90000000000c017a
+        if valueIsError:
+            sValue = f"{key}: {value}"
+            self.checks["check3strike"]["list"].append(sValue)
+            self.checks["check3strike"]["pass"] = \
+                self.checks["check3strike"]["pass"] or False
+        else:
+            check3strikeA = self.checkRegValue(key, value, mask,
+                                               "check3strike")
+            self.checks["check3strike"]["pass"] = \
+                self.checks["check3strike"]["pass"] or check3strikeA
+
+    def makeSelfCheck(self):
+        # Version Check
+        if "_version" in self.sectionInfo:
+            version = self.sectionInfo["_version"]
+            if not self.eHandler.isError(version):
+                self.checkVersion(version)
+        else:
+            errMessage = "_version key not present in " +\
+                         self.sectionName
+            self.healthCheckErrors["selfCheck"].append(errMessage)
+            self.checks["check3strike"]["list"].append(errMessage)
+        if ((self.ierr) and (self._cbo5_status == 0)):
+            sValue = f"Reg cbo5_status was not found in MCA"
+            self.checks["check3strike"]["list"].append(sValue)

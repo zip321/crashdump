@@ -58,14 +58,19 @@ class PM_info(Section):
         jCompare = json.load(f)
         self.ignoreList = jCompare[self.sectionName]
 
-        # sectionInfo is equal in both files
-        if compareSections.sectionInfo == self.sectionInfo:
-            pass
-        # Something is diff
+        # compareSections != None
+        if compareSections is None:
+            for key in self.sectionInfo:
+                self.diffList[key] = ["", "Not present"]
         else:
-            for key in compareSections.sectionInfo:
-                # First check key(reg) exists in both files
-                if key not in self.sectionInfo:
-                    # [file process, file compare]
-                    self.diffList[key] = ["Not present", ""]
+            # sectionInfo is equal in both files
+            if compareSections.sectionInfo == self.sectionInfo:
+                pass
+            # Something is diff
+            else:
+                for key in compareSections.sectionInfo:
+                    # First check key(reg) exists in both files
+                    if key not in self.sectionInfo:
+                        # [file process, file compare]
+                        self.diffList[key] = ["Not present", ""]
         return self.diffList

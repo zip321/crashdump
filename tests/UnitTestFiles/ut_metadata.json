@@ -69,7 +69,7 @@
           {
             "RdAndConcatenate": [
               {"Params": ["chamask0", "chamask1"], "Output": {"Size": 8,"Name": ["cha_mask"]}},
-              {"Params": ["ppin_low", "ppin_high"], "Output": {"Size": 8,"Name": ["ppin"]}},
+              {"Params": ["ppin_low", "ppin_high"], "Output": {"Size": 8,"Name": ["ppin"], "ZeroPadded": true}},
               {"Params": ["firstierrtsc_low", "firstierrtsc_high"], "Output": {"Size": 8,"Name": ["firstierrtsc"]}},
               {"Params": ["firstmcerrtsc_low", "firstmcerrtsc_high"], "Output": {"Size": 8,"Name": ["firstmcerrtsc"]}}
             ]

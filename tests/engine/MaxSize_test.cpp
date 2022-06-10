@@ -223,9 +223,17 @@ TEST_F(MaxSizeTestFixture, metadata)
     {
         (void)cpu;
         // PreReqs
+        uint8_t data0[4] = {0xaa, 0xaa, 0xaa, 0xaa};
+        uint8_t data1[4] = {0xbb, 0xbb, 0xbb, 0x00};
         EXPECT_CALL(*crashdump.libPeciMock, peci_RdPkgConfig)
-            .WillOnce(DoAll(Return(PECI_CC_SUCCESS)))
-            .WillOnce(DoAll(Return(PECI_CC_SUCCESS)));
+            .WillOnce(DoAll(
+                            SetArrayArgument<4>(data0, data0 + 8),
+                            SetArgPointee<5>(0x40),
+                            Return(PECI_CC_SUCCESS)))
+            .WillOnce(DoAll(
+                            SetArrayArgument<4>(data1, data1 + 8),
+                            SetArgPointee<5>(0x40),
+                            Return(PECI_CC_SUCCESS)));
 
         EXPECT_CALL(*crashdump.libPeciMock, peci_RdEndPointConfigPciLocal)
             .WillOnce(DoAll(Return(PECI_CC_SUCCESS)))

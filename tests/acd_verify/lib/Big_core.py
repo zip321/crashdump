@@ -23,16 +23,24 @@ import os
 
 
 class Big_core(Section):
-    def __init__(self, jOutput):
+    def __init__(self, jOutput, checks=None):
         Section.__init__(self, jOutput, "big_core")
+        self._mc3_status = 0
         self.nCores = 0
+
+        self.ierr = False
+        if checks:
+            if "check3strike" in checks:
+                self.ierr = True
+                self.initCheckInfo("check3strike")
+
         self.verifySection()
         self.rootNodes = f"cores: {self.nCores}"
 
     @classmethod
-    def createBig_core(cls, jOutput):
+    def createBig_core(cls, jOutput, checks):
         if "big_core" in jOutput:
-            return cls(jOutput)
+            return cls(jOutput, checks)
         else:
             warnings.warn(
                 f"Big_core section was not found in this file"
@@ -45,17 +53,24 @@ class Big_core(Section):
         if type(value) == dict:
             for vKey in value:
                 self.search(f"{key}.{vKey}", value[vKey])
-        elif (valueIsValidType and not value.startswith('_')):
-            self.nRegs += 1  # count regs
-            lastKey = (key.split(".")[-1]) if ("." in key) else key
-            if self.eHandler.isError(value):
-                error = self.eHandler.extractError(value)
-                self.eHandler.errors[key] = error
-            else:
-                if lastKey == "size":
-                    self.checkSize(key, value)
-                if lastKey == "CORE_CR_APIC_BASE":
-                    self.checkApicBase(key, value)
+        elif valueIsValidType:
+            if type(value) != str:
+                value = str(value)
+            if not value.startswith('_'):
+                self.nRegs += 1  # count regs
+                lastKey = (key.split(".")[-1]) if ("." in key) else key
+                valueIsError = self.eHandler.isError(value)
+                if valueIsError:
+                    error = self.eHandler.extractError(value)
+                    self.eHandler.errors[key] = error
+                else:
+                    if lastKey == "size":
+                        self.checkSize(key, value)
+                    elif lastKey == "CORE_CR_APIC_BASE":
+                        self.checkApicBase(key, value)
+                if self.ierr:
+                    if lastKey.endswith("_mc3_status"):
+                        self.check3strike(key, value, valueIsError)
 
     def verifySection(self):
         for key in self.sectionInfo:
@@ -83,7 +98,7 @@ class Big_core(Section):
 
         if (not icxValidSize) and (not sprValidSize):
             sValue = f"{key} has invalid size {value}"
-            self.healthCheckErrors.append(sValue)
+            self.healthCheckErrors["selfCheck"].append(sValue)
 
     def checkApicBase(self, key, value):
         isValidValA = value.upper().startswith("0XFEE00")
@@ -91,7 +106,21 @@ class Big_core(Section):
 
         if (not isValidValA) and (not isValidValB):
             sValue = f"{key} has invalid value {value}"
-            self.healthCheckErrors.append(sValue)
+            self.healthCheckErrors["selfCheck"].append(sValue)
+
+    def check3strike(self, key, value, valueIsError):
+        self._mc3_status += 1
+        mask = 0x9000000000800400
+        if valueIsError:
+            sValue = f"{key}: {value}"
+            self.checks["check3strike"]["list"].append(sValue)
+            self.checks["check3strike"]["pass"] = \
+                self.checks["check3strike"]["pass"] or False
+        else:
+            check3strikeA = self.checkRegValue(key, value, mask,
+                                               "check3strike")
+            self.checks["check3strike"]["pass"] = \
+                self.checks["check3strike"]["pass"] or check3strikeA
 
     def getCompareInfo(self, compareSections, ignoreList=False):
         # Load Ignore list
@@ -101,14 +130,34 @@ class Big_core(Section):
         jCompare = json.load(f)
         self.ignoreList = jCompare[self.sectionName]
 
-        # sectionInfo is equal in both files
-        if compareSections.sectionInfo == self.sectionInfo:
-            pass
-        # Something is diff
+        # compareSections != None
+        if compareSections is None:
+            for key in self.sectionInfo:
+                self.diffList[key] = ["", "Not present"]
         else:
-            for key in compareSections.sectionInfo:
-                # First check key(reg) exists in both files
-                if key not in self.sectionInfo:
-                    # [file process, file compare]
-                    self.diffList[key] = ["Not present", ""]
+            # sectionInfo is equal in both files
+            if compareSections.sectionInfo == self.sectionInfo:
+                pass
+            # Something is diff
+            else:
+                for key in compareSections.sectionInfo:
+                    # First check key(reg) exists in both files
+                    if key not in self.sectionInfo:
+                        # [file process, file compare]
+                        self.diffList[key] = ["Not present", ""]
         return self.diffList
+
+    def makeSelfCheck(self):
+        # Version Check
+        if "_version" in self.sectionInfo:
+            version = self.sectionInfo["_version"]
+            if not self.eHandler.isError(version):
+                self.checkVersion(version)
+        else:
+            errMessage = "_version key not present in " +\
+                         self.sectionName
+            self.healthCheckErrors["selfCheck"].append(errMessage)
+            self.checks["check3strike"]["list"].append(errMessage)
+        if ((self.ierr) and (self._mc3_status == 0)):
+            sValue = f"0 *_mc3_status regs were found in Big_core"
+            self.checks["check3strike"]["list"].append(sValue)

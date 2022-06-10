@@ -138,3 +138,136 @@ TEST_F(ProcessCmdTestFixture, SimpleCmdPassFailTest)
     EXPECT_STREQ(val->valuestring, "0x1122334455667788");
     hdestroy();
 }
+
+TEST_F(ProcessCmdTestFixture, cmdTestingPass)
+{
+    TestCrashdump crashdump(cpusInfo);
+    static cJSON* inRoot;
+    static std::filesystem::path UTFile;
+    UTFile = std::filesystem::current_path();
+    UTFile = UTFile.parent_path();
+    UTFile /= "tests/UnitTestFiles/ut_cmdprocessor.json";
+    inRoot = readInputFile(UTFile.c_str());
+    RunTimeInfo runTimeInfo;
+    cpusInfo[0].inputFile.bufferPtr = inRoot;
+    cpusInfo[1].inputFile.bufferPtr = inRoot;
+    struct timespec sectionStart;
+    struct timespec globalStart;
+
+    clock_gettime(CLOCK_MONOTONIC, &sectionStart);
+    clock_gettime(CLOCK_MONOTONIC, &globalStart);
+    runTimeInfo.globalRunTime = globalStart;
+    runTimeInfo.sectionRunTime = sectionStart;
+    runTimeInfo.maxGlobalTime = 700;
+
+    uint8_t numberOfSections = getNumberOfSections(&cpusInfo[0]);
+    for (uint8_t section = 0; section < numberOfSections; section++)
+    {
+        for (int cpu = 0; cpu < (int)cpusInfo.size(); cpu++)
+        {
+            sleep(1);
+            status = fillNewSection(outRoot, &cpusInfo[cpu], cpu, &runTimeInfo,
+                                    section);
+        }
+    }
+    cJSON* testing = cJSON_GetObjectItem(outRoot, "testing");
+    cJSON* CrashDump_Discovery =
+        cJSON_GetObjectItem(testing, "CrashDump_Discovery");
+    EXPECT_STREQ(CrashDump_Discovery->valuestring, "0x801c026");
+    cJSON* CrashDump_GetFrame =
+        cJSON_GetObjectItem(testing, "CrashDump_GetFrame");
+    EXPECT_STREQ(CrashDump_GetFrame->valuestring, "0x801c026");
+    cJSON* Ping = cJSON_GetObjectItem(testing, "Ping");
+    EXPECT_STREQ(Ping->valuestring, "0x801c026");
+    cJSON* GetCPUID = cJSON_GetObjectItem(testing, "GetCPUID");
+    EXPECT_STREQ(GetCPUID->valuestring, "0x801c026");
+    cJSON* RdIAMSR = cJSON_GetObjectItem(testing, "RdIAMSR");
+    EXPECT_STREQ(RdIAMSR->valuestring, "0x801c026");
+    cJSON* RdPkgConfig = cJSON_GetObjectItem(testing, "RdPkgConfig");
+    EXPECT_STREQ(RdPkgConfig->valuestring, "0x801c026");
+    cJSON* RdPkgConfigCore = cJSON_GetObjectItem(testing, "RdPkgConfigCore");
+    EXPECT_STREQ(RdPkgConfigCore->valuestring, "0x801c026");
+    cJSON* RdPostEnumBus = cJSON_GetObjectItem(testing, "RdPostEnumBus");
+    EXPECT_STREQ(RdPostEnumBus->valuestring, "0x0");
+    cJSON* RdChaCount = cJSON_GetObjectItem(testing, "RdChaCount");
+    EXPECT_STREQ(RdChaCount->valuestring, "0x2");
+    cJSON* Telemetry_Discovery =
+        cJSON_GetObjectItem(testing, "Telemetry_Discovery");
+    EXPECT_STREQ(Telemetry_Discovery->valuestring, "0x2");
+    cJSON* RdAndConcatenate = cJSON_GetObjectItem(testing, "RdAndConcatenate");
+    EXPECT_STREQ(RdAndConcatenate->valuestring, "0x0");
+    cJSON* peci_id = cJSON_GetObjectItem(testing, "peci_id");
+    EXPECT_STREQ(peci_id->valuestring, "0x30");
+    cJSON* cpuidjson = cJSON_GetObjectItem(testing, "cpuid");
+    EXPECT_STREQ(cpuidjson->valuestring, "0x0");
+    cJSON* SaveStrVars = cJSON_GetObjectItem(testing, "SaveStrVars");
+    EXPECT_STREQ(SaveStrVars->valuestring, "corecount");
+}
+
+TEST_F(ProcessCmdTestFixture, cmdBadParams)
+{
+    TestCrashdump crashdump(cpusInfo);
+
+    // Build RdIAMSR params in cJSON form
+    cJSON* params = cJSON_CreateObject();
+    int paramsRdIAMSR[] = {0x30, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
+    cJSON_AddItemToObject(params, "Params",
+                          cJSON_CreateIntArray(paramsRdIAMSR, 10));
+    ENTRY entry;
+    CmdInOut cmdInOut = {};
+    ValidatorParams val;
+    val.validateInput = true;
+    cmdInOut.validatorParams = &val;
+    cmdInOut.in.params = cJSON_GetObjectItem(params, "Params");
+    status = BuildCmdsTable(&entry);
+    entry.key = "CrashDump_Discovery";
+    status = Execute(&entry, &cmdInOut);
+    EXPECT_EQ(ACD_INVALID_CRASHDUMP_DISCOVERY_PARAMS, status);
+    entry.key = "CrashDump_GetFrame";
+    status = Execute(&entry, &cmdInOut);
+    EXPECT_EQ(ACD_INVALID_CRASHDUMP_GETFRAME_PARAMS, status);
+    entry.key = "Ping";
+    status = Execute(&entry, &cmdInOut);
+    EXPECT_EQ(ACD_INVALID_PING_PARAMS, status);
+    entry.key = "GetCPUID";
+    cmdInOut.validatorParams->validateInput = true;
+    status = Execute(&entry, &cmdInOut);
+    EXPECT_EQ(ACD_INVALID_GETCPUID_PARAMS, status);
+    entry.key = "RdIAMSR";
+    status = Execute(&entry, &cmdInOut);
+    EXPECT_EQ(ACD_INVALID_RDIAMSR_PARAMS, status);
+    entry.key = "RdPkgConfig";
+    status = Execute(&entry, &cmdInOut);
+    EXPECT_EQ(ACD_INVALID_RDPKGCONFIG_PARAMS, status);
+    entry.key = "RdPkgConfigCore";
+    status = Execute(&entry, &cmdInOut);
+    EXPECT_EQ(ACD_INVALID_RDPKGCONFIGCORE_PARAMS, status);
+    entry.key = "RdPCIConfigLocal";
+    status = Execute(&entry, &cmdInOut);
+    EXPECT_EQ(ACD_INVALID_RDPCICONFIGLOCAL_PARAMS, status);
+    entry.key = "RdEndpointConfigPCILocal";
+    status = Execute(&entry, &cmdInOut);
+    EXPECT_EQ(ACD_INVALID_RDENDPOINTCONFIGPCILOCAL_PARAMS, status);
+    entry.key = "WrEndPointConfigPciLocal";
+    status = Execute(&entry, &cmdInOut);
+    EXPECT_EQ(ACD_INVALID_WRENDPOINTCONFIGPCILOCAL_PARAMS, status);
+    entry.key = "RdEndpointConfigMMIO";
+    status = Execute(&entry, &cmdInOut);
+    EXPECT_EQ(ACD_INVALID_RDENDPOINTCONFIGMMIO_PARAMS, status);
+    entry.key = "RdPostEnumBus";
+    status = Execute(&entry, &cmdInOut);
+    EXPECT_EQ(ACD_INVALID_RDPOSTENUMBUS_PARAMS, status);
+    entry.key = "RdChaCount";
+    status = Execute(&entry, &cmdInOut);
+    EXPECT_EQ(ACD_INVALID_RDCHACOUNT_PARAMS, status);
+    entry.key = "Telemetry_Discovery";
+    status = Execute(&entry, &cmdInOut);
+    EXPECT_EQ(ACD_INVALID_TELEMETRY_DISCOVERY_PARAMS, status);
+    entry.key = "RdAndConcatenate";
+    status = Execute(&entry, &cmdInOut);
+    EXPECT_EQ(ACD_INVALID_RD_CONCATENATE_PARAMS, status);
+    entry.key = "UnknownCommand";
+    status = Execute(&entry, &cmdInOut);
+    EXPECT_EQ(ACD_INVALID_CMD, status);
+    hdestroy();
+}

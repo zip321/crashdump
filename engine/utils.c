@@ -36,34 +36,6 @@ int cd_snprintf_s(char* str, size_t len, const char* format, ...)
     return ret;
 }
 
-static uint32_t setMask(uint32_t msb, uint32_t lsb)
-{
-    uint32_t range = (msb - lsb) + 1;
-    uint32_t mask = ((1u << range) - 1);
-    return mask;
-}
-
-void setFields(uint32_t* value, uint32_t msb, uint32_t lsb, uint32_t setVal)
-{
-    uint32_t mask = setMask(msb, lsb);
-    setVal = setVal << lsb;
-    *value &= ~(mask << lsb);
-    *value |= setVal;
-}
-
-uint32_t getFields(uint32_t value, uint32_t msb, uint32_t lsb)
-{
-    uint32_t mask = setMask(msb, lsb);
-    value = value >> lsb;
-    return (mask & value);
-}
-
-uint32_t bitField(uint32_t offset, uint32_t size, uint32_t val)
-{
-    uint32_t mask = (1u << size) - 1;
-    return (val & mask) << offset;
-}
-
 cJSON* readInputFile(const char* filename)
 {
     char* buffer = NULL;
@@ -358,23 +330,6 @@ cJSON* selectAndReadInputFile(Model cpuModel, char** filename, bool isTelemetry)
     return readInputFile(nameStr);
 }
 
-cJSON* getPeciAccessType(cJSON* root)
-{
-    if (root != NULL)
-    {
-        cJSON* child = cJSON_GetObjectItem(root, "crash_data");
-        if (child != NULL)
-        {
-            cJSON* accessType = cJSON_GetObjectItem(child, "AccessMethod");
-            if (accessType != NULL)
-            {
-                return accessType;
-            }
-        }
-    }
-    return NULL;
-}
-
 uint64_t tsToNanosecond(struct timespec* ts)
 {
     return ((ts->tv_sec * (uint64_t)1e9) + ts->tv_nsec);
@@ -446,38 +401,6 @@ inline bool getSkipFromNewInputFile(CPUInfo* cpuInfo, char* sectionName)
     }
 
     return false;
-}
-
-void updateMcaRunTime(cJSON* root, struct timespec* start)
-{
-    char* key = "_time";
-    cJSON* mcaUncoreTime = cJSON_GetObjectItemCaseSensitive(root, key);
-
-    if (mcaUncoreTime != NULL)
-    {
-        char timeString[64];
-        struct timespec finish = {};
-
-        clock_gettime(CLOCK_MONOTONIC, &finish);
-        uint64_t mcaCoreRunTimeInNs =
-            tsToNanosecond(&finish) - tsToNanosecond(start);
-
-        // Remove unit "s" from logged "_time"
-        char* str = mcaUncoreTime->valuestring;
-        str[strnlen_s(str, sizeof(str)) - 1] = '\0';
-
-        // Calculate, replace "_time" from uncore MCA,
-        // and log total MCA run time
-        double macUncoreTimeInSec = atof(mcaUncoreTime->valuestring);
-        double totalMcaRunTimeInSec =
-            (double)mcaCoreRunTimeInNs / 1e9 + macUncoreTimeInSec;
-        cd_snprintf_s(timeString, sizeof(timeString), "%.2fs",
-                      totalMcaRunTimeInSec);
-        cJSON_DeleteItemFromObjectCaseSensitive(root, key);
-        cJSON_AddStringToObject(root, key, timeString);
-    }
-
-    clock_gettime(CLOCK_MONOTONIC, start);
 }
 
 uint8_t getBus(Model model, uint8_t u8index)
@@ -846,5 +769,17 @@ uint8_t getNumberOfSections(CPUInfo* cpuInfo)
         return cJSON_GetArraySize(sections);
     }
     CRASHDUMP_PRINT(ERR, stderr, "Cannot find Number of Sections!\n");
+    return 0;
+}
+
+int cJSONToInt(cJSON *cjsonObj, int base)
+{
+    if (cjsonObj != NULL)
+    {
+        if(cJSON_IsString(cjsonObj))
+        {
+            return (int)strtoull(cjsonObj->valuestring, NULL, base);
+        }
+    }
     return 0;
 }

@@ -21,17 +21,23 @@ import warnings
 
 
 class Metadata(Section):
-    def __init__(self, jOutput):
+    def __init__(self, jOutput, checks=None):
         Section.__init__(self, jOutput, "METADATA")
+
+        self.ierr = False
+        if checks:
+            if "check3strike" in checks:
+                self.ierr = True
+                self.initCheckInfo("check3strike")
 
         self.cpus = []
         self.verifySection()
         self.rootNodes = f"sockets: {len(self.cpus)}"
 
     @classmethod
-    def createMetadata(cls, jOutput):
+    def createMetadata(cls, jOutput, checks):
         if "METADATA" in jOutput:
-            return cls(jOutput)
+            return cls(jOutput, checks)
         else:
             warnings.warn(
                 f"Metadata section was not found in this file"
@@ -105,16 +111,20 @@ class Metadata(Section):
 
         # Normal search()
         else:
-            valueIsValidType = ((type(value) == str) or (type(value) == bool) or
-                            (type(value) == int))
+            valueIsValidType = ((type(value) == str) or
+                                (type(value) == bool) or
+                                (type(value) == int))
             if type(value) == dict:
                 for vKey in value:
                     self.search(f"{key}.{vKey}", value[vKey])
-            elif (valueIsValidType and not value.startswith('_')):
-                self.nRegs += 1  # count regs
-                if self.eHandler.isError(value):
-                    error = self.eHandler.extractError(value)
-                    self.eHandler.errors[key] = error
+            elif valueIsValidType:
+                if type(value) != str:
+                    value = str(value)
+                if not value.startswith('_'):
+                    self.nRegs += 1  # count regs
+                    if self.eHandler.isError(value):
+                        error = self.eHandler.extractError(value)
+                        self.eHandler.errors[key] = error
 
     def makeSelfCheck(self, cpu):
         lErrors = []
@@ -125,6 +135,9 @@ class Metadata(Section):
         self.checkCoreMask(cpu)
         # cha_count
         self.checkChaCount(cpu)
+
+        if self.ierr:
+            self.check3strike(cpu)
 
     def checkCpuID(self, cpu):
         cpuID = self.search(cpu, self.sectionInfo[cpu], "cpuid")
@@ -139,30 +152,48 @@ class Metadata(Section):
             if (not icxValidVal) and (not sprValidVal) and \
                (not cpxValidVal):
                 errMessage = f"{cpu} has CPUID invalid value {cpuID}"
-                self.healthCheckErrors.append(errMessage)
+                self.healthCheckErrors["selfCheck"].append(errMessage)
         else:
             errMessage = f"{cpu} cpuid key not present in METADATA"
-            self.healthCheckErrors.append(errMessage)
+            self.healthCheckErrors["selfCheck"].append(errMessage)
 
     def checkCoreMask(self, cpu):
         coreMask = self.search(cpu, self.sectionInfo[cpu], "core_mask")
         if coreMask:
             if coreMask == '0x0':
                 errMessage = f"{cpu} has core_mask invalid value {coreMask}"
-                self.healthCheckErrors.append(errMessage)
+                self.healthCheckErrors["selfCheck"].append(errMessage)
         else:
             errMessage = f"{cpu} core_mask key not present in METADATA"
-            self.healthCheckErrors.append(errMessage)
+            self.healthCheckErrors["selfCheck"].append(errMessage)
 
     def checkChaCount(self, cpu):
         chaCount = self.search(cpu, self.sectionInfo[cpu], "cha_count")
         if chaCount:
             if chaCount == '0x0':
                 errMessage = f"{cpu} has cha_count invalid value {chaCount}"
-                self.healthCheckErrors.append(errMessage)
+                self.healthCheckErrors["selfCheck"].append(errMessage)
         else:
             errMessage = f"{cpu} cha_count key not present in METADATA"
-            self.healthCheckErrors.append(errMessage)
+            self.healthCheckErrors["selfCheck"].append(errMessage)
+
+    def check3strike(self, cpu):
+        mcaErrSrcLog = self.search(cpu, self.sectionInfo[cpu],
+                                   "mca_err_src_log")
+        if mcaErrSrcLog:
+            if mcaErrSrcLog.lower() == '0x0':
+                errMessage = f"{cpu} mca_err_src_log is {mcaErrSrcLog}"
+                self.checks["check3strike"]["list"].append(errMessage)
+                self.checks["check3strike"]["pass"] = \
+                    self.checks["check3strike"]["pass"] or False
+            else:
+                self.checks["check3strike"]["pass"] = \
+                    self.checks["check3strike"]["pass"] or True
+        else:
+            errMessage = f"{cpu} mca_err_src_log key not present in METADATA"
+            self.checks["check3strike"]["list"].append(errMessage)
+            self.checks["check3strike"]["pass"] = \
+                self.checks["check3strike"]["pass"] or False
 
     def verifyVersion(self):
         if "_version" in self.sectionInfo:
@@ -171,4 +202,4 @@ class Metadata(Section):
                 self.checkVersion(version)
         else:
             errMessage = f"_version key not present in {self.sectionName}"
-            self.healthCheckErrors.append(errMessage)
+            self.healthCheckErrors["selfCheck"].append(errMessage)

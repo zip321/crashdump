@@ -27,6 +27,10 @@ void ProcessPECICmds(ENTRY* entry, CPUInfo* cpuInfo, cJSON* peciCmds,
     cJSON* cmdGroup = NULL;
     cJSON_ArrayForEach(cmdGroup, peciCmds)
     {
+        if (cmdGroup->child == NULL)
+        {
+            continue;
+        }
         entry->key = cmdGroup->child->string;
         errInfo->cmdGroup = entry->key;
         errInfo->cmdGroupPos = 0;
@@ -57,6 +61,7 @@ void ProcessPECICmds(ENTRY* entry, CPUInfo* cpuInfo, cJSON* peciCmds,
                 cmdInOut->internalVarName = var->valuestring;
             }
             cmdInOut->out.ret = PECI_CC_INVALID_REQ;
+            cmdInOut->out.printString = false;
             cmdInOut->paramsTracker = cJSON_CreateObject();
             UpdateParams(cpuInfo, cmdInOut, loggerStruct, errInfo);
             for (int n = 1; n <= repeats; n++)
@@ -78,7 +83,6 @@ void ProcessPECICmds(ENTRY* entry, CPUInfo* cpuInfo, cJSON* peciCmds,
                 }
                 if (!loggerStruct->contextLogger.skipFlag)
                 {
-                    cmdInOut->out.printString = false;
                     Execute(entry, cmdInOut);
                 }
                 if (loggerStruct->nameProcessing.logRegister)
@@ -138,6 +142,10 @@ acdStatus fillNewSection(cJSON* root, CPUInfo* cpuInfo, uint8_t cpu,
     CmdInOut preReqCmdInOut;
     preReqCmdInOut.out.ret = PECI_CC_INVALID_REQ;
 
+    if (section->child == NULL)
+    {
+        return ACD_FAILURE;
+    }
     cJSON* sectionEnable =
         cJSON_GetObjectItemCaseSensitive(section->child, "RecordEnable");
     if (sectionEnable != NULL)
@@ -242,8 +250,11 @@ acdStatus fillNewSection(cJSON* root, CPUInfo* cpuInfo, uint8_t cpu,
     loggerStruct.nameProcessing.extraLevel = false;
     if (GenerateJsonPath(&cmdInOut, root, &loggerStruct, true) == ACD_SUCCESS)
     {
+        char sectionTimeString[64];
+        cd_snprintf_s(sectionTimeString, sizeof(sectionTimeString), "_time_%s",
+                      loggerStruct.contextLogger.currentSectionName);
         logSectionRunTime(loggerStruct.nameProcessing.jsonOutput,
-                          &runTimeInfo->sectionRunTime, TIME_KEY);
+                          &runTimeInfo->sectionRunTime, sectionTimeString);
     }
     cJSON_Delete(cmdInOut.internalVarsTracker);
     hdestroy();

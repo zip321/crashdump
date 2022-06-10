@@ -48,36 +48,40 @@ class Uncore(Section):
         if type(value) == dict:
             for vKey in value:
                 self.search(f"{key}.{vKey}", value[vKey])
-        elif (valueIsValidType and not key.startswith('_')):
-            self.nRegs += 1  # count regs
-            lastKey = (key.split(".")[-1]) if ("." in key) else key
-            bdf = "_".join(lastKey.split('_')[0:-1])
-            offset = lastKey.split('_')[-1].upper()
+        elif valueIsValidType:
+            if type(value) != str:
+                value = str(value)
+            if not key.startswith('_'):
+                self.nRegs += 1  # count regs
+                lastKey = (key.split(".")[-1]) if ("." in key) else key
+                bdf = "_".join(lastKey.split('_')[0:-1])
+                offset = lastKey.split('_')[-1].upper()
 
-            offsetIs0x0 = offset.endswith("0X0")
+                offsetIs0x0 = offset.endswith("0X0")
 
-            if (bdf not in self.bdfs) and (not bdf.startswith("RDIAMSR")):
-                self.bdfs[bdf] = {
-                    "total": 1,
-                    "regsWE": 0,
-                    "offsetsWE": []
-                }
-            elif not bdf.startswith("RDIAMSR"):
-                self.bdfs[bdf]["total"] += 1
+                if (bdf not in self.bdfs) and (not bdf.startswith("RDIAMSR")):
+                    self.bdfs[bdf] = {
+                        "total": 1,
+                        "regsWE": 0,
+                        "offsetsWE": []
+                    }
+                elif not bdf.startswith("RDIAMSR"):
+                    self.bdfs[bdf]["total"] += 1
 
-            if self.eHandler.isError(value):
-                error = self.eHandler.extractError(value)
-                self.eHandler.errors[key] = error
+                if self.eHandler.isError(value):
+                    error = self.eHandler.extractError(value)
+                    self.eHandler.errors[key] = error
 
-                if not bdf.startswith("RDIAMSR"):
-                    self.bdfs[bdf]["regsWE"] += 1
-                    self.bdfs[bdf]["offsetsWE"].append(error)
+                    if not bdf.startswith("RDIAMSR"):
+                        self.bdfs[bdf]["regsWE"] += 1
+                        self.bdfs[bdf]["offsetsWE"].append(error)
 
-            # Self-check
-            elif offsetIs0x0:
-                if (value.upper() != "0X8086") and (value.upper() != "0X0"):
-                    sValue = f"{key} has invalid value {value}"
-                    self.healthCheckErrors.append(sValue)
+                # Self-check
+                elif offsetIs0x0:
+                    if ((value.upper() != "0X8086") and
+                       (value.upper() != "0X0")):
+                        sValue = f"{key} has invalid value {value}"
+                        self.healthCheckErrors["selfCheck"].append(sValue)
 
     def getTableInfo(self):
         lUncoreObjs = []
@@ -141,7 +145,9 @@ class Uncore(Section):
                 if self.sectionInfo["B31_D30_F3_0x94"] == "N/A":
                     return "N/A"
                 else:
-                    raise e
+                    warnings.warn(
+                        f"B31_D30_F3_0x94 value has an unnexpected format"
+                    )
             _chop = (_reg_capid & 0xC0) >> 6
             if _chop == 0b11:       # XCC
                 return "XCC"

@@ -31,7 +31,7 @@
 
 #include "safe_str_lib.h"
 
-#define CRASHDUMP_VER "BMC_EGS_2.0"
+#define CRASHDUMP_VER "BMC_EGS_2.0.1"
 #define CRASHDUMP_PRINT(level, fmt, ...) fprintf(fmt, __VA_ARGS__)
 #define CRASHDUMP_VALUE_LEN 6
 #define JSON_VAL_LEN 64
